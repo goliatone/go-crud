@@ -26,20 +26,6 @@ import (
 	"github.com/goliatone/go-repository-bun"
 )
 
-type APIResponse[T any] struct {
-	Success bool   `json:"success"`
-	Data    T      `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-type APIListResponse[T any] struct {
-	Success bool `json:"success"`
-	Data    []T  `json:"data"`
-	Meta    struct {
-		Count int `json:"count"`
-	} `json:"$meta"`
-}
-
 type TestUser struct {
 	bun.BaseModel `bun:"table:test_users,alias:u"`
 

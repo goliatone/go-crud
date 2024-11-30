@@ -4,6 +4,20 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type APIResponse[T any] struct {
+	Success bool   `json:"success"`
+	Data    T      `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type APIListResponse[T any] struct {
+	Success bool `json:"success"`
+	Data    []T  `json:"data"`
+	Meta    struct {
+		Count int `json:"count"`
+	} `json:"$meta"`
+}
+
 // ResponseHandler defines how controller responses are handled
 type ResponseHandler[T any] interface {
 	// OnError handles any error responses
