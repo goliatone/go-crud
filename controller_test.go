@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"testing"
@@ -24,6 +25,20 @@ import (
 
 	"github.com/goliatone/go-repository-bun"
 )
+
+type APIResponse[T any] struct {
+	Success bool   `json:"success"`
+	Data    T      `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type APIListResponse[T any] struct {
+	Success bool `json:"success"`
+	Data    []T  `json:"data"`
+	Meta    struct {
+		Count int `json:"count"`
+	} `json:"$meta"`
+}
 
 type TestUser struct {
 	bun.BaseModel `bun:"table:test_users,alias:u"`
@@ -120,11 +135,33 @@ func printBody(t *testing.T, resp *http.Response) {
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 }
 
+func TestController_GetUser_NotFound(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	var response APIResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.False(t, response.Success)
+	assert.NotEmpty(t, response.Error)
+}
+
 func TestController_CreateUser(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
 
-	// Prepare request body
 	user := map[string]interface{}{
 		"name":     "John Doe",
 		"email":    "john.doe@example.com",
@@ -139,7 +176,6 @@ func TestController_CreateUser(t *testing.T) {
 	req := httptest.NewRequest("POST", "/test-user", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Perform the request
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("Failed to perform request: %v", err)
@@ -147,16 +183,13 @@ func TestController_CreateUser(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	// Read response body
 	var createdUser TestUser
 	if err := json.NewDecoder(resp.Body).Decode(&createdUser); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	// Assertions
 	assert.Equal(t, user["name"], createdUser.Name)
 	assert.Equal(t, user["email"], createdUser.Email)
-	// Password should not be returned
 	assert.Empty(t, createdUser.Password)
 	assert.NotEmpty(t, createdUser.ID)
 }
@@ -191,14 +224,15 @@ func TestController_GetUser(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var fetchedUser TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&fetchedUser); err != nil {
+	var response APIResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Equal(t, user.Name, fetchedUser.Name)
-	assert.Equal(t, user.Email, fetchedUser.Email)
-	assert.Empty(t, fetchedUser.Password)
+	assert.True(t, response.Success)
+	assert.Equal(t, user.Name, response.Data.Name)
+	assert.Equal(t, user.Email, response.Data.Email)
+	assert.Empty(t, response.Data.Password)
 }
 
 func TestController_ListUsers(t *testing.T) {
@@ -233,13 +267,16 @@ func TestController_ListUsers(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var users []TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	var response APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Len(t, users, 5)
-	for _, user := range users {
+	assert.True(t, response.Success)
+	assert.Len(t, response.Data, 5)
+	assert.Equal(t, 5, response.Meta.Count)
+
+	for _, user := range response.Data {
 		assert.NotEmpty(t, user.Name)
 		assert.NotEmpty(t, user.Email)
 		assert.Empty(t, user.Password)
@@ -283,17 +320,16 @@ func TestController_UpdateUser(t *testing.T) {
 		t.Fatalf("Failed to perform request: %v", err)
 	}
 
-	printBody(t, resp)
-
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var updatedUser TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&updatedUser); err != nil {
+	var response APIResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Equal(t, "New Name", updatedUser.Name)
-	assert.Equal(t, user.Email, updatedUser.Email)
+	assert.True(t, response.Success)
+	assert.Equal(t, "New Name", response.Data.Name)
+	assert.Equal(t, user.Email, response.Data.Email)
 }
 
 func TestController_DeleteUser(t *testing.T) {
@@ -361,18 +397,20 @@ func TestController_ListUsers_NoFilters(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var listedUsers []TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&listedUsers); err != nil {
+	var response APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Len(t, listedUsers, 3)
+	assert.True(t, response.Success)
+	assert.Len(t, response.Data, 3)
+	assert.Equal(t, 3, response.Meta.Count)
 
 	// Optional: Verify each user exists
 	expectedNames := []string{"Alice", "Bob", "Charlie"}
 	for _, name := range expectedNames {
 		found := false
-		for _, user := range listedUsers {
+		for _, user := range response.Data {
 			if user.Name == name {
 				found = true
 				break
@@ -412,12 +450,14 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, respAll.StatusCode)
 
-	var allUsers []TestUser
-	if err := json.NewDecoder(respAll.Body).Decode(&allUsers); err != nil {
+	var allUsersResponse APIListResponse[TestUser]
+	if err := json.NewDecoder(respAll.Body).Decode(&allUsersResponse); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Len(t, allUsers, 3)
+	assert.True(t, allUsersResponse.Success)
+	assert.Len(t, allUsersResponse.Data, 3)
+	assert.Equal(t, 3, allUsersResponse.Meta.Count)
 
 	// Now, filter users where name is 'Bob'
 	req := httptest.NewRequest("GET", "/test-users?name=Bob", nil)
@@ -430,13 +470,15 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var filteredUsers []TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
+	var filteredResponse APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&filteredResponse); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Len(t, filteredUsers, 1)
-	assert.Equal(t, "Bob", filteredUsers[0].Name)
+	assert.True(t, filteredResponse.Success)
+	assert.Len(t, filteredResponse.Data, 1)
+	assert.Equal(t, 1, filteredResponse.Meta.Count)
+	assert.Equal(t, "Bob", filteredResponse.Data[0].Name)
 }
 
 func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
@@ -667,118 +709,127 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 
-			var filteredUsers []TestUser
+			var response APIListResponse[TestUser]
 			if resp.StatusCode == http.StatusOK {
-				if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
+				if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
 
-				assert.Equal(t, tt.expectedCount, len(filteredUsers))
+				assert.True(t, response.Success)
+				assert.Equal(t, tt.expectedCount, len(response.Data))
+				assert.Equal(t, tt.expectedCount, response.Meta.Count)
 
 				var names []string
-				for _, user := range filteredUsers {
+				for _, user := range response.Data {
 					names = append(names, user.Name)
 				}
 
 				assert.ElementsMatch(t, tt.expectedNames, names)
 			} else {
-				var errorResponse map[string]string
+				var errorResponse APIResponse[any]
 				if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err != nil {
 					t.Fatalf("Failed to decode error response: %v", err)
 				}
-				t.Fatalf("Unexpected error response: %v", errorResponse)
+				assert.False(t, errorResponse.Success)
+				assert.NotEmpty(t, errorResponse.Error)
+				t.Fatalf("Unexpected error response: %v", errorResponse.Error)
 			}
 		})
 	}
 
-	//Edge case tests
+	// Edge case tests
+	t.Run("Filter with empty value", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-users?name__eq=", nil)
+		req.Header.Set("Content-Type", "application/json")
 
-	// t.Run("Filter with empty value", func(t *testing.T) {
-	// 	req := httptest.NewRequest("GET", "/test-users?name__eq=", nil)
-	// 	req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("Failed to perform request: %v", err)
+		}
 
-	// 	resp, err := app.Test(req, -1)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to perform request: %v", err)
-	// 	}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		var response APIListResponse[TestUser]
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
 
-	// 	var filteredUsers []TestUser
-	// 	if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
-	// 		t.Fatalf("Failed to decode response: %v", err)
-	// 	}
-	// 	// TODO: Maybe this should be assert.Len(t, filteredUsers, 0)
-	// 	assert.Len(t, filteredUsers, 5)
-	// })
+		assert.True(t, response.Success)
+		// TODO: Maybe this should be assert.Len(t, response.Data, 0)
+		assert.Len(t, response.Data, 5)
+		assert.Equal(t, 5, response.Meta.Count)
+	})
 
-	// t.Run("Filter with multiple OR operators on different fields", func(t *testing.T) {
-	// 	req := httptest.NewRequest("GET", "/test-users?name__or=Alice,Bob&email__or=charlie@sample.com", nil)
-	// 	req.Header.Set("Content-Type", "application/json")
+	t.Run("Filter with multiple OR operators on different fields", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-users?name__or=Alice,Bob&email__or=charlie@sample.com", nil)
+		req.Header.Set("Content-Type", "application/json")
 
-	// 	resp, err := app.Test(req, -1)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to perform request: %v", err)
-	// 	}
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("Failed to perform request: %v", err)
+		}
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	var filteredUsers []TestUser
-	// 	if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
-	// 		t.Fatalf("Failed to decode response: %v", err)
-	// 	}
+		var response APIListResponse[TestUser]
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
 
-	// 	expectedNames := []string{"Alice", "Bob", "Charlie"}
-	// 	assert.Equal(t, 3, len(filteredUsers))
-	// 	for _, user := range filteredUsers {
-	// 		assert.Contains(t, expectedNames, user.Name)
-	// 	}
-	// })
+		assert.True(t, response.Success)
+		expectedNames := []string{"Alice", "Bob", "Charlie"}
+		assert.Equal(t, 3, len(response.Data))
+		assert.Equal(t, 3, response.Meta.Count)
+		for _, user := range response.Data {
+			assert.Contains(t, expectedNames, user.Name)
+		}
+	})
 
-	// t.Run("Filter with invalid UUID in parameter", func(t *testing.T) {
-	// 	// Assuming there's a filter on ID with invalid UUID
-	// 	req := httptest.NewRequest("GET", "/test-users?id__eq=invalid-uuid", nil)
-	// 	req.Header.Set("Content-Type", "application/json")
+	t.Run("Filter with invalid UUID in parameter", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-users?id__eq=invalid-uuid", nil)
+		req.Header.Set("Content-Type", "application/json")
 
-	// 	resp, err := app.Test(req, -1)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to perform request: %v", err)
-	// 	}
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("Failed to perform request: %v", err)
+		}
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	var filteredUsers []TestUser
-	// 	if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
-	// 		t.Fatalf("Failed to decode response: %v", err)
-	// 	}
+		var response APIListResponse[TestUser]
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
 
-	// 	assert.Len(t, filteredUsers, 0)
-	// })
+		assert.True(t, response.Success)
+		assert.Len(t, response.Data, 0)
+		assert.Equal(t, 0, response.Meta.Count)
+	})
 
-	// t.Run("Filter with JSON injection attempt", func(t *testing.T) {
-	// 	// Attempting SQL injection via filter
-	// 	injection := "Bobby Tables'; DROP TABLE users;--"
-	// 	encodedInjection := url.QueryEscape(injection)
+	t.Run("Filter with JSON injection attempt", func(t *testing.T) {
+		injection := "Bobby Tables'; DROP TABLE users;--"
+		encodedInjection := url.QueryEscape(injection)
 
-	// 	reqURL := "/test-users?name__or=" + encodedInjection
-	// 	req := httptest.NewRequest("GET", reqURL, nil)
-	// 	req.Header.Set("Content-Type", "application/json")
+		reqURL := "/test-users?name__or=" + encodedInjection
+		req := httptest.NewRequest("GET", reqURL, nil)
+		req.Header.Set("Content-Type", "application/json")
 
-	// 	resp, err := app.Test(req, -1)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to perform request: %v", err)
-	// 	}
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("Failed to perform request: %v", err)
+		}
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	var filteredUsers []TestUser
-	// 	if err := json.NewDecoder(resp.Body).Decode(&filteredUsers); err != nil {
-	// 		t.Fatalf("Failed to decode response: %v", err)
-	// 	}
+		var response APIListResponse[TestUser]
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
 
-	// 	// No Bobby Tables here!
-	// 	assert.Len(t, filteredUsers, 0)
-	// })
+		assert.True(t, response.Success)
+		assert.Len(t, response.Data, 0)
+		assert.Equal(t, 0, response.Meta.Count)
+	})
 }
 
 func TestController_ListUsers_WithPagination(t *testing.T) {
@@ -814,14 +865,14 @@ func TestController_ListUsers_WithPagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var users []TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	var listResponse APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&listResponse); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.Len(t, users, 10)
-	assert.Equal(t, "User 11", users[0].Name)
-	assert.Equal(t, "User 20", users[9].Name)
+	assert.Len(t, listResponse.Data, 10)
+	assert.Equal(t, "User 11", listResponse.Data[0].Name)
+	assert.Equal(t, "User 20", listResponse.Data[9].Name)
 }
 
 func TestController_UnauthorizedFieldAccess(t *testing.T) {
@@ -839,14 +890,14 @@ func TestController_UnauthorizedFieldAccess(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var users []TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	var listResponse APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&listResponse); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
 	// Since 'password' is not an allowed field, the filter should not be applied
 	// Assuming there are no users, the list should be empty
-	assert.Len(t, users, 0)
+	assert.Len(t, listResponse.Data, 0)
 }
 
 type OrderItem struct{}
