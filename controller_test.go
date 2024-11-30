@@ -923,7 +923,6 @@ func TestGetResourceName(t *testing.T) {
 }
 
 func getResourceNameFromType(typ interface{}) (string, string) {
-	// Use reflection to get the type name
 	typeName := reflect.TypeOf(typ).Elem().Name()
 	name := toKebabCase(typeName)
 	singular := pluralizer.Singular(name)
@@ -932,10 +931,8 @@ func getResourceNameFromType(typ interface{}) (string, string) {
 }
 
 func TestRegisterRoutes(t *testing.T) {
-	// Initialize the Fiber app
 	app := fiber.New()
 
-	// Set up an in-memory SQLite database
 	sqldb, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
@@ -944,20 +941,16 @@ func TestRegisterRoutes(t *testing.T) {
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
-	// Create the schema
 	ctx := context.Background()
 	if err := createSchema(ctx, db); err != nil {
 		t.Fatalf("Failed to create schema: %v", err)
 	}
 
-	// Initialize the repository and controller
 	repo := newTestUserRepository(db)
 	controller := NewController[*TestUser](repo, WithDeserializer(testUserDeserializer))
 
-	// Register routes
 	controller.RegisterRoutes(app)
 
-	// Get resource names
 	singular, plural := GetResourceName[*TestUser]()
 
 	// Expected routes
@@ -993,7 +986,6 @@ func TestRegisterRoutes(t *testing.T) {
 		},
 	}
 
-	// Verify each route
 	for _, expected := range expectedRoutes {
 		route := app.GetRoute(expected.Name)
 		if assert.NotNil(t, route, "Route %s should be registered", expected.Name) {
