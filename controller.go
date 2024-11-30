@@ -14,14 +14,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// TODO: Have a generic deserializer by getting the fields of the model, taking a map,
-// and ensuring we only have those fields.
-// TODO: Have a list of allowed fields by operation crud:"read,create,update"
-// TODO: ControllerOptions so we can WithDeserializer(), WithResourceName()
-// TODO: use operatorMap and take in as a configurable option
-// TODO: Move query string parsing to package so we can support different styles
-//       enable taking different boundary splitter
-
 // CrudOperation defines the type for CRUD operations.
 type CrudOperation string
 
@@ -235,47 +227,26 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 				continue // skip fields that are not allowed
 			}
 
+			whereGroup := func(q *bun.SelectQuery) *bun.SelectQuery {
+				for i, value := range strings.Split(values, ",") {
+					value = strings.TrimSpace(value)
+					if value == "" {
+						continue
+					}
+					if i == 0 {
+						q = q.Where(fmt.Sprintf("%s = ?", columnName), value)
+					} else {
+						q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), value)
+					}
+				}
+				return q
+			}
+
 			switch operator {
 			case "and":
-				// Each value is a separate condition combined with AND
-				// for _, value := range strings.Split(values, ",") {
-				// 	value = strings.TrimSpace(value)
-				// 	if value == "" {
-				// 		continue
-				// 	}
-				// 	// Assuming default operator "=" for 'and'
-				// 	q = q.Where(fmt.Sprintf("%s = ?", columnName), value)
-				// }
-				q = q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-					for i, value := range strings.Split(values, ",") {
-						value = strings.TrimSpace(value)
-						if value == "" {
-							continue
-						}
-						if i == 0 {
-							q = q.Where(fmt.Sprintf("%s = ?", columnName), value)
-						} else {
-							q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), value)
-						}
-					}
-					return q
-				})
+				q = q.WhereGroup(" AND ", whereGroup)
 			case "or":
-				// Group conditions with OR
-				q = q.WhereGroup(" OR ", func(q *bun.SelectQuery) *bun.SelectQuery {
-					for i, value := range strings.Split(values, ",") {
-						value = strings.TrimSpace(value)
-						if value == "" {
-							continue
-						}
-						if i == 0 {
-							q = q.Where(fmt.Sprintf("%s = ?", columnName), value)
-						} else {
-							q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), value)
-						}
-					}
-					return q
-				})
+				q = q.WhereGroup(" OR ", whereGroup)
 			default:
 				// Existing operators
 				for _, value := range strings.Split(values, ",") {
