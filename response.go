@@ -34,46 +34,46 @@ type ResponseHandler[T any] interface {
 type DefaultResponseHandler[T any] struct{}
 
 func NewDefaultResponseHandler[T any]() ResponseHandler[T] {
-	return &DefaultResponseHandler[T]{}
+	return DefaultResponseHandler[T]{}
 }
 
-func (h *DefaultResponseHandler[T]) OnError(ctx *fiber.Ctx, err error, op CrudOperation) error {
+func (h DefaultResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOperation) error {
 	switch err.(type) {
 	case *NotFoundError:
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
 			"error":   err.Error(),
 		})
 	case *ValidationError:
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"error":   err.Error(),
 		})
 	default:
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"error":   err.Error(),
 		})
 	}
 }
 
-func (h *DefaultResponseHandler[T]) OnData(ctx *fiber.Ctx, data T, op CrudOperation) error {
+func (h DefaultResponseHandler[T]) OnData(c *fiber.Ctx, data T, op CrudOperation) error {
 	if op == OpCreate {
-		return ctx.Status(fiber.StatusCreated).JSON(data)
+		return c.Status(fiber.StatusCreated).JSON(data)
 	}
 
-	return ctx.JSON(fiber.Map{
+	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    data,
 	})
 }
 
-func (h *DefaultResponseHandler[T]) OnEmpty(ctx *fiber.Ctx, op CrudOperation) error {
-	return ctx.SendStatus(fiber.StatusNoContent)
+func (h DefaultResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error {
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func (h *DefaultResponseHandler[T]) OnList(ctx *fiber.Ctx, data []T, op CrudOperation, total int) error {
-	return ctx.JSON(fiber.Map{
+func (h DefaultResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperation, total int) error {
+	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    data,
 		"$meta": map[string]any{
