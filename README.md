@@ -120,6 +120,120 @@ type User struct {
 }
 ```
 
+
+### Custom Response Handlers
+
+The controller supports custom response handlers to control how data and errors are formatted. Here are some examples:
+
+#### Default Response Format
+
+```go
+// Default responses
+GET /users/123
+{
+    "success": true,
+    "data": {
+        "id": "...",
+        "name": "John Doe",
+        "email": "john@example.com"
+    }
+}
+
+GET /users
+{
+    "success": true,
+    "data": [...],
+    "$meta": {
+        "count": 10
+    }
+}
+
+// Error response
+{
+    "success": false,
+    "error": "Record not found"
+}
+```
+
+#### Custom Response Handler Example
+
+```go
+// JSONAPI style response handler
+type JSONAPIResponseHandler[T any] struct{}
+
+func (h JSONAPIResponseHandler[T]) OnData(c *fiber.Ctx, data T, op CrudOperation) error {
+    c.Set("Content-type", "application/vnd.api+json")
+    return c.JSON(fiber.Map{
+        "data": map[string]interface{}{
+            "type":       "users",
+            "id":         getId(data),
+            "attributes": data,
+        },
+    })
+}
+
+func (h JSONAPIResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperation, total int) error {
+    items := make([]map[string]interface{}, len(data))
+    for i, item := range data {
+        items[i] = map[string]interface{}{
+            "type":       "users",
+            "id":         getId(item),
+            "attributes": item,
+        }
+    }
+    c.Set("Content-type", "application/vnd.api+json")
+    return c.JSON(fiber.Map{
+        "data": items,
+        "meta": map[string]interface{}{
+            "total": total,
+        },
+    })
+}
+
+func (h JSONAPIResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOperation) error {
+    status := fiber.StatusInternalServerError
+    if _, isNotFound := err.(*NotFoundError); isNotFound {
+        status = fiber.StatusNotFound
+    }
+    c.Set("Content-type", "application/vnd.api+json")
+    return c.Status(status).JSON(fiber.Map{
+        "errors": []map[string]interface{}{
+            {
+                "status": status,
+                "title":  "Error",
+                "detail": err.Error(),
+            },
+        },
+    })
+}
+
+func (h JSONAPIResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error {
+    c.Set("Content-type", "application/vnd.api+json")
+    return c.SendStatus(fiber.StatusNoContent)
+}
+
+// Using the custom handler
+controller := crud.NewController[*User](
+    repo,
+    crud.WithResponseHandler[*User](JSONAPIResponseHandler[*User]{}),
+)
+```
+
+The above handler would produce responses in JSONAPI format:
+
+```json
+{
+    "data": {
+        "type": "users",
+        "id": "123",
+        "attributes": {
+            "name": "John Doe",
+            "email": "john@example.com"
+        }
+    }
+}
+```
+
 ### Query Parameters
 
 The List endpoint supports:
