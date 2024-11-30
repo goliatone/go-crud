@@ -11,22 +11,65 @@ go get github.com/yourusername/crud-controller
 ## Quick Start
 
 ```go
+package main
+
+import (
+	"time"
+	"database/sql"
+
+    "github.com/uptrace/bun/driver/sqliteshim"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/goliatone/go-repository-bun"
+	"github.com/google/uuid"
+	"github.com/uptrace/bun"
+)
+
 type User struct {
-    bun.BaseModel `bun:"table:users,alias:u"`
-    ID     uuid.UUID `bun:"id,pk,notnull" json:"id"`
-    Name   string    `bun:"name,notnull" json:"name"`
-    Email  string    `bun:"email,notnull" json:"email"`
+	bun.BaseModel `bun:"table:users,alias:cmp"`
+	ID            *uuid.UUID `bun:"id,pk,nullzero,type:uuid" json:"id"`
+	Name          string     `bun:"name,notnull" json:"name"`
+	Email         string     `bun:"email,notnull" json:"email"`
+	Password      string     `bun:"password,notnull" json:"password" crud:"-"`
+	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at,omitempty"`
+	CreatedAt     *time.Time `bun:"created_at,nullzero,default:current_timestamp" json:"created_at"`
+	UpdatedAt     *time.Time `bun:"updated_at,nullzero,default:current_timestamp" json:"updated_at"`
+}
+
+
+func NewUserRepository(db bun.IDB) repository.Repository[*User] {
+	handlers := repository.ModelHandlers[*User]{
+		NewRecord: func() *User {
+			return &User{}
+		},
+		GetID: func(record *User) uuid.UUID {
+			return *record.ID
+		},
+		SetID: func(record *User, id uuid.UUID) {
+			record.ID = &id
+		},
+		GetIdentifier: func() string {
+			return "email"
+		},
+	}
+	return repository.NewRepository[*User](db, handlers)
 }
 
 func main() {
-    db := setupDatabase()
-    app := fiber.New()
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file::memory:?cache=shared")
+	if err != nil {
+		panic(err)
+	}
+	db := bun.NewDB(sqldb, sqlitedialect.New())
 
-    repo := NewUserRepository(db)
-    crud.NewController[*User](repo).RegisterRoutes(app)
 
-    app.Listen(":3000")
+	server := fiber.New()
+	api := server.Group("/api/v1")
+	crud.NewController[*model.User](model.NewUserRepository(db)).RegisterRoutes(api)
+
+	log.Fatal(server.Listen(":3000"))
 }
+
 ```
 
 ### Generated Routes
