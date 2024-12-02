@@ -90,6 +90,20 @@ func (c *Controller[T]) GetOne(ctx *fiber.Ctx) error {
 	return c.resp.OnData(ctx, record, OpRead)
 }
 
+type Order struct {
+	Field string `json:"field"`
+	Dir   string `json:"dir"`
+}
+
+type Filters struct {
+	Limit   int      `json:"limit"`
+	Offset  int      `json:"offset"`
+	Count   int      `json:"count"`
+	Order   []Order  `json:"order"`
+	Fields  []string `json:"fields"`
+	Include []string `json:"include"`
+}
+
 // List supports different query string parameters:
 // GET /users?limit=10&offset=20
 // GET /users?order=name asc,created_at desc
@@ -105,6 +119,11 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 	order := ctx.Query("order")
 	selectFields := ctx.Query("select")
 	include := ctx.Query("include")
+
+	filters := &Filters{
+		Limit:  limit,
+		Offset: offset,
+	}
 
 	var criteria []repository.SelectCriteria
 
@@ -129,6 +148,7 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
 				return q.Column(columns...)
 			})
+			filters.Fields = columns
 		}
 	}
 
@@ -152,6 +172,10 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 							orderClause += " " + direction
 						}
 						q = q.Order(orderClause)
+						filters.Order = append(filters.Order, Order{
+							Field: orderClause,
+							Dir:   direction,
+						})
 					}
 				}
 			}
@@ -162,6 +186,8 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 	// Include relations
 	if include != "" {
 		relations := strings.Split(include, ",")
+		//TODO: Need to map user -> User e,g, table name to Class name
+		filters.Include = append(filters.Include, relations...)
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
 			for _, relation := range relations {
 				q = q.Relation(relation)
@@ -235,8 +261,10 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
-	// TODO: return meta with count and filters so we can pass back to client
-	return c.resp.OnList(ctx, records, OpList, count)
+
+	filters.Count = count
+
+	return c.resp.OnList(ctx, records, OpList, filters)
 }
 
 func (c *Controller[T]) Create(ctx *fiber.Ctx) error {
