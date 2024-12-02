@@ -11,11 +11,9 @@ type APIResponse[T any] struct {
 }
 
 type APIListResponse[T any] struct {
-	Success bool `json:"success"`
-	Data    []T  `json:"data"`
-	Meta    struct {
-		Count int `json:"count"`
-	} `json:"$meta"`
+	Success bool     `json:"success"`
+	Data    []T      `json:"data"`
+	Meta    *Filters `json:"$meta"`
 }
 
 // ResponseHandler defines how controller responses are handled
@@ -27,7 +25,7 @@ type ResponseHandler[T any] interface {
 	// OnEmpty handles successful responses without data (e.g., DELETE)
 	OnEmpty(ctx *fiber.Ctx, op CrudOperation) error
 	// OnList handles successful list responses
-	OnList(ctx *fiber.Ctx, data []T, op CrudOperation, count int) error
+	OnList(ctx *fiber.Ctx, data []T, op CrudOperation, filters *Filters) error
 }
 
 // DefaultResponseHandler provides the default response handling implementation
@@ -72,13 +70,11 @@ func (h DefaultResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func (h DefaultResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperation, total int) error {
+func (h DefaultResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperation, filters *Filters) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    data,
-		"$meta": map[string]any{
-			"count": total,
-		},
+		"$meta":   filters,
 	})
 }
 
