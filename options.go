@@ -118,7 +118,7 @@ func parseFieldOperator(param string) (field string, operator string) {
 	operator = "="
 	field = param
 	var exists bool
-
+	// TODO: support different formats, e.g. field[$operator]=value
 	// Check if param contains "__" to separate field and operator
 	if strings.Contains(param, "__") {
 		parts := strings.SplitN(param, "__", 2)
@@ -132,6 +132,12 @@ func parseFieldOperator(param string) (field string, operator string) {
 	return
 }
 
+const (
+	TAG_CRUD = "crud"
+	TAG_BUN  = "bun"
+	TAG_JSON = "json"
+)
+
 func getAllowedFields[T any]() map[string]string {
 	var t T
 	typ := reflect.TypeOf(t)
@@ -143,13 +149,13 @@ func getAllowedFields[T any]() map[string]string {
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
-		crudTag := field.Tag.Get("crud")
+		crudTag := field.Tag.Get(TAG_CRUD)
 		if crudTag == "-" {
 			continue // skip this field
 		}
 
 		// Get the bun tag to get the column name
-		bunTag := field.Tag.Get("bun")
+		bunTag := field.Tag.Get(TAG_BUN)
 		var columnName string
 		if bunTag != "" {
 			parts := strings.Split(bunTag, ",")
@@ -159,7 +165,7 @@ func getAllowedFields[T any]() map[string]string {
 			columnName = strcase.ToSnake(field.Name)
 		}
 
-		jsonTag := field.Tag.Get("json")
+		jsonTag := field.Tag.Get(TAG_JSON)
 		if jsonTag != "" {
 			jsonTag = strings.Split(jsonTag, ",")[0] // remove options
 		} else {
