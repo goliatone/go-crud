@@ -6,24 +6,40 @@ import (
 	"unicode"
 
 	"github.com/ettle/strcase"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gertd/go-pluralize"
 )
+
+var pluralizer = pluralize.NewClient()
+var operatorMap = DefaultOperatorMap()
+
+func DefaultOperatorMap() map[string]string {
+	return map[string]string{
+		"eq":    "=",
+		"ne":    "<>",
+		"gt":    ">",
+		"lt":    "<",
+		"gte":   ">=",
+		"lte":   "<=",
+		"ilike": "ILIKE",
+		"like":  "LIKE",
+		"and":   "and",
+		"or":    "or",
+	}
+}
 
 func SetOperatorMap(om map[string]string) {
 	operatorMap = om
 }
 
-// Option defines a functional option for Controller.
 type Option[T any] func(*Controller[T])
 
 // WithDeserializer sets a custom deserializer for the Controller.
-func WithDeserializer[T any](d func(CrudOperation, *fiber.Ctx) (T, error)) Option[T] {
+func WithDeserializer[T any](d func(CrudOperation, Context) (T, error)) Option[T] {
 	return func(c *Controller[T]) {
 		c.deserializer = d
 	}
 }
 
-// Add a new option for setting the response handler
 func WithResponseHandler[T any](handler ResponseHandler[T]) Option[T] {
 	return func(c *Controller[T]) {
 		c.resp = handler
@@ -31,15 +47,9 @@ func WithResponseHandler[T any](handler ResponseHandler[T]) Option[T] {
 }
 
 // DefaultDeserializer provides a generic deserializer.
-func DefaultDeserializer[T any](op CrudOperation, ctx *fiber.Ctx) (T, error) {
+func DefaultDeserializer[T any](op CrudOperation, ctx Context) (T, error) {
 	var record T
-	v := reflect.ValueOf(&record).Elem()
-
-	if v.Kind() == reflect.Ptr && v.IsNil() {
-		v.Set(reflect.New(v.Type().Elem()))
-	}
-
-	if err := ctx.BodyParser(record); err != nil {
+	if err := ctx.BodyParser(&record); err != nil {
 		return record, err
 	}
 	return record, nil
@@ -57,13 +67,10 @@ func GetResourceName[T any]() (string, string) {
 		typ = typ.Elem()
 	}
 
-	// Initialize resourceName as empty
 	resourceName := ""
-
-	// Iterate over all fields to find the 'crud' tag
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		crudTag := field.Tag.Get("crud")
+		crudTag := field.Tag.Get(TAG_CRUD)
 		if crudTag == "" {
 			continue
 		}
@@ -71,11 +78,10 @@ func GetResourceName[T any]() (string, string) {
 		// Parse the crud tag, expecting format 'resource:user'
 		parts := strings.SplitN(crudTag, ":", 2)
 		if len(parts) != 2 {
-			continue // Invalid format, skip
+			continue
 		}
-
 		key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-		if key == "resource" && value != "" {
+		if key == TAG_KEY_RESOURCE && value != "" {
 			resourceName = value
 			break
 		}
@@ -133,9 +139,10 @@ func parseFieldOperator(param string) (field string, operator string) {
 }
 
 const (
-	TAG_CRUD = "crud"
-	TAG_BUN  = "bun"
-	TAG_JSON = "json"
+	TAG_CRUD         = "crud"
+	TAG_BUN          = "bun"
+	TAG_JSON         = "json"
+	TAG_KEY_RESOURCE = "resource"
 )
 
 func getAllowedFields[T any]() map[string]string {
@@ -151,7 +158,7 @@ func getAllowedFields[T any]() map[string]string {
 
 		crudTag := field.Tag.Get(TAG_CRUD)
 		if crudTag == "-" {
-			continue // skip this field
+			continue
 		}
 
 		// Get the bun tag to get the column name
