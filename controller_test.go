@@ -56,7 +56,7 @@ func newTestUserRepository(db bun.IDB) repository.Repository[*TestUser] {
 	return repository.NewRepository[*TestUser](db, handlers)
 }
 
-func testUserDeserializer(op CrudOperation, ctx *fiber.Ctx) (*TestUser, error) {
+func testUserDeserializer(op CrudOperation, ctx Context) (*TestUser, error) {
 	var user TestUser
 	if err := ctx.BodyParser(&user); err != nil {
 		return nil, err
@@ -94,7 +94,8 @@ func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
 	controller := NewController[*TestUser](repo, WithDeserializer(testUserDeserializer))
 
 	// Register routes
-	controller.RegisterRoutes(app)
+	router := NewFiberAdapter(app)
+	controller.RegisterRoutes(router)
 
 	return app, db
 }
@@ -674,7 +675,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		if tt.name == "Filter by created_at greater than specific time" {
 			// Assume we want to filter users created in the last 24 hours
 			// Users Charlie (created_at -24h) and Eve (created_at -12h)
-			timeThreshold := time.Now().Add(-48 * time.Hour).Format(time.RFC3339)
+			timeThreshold := time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
 
 			tests[i].query = "?created_at__gte=" + timeThreshold
 			tests[i].expectedCount = 2 // Charlie and Eve
@@ -969,6 +970,7 @@ func getResourceNameFromType(typ interface{}) (string, string) {
 
 func TestRegisterRoutes(t *testing.T) {
 	app := fiber.New()
+	router := NewFiberAdapter(app)
 
 	sqldb, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -986,7 +988,7 @@ func TestRegisterRoutes(t *testing.T) {
 	repo := newTestUserRepository(db)
 	controller := NewController[*TestUser](repo, WithDeserializer(testUserDeserializer))
 
-	controller.RegisterRoutes(app)
+	controller.RegisterRoutes(router)
 
 	singular, plural := GetResourceName[*TestUser]()
 
