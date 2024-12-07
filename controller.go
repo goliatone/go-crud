@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gertd/go-pluralize"
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -22,30 +20,12 @@ const (
 	OpDelete CrudOperation = "delete"
 )
 
-var pluralizer = pluralize.NewClient()
-
-var operatorMap = DefaultOperatorMap()
-
-func DefaultOperatorMap() map[string]string {
-	return map[string]string{
-		"eq":    "=",
-		"ne":    "<>",
-		"gt":    ">",
-		"lt":    "<",
-		"gte":   ">=",
-		"lte":   "<=",
-		"ilike": "ILIKE", // If we are using sqlite it does not support ILIKE
-		"like":  "LIKE",
-		"and":   "and",
-		"or":    "or",
-	}
-}
-
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
 	Repo         repository.Repository[T]
-	deserializer func(op CrudOperation, ctx *fiber.Ctx) (T, error)
+	deserializer func(op CrudOperation, ctx Context) (T, error)
 	resp         ResponseHandler[T]
+	resource     string
 }
 
 // NewController creates a new Controller with functional options.
@@ -62,26 +42,28 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 	return controller
 }
 
-func (c *Controller[T]) RegisterRoutes(app fiber.Router) {
+func (c *Controller[T]) RegisterRoutes(r Router) {
 	resource, resources := GetResourceName[T]()
 
-	app.Get(fmt.Sprintf("/%s/:id", resource), c.GetOne).
+	c.resource = resource
+
+	r.Get(fmt.Sprintf("/%s/:id", resource), c.Show).
 		Name(fmt.Sprintf("%s:%s", resource, OpRead))
 
-	app.Get(fmt.Sprintf("/%s", resources), c.List).
+	r.Get(fmt.Sprintf("/%s", resources), c.Index).
 		Name(fmt.Sprintf("%s:%s", resource, OpList))
 
-	app.Post(fmt.Sprintf("/%s", resource), c.Create).
+	r.Post(fmt.Sprintf("/%s", resource), c.Create).
 		Name(fmt.Sprintf("%s:%s", resource, OpCreate))
 
-	app.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
+	r.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
 		Name(fmt.Sprintf("%s:%s", resource, OpUpdate))
 
-	app.Delete(fmt.Sprintf("/%s/:id", resource), c.Delete).
+	r.Delete(fmt.Sprintf("/%s/:id", resource), c.Delete).
 		Name(fmt.Sprintf("%s:%s", resource, OpDelete))
 }
 
-func (c *Controller[T]) GetOne(ctx *fiber.Ctx) error {
+func (c *Controller[T]) Show(ctx Context) error {
 	id := ctx.Params("id")
 	record, err := c.Repo.GetByID(ctx.UserContext(), id)
 	if err != nil {
@@ -90,21 +72,7 @@ func (c *Controller[T]) GetOne(ctx *fiber.Ctx) error {
 	return c.resp.OnData(ctx, record, OpRead)
 }
 
-type Order struct {
-	Field string `json:"field"`
-	Dir   string `json:"dir"`
-}
-
-type Filters struct {
-	Limit   int      `json:"limit"`
-	Offset  int      `json:"offset"`
-	Count   int      `json:"count"`
-	Order   []Order  `json:"order"`
-	Fields  []string `json:"fields"`
-	Include []string `json:"include"`
-}
-
-// List supports different query string parameters:
+// Index supports different query string parameters:
 // GET /users?limit=10&offset=20
 // GET /users?order=name asc,created_at desc
 // GET /users?select=id,name,email
@@ -112,7 +80,7 @@ type Filters struct {
 // GET /users?name__ilike=John&age__gte=30
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
-func (c *Controller[T]) List(ctx *fiber.Ctx) error {
+func (c *Controller[T]) Index(ctx Context) error {
 	// Parse known query parameters
 	limit := ctx.QueryInt("limit", 25)
 	offset := ctx.QueryInt("offset", 0)
@@ -140,7 +108,8 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 		for _, field := range fields {
 			columnName, ok := allowedFieldsMap[field]
 			if !ok {
-				continue // skip unknown fields
+				//TODO: log info
+				continue // skip, unknown fields!
 			}
 			columns = append(columns, columnName)
 		}
@@ -205,7 +174,6 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 		"include": true,
 	}
 
-	// Get all query parameters
 	queryParams := ctx.Queries()
 
 	// For each parameter, if it's not in excludeParams, add a where condition
@@ -215,12 +183,13 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 				continue
 			}
 
+			// TODO: we could check that if we are in sqlite that we support the operator, e.g. ilike
 			field, operator := parseFieldOperator(param)
 
 			// Check if field is allowed and get column name
 			columnName, ok := allowedFieldsMap[field]
 			if !ok {
-				continue // skip fields that are not allowed
+				continue // skip, not allowed TODO: Log
 			}
 
 			whereGroup := func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -238,7 +207,7 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 				return q
 			}
 
-			switch operator {
+			switch strings.ToLower(operator) {
 			case "and":
 				q = q.WhereGroup(" AND ", whereGroup)
 			case "or":
@@ -267,7 +236,7 @@ func (c *Controller[T]) List(ctx *fiber.Ctx) error {
 	return c.resp.OnList(ctx, records, OpList, filters)
 }
 
-func (c *Controller[T]) Create(ctx *fiber.Ctx) error {
+func (c *Controller[T]) Create(ctx Context) error {
 	record, err := c.deserializer(OpCreate, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
@@ -280,7 +249,7 @@ func (c *Controller[T]) Create(ctx *fiber.Ctx) error {
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
 }
 
-func (c *Controller[T]) Update(ctx *fiber.Ctx) error {
+func (c *Controller[T]) Update(ctx Context) error {
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -301,7 +270,7 @@ func (c *Controller[T]) Update(ctx *fiber.Ctx) error {
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
 }
 
-func (c *Controller[T]) Delete(ctx *fiber.Ctx) error {
+func (c *Controller[T]) Delete(ctx Context) error {
 	id := ctx.Params("id")
 	record, err := c.Repo.GetByID(ctx.UserContext(), id)
 	if err != nil {
