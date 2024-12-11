@@ -30,7 +30,9 @@ type ResourceHandler interface {
 	// Show fetches a single record, usually by ID
 	Show(Context) error
 	Create(Context) error
+	CreateBatch(Context) error
 	Update(Context) error
+	UpdateBatch(Context) error
 	Delete(Context) error
 }
 

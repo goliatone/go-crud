@@ -55,6 +55,15 @@ func DefaultDeserializer[T any](op CrudOperation, ctx Context) (T, error) {
 	return record, nil
 }
 
+// DefaultDeserializerMany provides a generic deserializer.
+func DefaultDeserializerMany[T any](op CrudOperation, ctx Context) ([]T, error) {
+	var records []T
+	if err := ctx.BodyParser(&records); err != nil {
+		return records, err
+	}
+	return records, nil
+}
+
 // GetResourceName returns the singular and plural resource names for type T.
 // It first checks for a 'crud:"resource:..."' tag on any embedded fields.
 // If found, it uses the specified resource name. Otherwise, it derives the name from the type's name.
