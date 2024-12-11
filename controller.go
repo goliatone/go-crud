@@ -20,6 +20,7 @@ const (
 	OpUpdate      CrudOperation = "update"
 	OpUpdateBatch CrudOperation = "update:batch"
 	OpDelete      CrudOperation = "delete"
+	OpDeleteBatch CrudOperation = "delete:batch"
 )
 
 // Controller handles CRUD operations for a given model.
@@ -68,6 +69,9 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	r.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
 		Name(fmt.Sprintf("%s:%s", resource, OpUpdate))
+
+	r.Delete(fmt.Sprintf("/%s/batch", resource), c.DeleteBatch).
+		Name(fmt.Sprintf("%s:%s:batch", resource, OpDeleteBatch))
 
 	r.Delete(fmt.Sprintf("/%s/:id", resource), c.Delete).
 		Name(fmt.Sprintf("%s:%s", resource, OpDelete))
@@ -323,6 +327,26 @@ func (c *Controller[T]) Delete(ctx Context) error {
 	}
 
 	err = c.Repo.Delete(ctx.UserContext(), record)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpDelete)
+	}
+
+	return c.resp.OnEmpty(ctx, OpDelete)
+}
+
+func (c *Controller[T]) DeleteBatch(ctx Context) error {
+	records, err := c.deserialiMany(OpUpdate, ctx)
+	if err != nil {
+		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
+	}
+
+	criteria := []repository.DeleteCriteria{}
+	for _, record := range records {
+		id := c.Repo.Handlers().GetID(record)
+		criteria = append(criteria, repository.DeleteByID(id.String()))
+	}
+
+	err = c.Repo.DeleteMany(ctx.UserContext(), criteria...)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
