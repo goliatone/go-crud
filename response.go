@@ -20,12 +20,13 @@ type APIListResponse[T any] struct {
 }
 
 type Filters struct {
-	Limit   int      `json:"limit"`
-	Offset  int      `json:"offset"`
-	Count   int      `json:"count"`
-	Order   []Order  `json:"order,omitempty"`
-	Fields  []string `json:"fields,omitempty"`
-	Include []string `json:"include,omitempty"`
+	Operation string   `json:"operation,omitempty"`
+	Limit     int      `json:"limit,omitempty"`
+	Offset    int      `json:"offset,omitempty"`
+	Count     int      `json:"count,omitempty"`
+	Order     []Order  `json:"order,omitempty"`
+	Fields    []string `json:"fields,omitempty"`
+	Include   []string `json:"include,omitempty"`
 }
 
 type Order struct {
