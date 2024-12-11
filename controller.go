@@ -13,27 +13,31 @@ import (
 type CrudOperation string
 
 const (
-	OpCreate CrudOperation = "create"
-	OpRead   CrudOperation = "read"
-	OpList   CrudOperation = "list"
-	OpUpdate CrudOperation = "update"
-	OpDelete CrudOperation = "delete"
+	OpCreate      CrudOperation = "create"
+	OpCreateBatch CrudOperation = "create:batch"
+	OpRead        CrudOperation = "read"
+	OpList        CrudOperation = "list"
+	OpUpdate      CrudOperation = "update"
+	OpUpdateBatch CrudOperation = "update:batch"
+	OpDelete      CrudOperation = "delete"
 )
 
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
-	Repo         repository.Repository[T]
-	deserializer func(op CrudOperation, ctx Context) (T, error)
-	resp         ResponseHandler[T]
-	resource     string
+	Repo          repository.Repository[T]
+	deserializer  func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany func(op CrudOperation, ctx Context) ([]T, error)
+	resp          ResponseHandler[T]
+	resource      string
 }
 
 // NewController creates a new Controller with functional options.
 func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
 	controller := &Controller[T]{
-		Repo:         repo,
-		deserializer: DefaultDeserializer[T],
-		resp:         NewDefaultResponseHandler[T](),
+		Repo:          repo,
+		deserializer:  DefaultDeserializer[T],
+		deserialiMany: DefaultDeserializerMany[T],
+		resp:          NewDefaultResponseHandler[T](),
 	}
 
 	for _, opt := range opts {
@@ -53,8 +57,14 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 	r.Get(fmt.Sprintf("/%s", resources), c.Index).
 		Name(fmt.Sprintf("%s:%s", resource, OpList))
 
+	r.Post(fmt.Sprintf("/%s/batch", resource), c.CreateBatch).
+		Name(fmt.Sprintf("%s:%s:batch", resource, OpCreateBatch))
+
 	r.Post(fmt.Sprintf("/%s", resource), c.Create).
 		Name(fmt.Sprintf("%s:%s", resource, OpCreate))
+
+	r.Put(fmt.Sprintf("/%s/batch", resource), c.UpdateBatch).
+		Name(fmt.Sprintf("%s:%s:batch", resource, OpUpdateBatch))
 
 	r.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
 		Name(fmt.Sprintf("%s:%s", resource, OpUpdate))
@@ -80,6 +90,7 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__ilike=John&age__gte=30
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
+// TODO: Support /projects?include=Message&include=Company
 func (c *Controller[T]) Index(ctx Context) error {
 	// Parse known query parameters
 	limit := ctx.QueryInt("limit", 25)
@@ -89,8 +100,9 @@ func (c *Controller[T]) Index(ctx Context) error {
 	include := ctx.Query("include")
 
 	filters := &Filters{
-		Limit:  limit,
-		Offset: offset,
+		Limit:     limit,
+		Offset:    offset,
+		Operation: string(OpList),
 	}
 
 	var criteria []repository.SelectCriteria
@@ -249,6 +261,22 @@ func (c *Controller[T]) Create(ctx Context) error {
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
 }
 
+func (c *Controller[T]) CreateBatch(ctx Context) error {
+	records, err := c.deserialiMany(OpCreateBatch, ctx)
+	if err != nil {
+		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
+	}
+	createdRecords, err := c.Repo.CreateMany(ctx.UserContext(), records)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+
+	return c.resp.OnList(ctx, createdRecords, OpCreateBatch, &Filters{
+		Count:     len(createdRecords),
+		Operation: string(OpCreateBatch),
+	})
+}
+
 func (c *Controller[T]) Update(ctx Context) error {
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -261,13 +289,30 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdate)
 	}
 
-	c.Repo.SetID(record, id)
+	c.Repo.Handlers().SetID(record, id)
 
 	updatedRecord, err := c.Repo.Update(ctx.UserContext(), record)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
+}
+
+func (c *Controller[T]) UpdateBatch(ctx Context) error {
+	records, err := c.deserialiMany(OpUpdate, ctx)
+	if err != nil {
+		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
+	}
+
+	updatedRecords, err := c.Repo.UpdateMany(ctx.UserContext(), records)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	}
+
+	return c.resp.OnList(ctx, updatedRecords, OpUpdateBatch, &Filters{
+		Count:     len(updatedRecords),
+		Operation: string(OpUpdateBatch),
+	})
 }
 
 func (c *Controller[T]) Delete(ctx Context) error {
