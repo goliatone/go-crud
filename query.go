@@ -50,7 +50,7 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	}
 
 	// Start building our criteria slice
-	criteria := &queryCriteria{}
+	criteria := &queryCriteria{op: op}
 
 	// Basic limit/offset criteria
 	criteria.pagination = append(criteria.pagination, func(q *bun.SelectQuery) *bun.SelectQuery {
