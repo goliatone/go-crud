@@ -19,14 +19,26 @@ type APIListResponse[T any] struct {
 	Meta    *Filters `json:"$meta"`
 }
 
+type RelationFilter struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    string `json:"value"`
+}
+
+type RelationInfo struct {
+	Name    string           `json:"name"`
+	Filters []RelationFilter `json:"filters,omitempty"`
+}
+
 type Filters struct {
-	Operation string   `json:"operation,omitempty"`
-	Limit     int      `json:"limit,omitempty"`
-	Offset    int      `json:"offset,omitempty"`
-	Count     int      `json:"count,omitempty"`
-	Order     []Order  `json:"order,omitempty"`
-	Fields    []string `json:"fields,omitempty"`
-	Include   []string `json:"include,omitempty"`
+	Operation string         `json:"operation,omitempty"`
+	Limit     int            `json:"limit,omitempty"`
+	Offset    int            `json:"offset,omitempty"`
+	Count     int            `json:"count,omitempty"`
+	Order     []Order        `json:"order,omitempty"`
+	Fields    []string       `json:"fields,omitempty"`
+	Include   []string       `json:"include,omitempty"`
+	Relations []RelationInfo `json:"relations,omitempty"`
 }
 
 type Order struct {
