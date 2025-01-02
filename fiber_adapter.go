@@ -65,6 +65,10 @@ func (ca *crudAdapter) Params(key string, defaultValue ...string) string {
 	return val
 }
 
+func (ca *crudAdapter) Body() []byte {
+	return ca.c.Body()
+}
+
 func (ca *crudAdapter) BodyParser(out interface{}) error {
 	return ca.c.BodyParser(out)
 }
