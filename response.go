@@ -37,7 +37,7 @@ type Order struct {
 // ResponseHandler defines how controller responses are handled
 type ResponseHandler[T any] interface {
 	OnError(ctx Context, err error, op CrudOperation) error
-	OnData(ctx Context, data T, op CrudOperation) error
+	OnData(ctx Context, data T, op CrudOperation, filters ...*Filters) error
 	OnEmpty(ctx Context, op CrudOperation) error
 	OnList(ctx Context, data []T, op CrudOperation, filters *Filters) error
 }
@@ -68,12 +68,18 @@ func (h DefaultResponseHandler[T]) OnError(c Context, err error, op CrudOperatio
 	}
 }
 
-func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation) error {
+func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, filters ...*Filters) error {
 	if op == OpCreate {
 		return c.Status(http.StatusCreated).JSON(data)
 	}
 
+	filter := &Filters{}
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+
 	return c.Status(http.StatusOK).JSON(map[string]interface{}{
+		"$meta":   filter,
 		"success": true,
 		"data":    data,
 	})
