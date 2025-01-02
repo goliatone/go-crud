@@ -85,8 +85,8 @@ func (h DefaultResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
 
 func (h DefaultResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
 	return c.Status(http.StatusOK).JSON(map[string]interface{}{
-		"success": true,
-		"data":    data,
 		"$meta":   filters,
+		"data":    data,
+		"success": true,
 	})
 }
