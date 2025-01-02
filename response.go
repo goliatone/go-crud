@@ -1,8 +1,11 @@
 package crud
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
+
+type NotFoundError struct{ error }
+type ValidationError struct{ error }
 
 type APIResponse[T any] struct {
 	Success bool   `json:"success"`
@@ -11,77 +14,97 @@ type APIResponse[T any] struct {
 }
 
 type APIListResponse[T any] struct {
-	Success bool `json:"success"`
-	Data    []T  `json:"data"`
-	Meta    struct {
-		Count int `json:"count"`
-	} `json:"$meta"`
+	Success bool     `json:"success"`
+	Data    []T      `json:"data"`
+	Meta    *Filters `json:"$meta"`
+}
+
+type RelationFilter struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    string `json:"value"`
+}
+
+type RelationInfo struct {
+	Name    string           `json:"name"`
+	Filters []RelationFilter `json:"filters,omitempty"`
+}
+
+type Filters struct {
+	Operation string         `json:"operation,omitempty"`
+	Limit     int            `json:"limit,omitempty"`
+	Offset    int            `json:"offset,omitempty"`
+	Count     int            `json:"count,omitempty"`
+	Order     []Order        `json:"order,omitempty"`
+	Fields    []string       `json:"fields,omitempty"`
+	Include   []string       `json:"include,omitempty"`
+	Relations []RelationInfo `json:"relations,omitempty"`
+}
+
+type Order struct {
+	Field string `json:"field"`
+	Dir   string `json:"dir"`
 }
 
 // ResponseHandler defines how controller responses are handled
 type ResponseHandler[T any] interface {
-	// OnError handles any error responses
-	OnError(ctx *fiber.Ctx, err error, op CrudOperation) error
-	// OnData handles successful responses with data
-	OnData(ctx *fiber.Ctx, data T, op CrudOperation) error
-	// OnEmpty handles successful responses without data (e.g., DELETE)
-	OnEmpty(ctx *fiber.Ctx, op CrudOperation) error
-	// OnList handles successful list responses
-	OnList(ctx *fiber.Ctx, data []T, op CrudOperation, count int) error
+	OnError(ctx Context, err error, op CrudOperation) error
+	OnData(ctx Context, data T, op CrudOperation, filters ...*Filters) error
+	OnEmpty(ctx Context, op CrudOperation) error
+	OnList(ctx Context, data []T, op CrudOperation, filters *Filters) error
 }
 
-// DefaultResponseHandler provides the default response handling implementation
 type DefaultResponseHandler[T any] struct{}
 
 func NewDefaultResponseHandler[T any]() ResponseHandler[T] {
-	return &DefaultResponseHandler[T]{}
+	return DefaultResponseHandler[T]{}
 }
 
-func (h *DefaultResponseHandler[T]) OnError(ctx *fiber.Ctx, err error, op CrudOperation) error {
+func (h DefaultResponseHandler[T]) OnError(c Context, err error, op CrudOperation) error {
 	switch err.(type) {
 	case *NotFoundError:
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return c.Status(http.StatusNotFound).JSON(map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
 		})
 	case *ValidationError:
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
 		})
 	default:
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
 		})
 	}
 }
 
-func (h *DefaultResponseHandler[T]) OnData(ctx *fiber.Ctx, data T, op CrudOperation) error {
+func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, filters ...*Filters) error {
 	if op == OpCreate {
-		return ctx.Status(fiber.StatusCreated).JSON(data)
+		return c.Status(http.StatusCreated).JSON(data)
 	}
 
-	return ctx.JSON(fiber.Map{
+	filter := &Filters{}
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+
+	return c.Status(http.StatusOK).JSON(map[string]interface{}{
+		"$meta":   filter,
 		"success": true,
 		"data":    data,
 	})
 }
 
-func (h *DefaultResponseHandler[T]) OnEmpty(ctx *fiber.Ctx, op CrudOperation) error {
-	return ctx.SendStatus(fiber.StatusNoContent)
+func (h DefaultResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
+	return c.SendStatus(http.StatusNoContent)
 }
 
-func (h *DefaultResponseHandler[T]) OnList(ctx *fiber.Ctx, data []T, op CrudOperation, total int) error {
-	return ctx.JSON(fiber.Map{
-		"success": true,
+func (h DefaultResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
+	return c.Status(http.StatusOK).JSON(map[string]interface{}{
+		"$meta":   filters,
 		"data":    data,
-		"$meta": map[string]any{
-			"count": total,
-		},
+		"success": true,
 	})
 }
-
-// Custom error types for better error handling
-type NotFoundError struct{ error }
-type ValidationError struct{ error }
