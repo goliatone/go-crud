@@ -11,6 +11,7 @@ type Request interface {
 	Query(key string, defaultValue ...string) string
 	QueryInt(key string, defaultValue ...int) int
 	Queries() map[string]string
+	Body() []byte
 }
 
 type Response interface {
@@ -34,6 +35,7 @@ type ResourceHandler interface {
 	Update(Context) error
 	UpdateBatch(Context) error
 	Delete(Context) error
+	DeleteBatch(Context) error
 }
 
 // ResourceController defines an interface for registering CRUD routes
@@ -47,6 +49,11 @@ type Router interface {
 	Post(path string, handler func(Context) error) RouterRouteInfo
 	Put(path string, handler func(Context) error) RouterRouteInfo
 	Delete(path string, handler func(Context) error) RouterRouteInfo
+
+	// GET(path string, handler func(Context) error) RouterRouteInfo
+	// POST(path string, handler func(Context) error) RouterRouteInfo
+	// PUT(path string, handler func(Context) error) RouterRouteInfo
+	// DELETE(path string, handler func(Context) error) RouterRouteInfo
 }
 
 // RouterRouteInfo is a simplified interface for route info
