@@ -488,6 +488,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
+
+	baseTime := time.Now().Truncate(time.Second)
+	t.Logf("Base time: %v", baseTime)
+
 	users := []TestUser{
 		{
 			ID:        uuid.New(),
@@ -495,8 +499,8 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			Email:     "alice@example.com",
 			Password:  "secret",
 			Age:       30,
-			CreatedAt: time.Now().Add(-48 * time.Hour),
-			UpdatedAt: time.Now().Add(-24 * time.Hour),
+			CreatedAt: baseTime.Add(-48 * time.Hour),
+			UpdatedAt: baseTime.Add(-24 * time.Hour),
 		},
 		{
 			ID:        uuid.New(),
@@ -504,8 +508,8 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			Email:     "bob@example.com",
 			Password:  "secret",
 			Age:       25,
-			CreatedAt: time.Now().Add(-72 * time.Hour),
-			UpdatedAt: time.Now().Add(-36 * time.Hour),
+			CreatedAt: baseTime.Add(-72 * time.Hour),
+			UpdatedAt: baseTime.Add(-36 * time.Hour),
 		},
 		{
 			ID:        uuid.New(),
@@ -513,8 +517,8 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			Email:     "charlie@sample.com",
 			Password:  "secret",
 			Age:       35,
-			CreatedAt: time.Now().Add(-24 * time.Hour),
-			UpdatedAt: time.Now().Add(-12 * time.Hour),
+			CreatedAt: baseTime.Add(-23 * time.Hour), // Just inside 24hr window
+			UpdatedAt: baseTime.Add(-12 * time.Hour),
 		},
 		{
 			ID:        uuid.New(),
@@ -522,8 +526,8 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			Email:     "david@example.com",
 			Password:  "secret",
 			Age:       40,
-			CreatedAt: time.Now().Add(-96 * time.Hour),
-			UpdatedAt: time.Now().Add(-48 * time.Hour),
+			CreatedAt: baseTime.Add(-96 * time.Hour),
+			UpdatedAt: baseTime.Add(-48 * time.Hour),
 		},
 		{
 			ID:        uuid.New(),
@@ -531,10 +535,16 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			Email:     "eve@sample.com",
 			Password:  "secret",
 			Age:       28,
-			CreatedAt: time.Now().Add(-12 * time.Hour),
-			UpdatedAt: time.Now().Add(-6 * time.Hour),
+			CreatedAt: baseTime.Add(-12 * time.Hour),
+			UpdatedAt: baseTime.Add(-6 * time.Hour),
 		},
 	}
+
+	t.Log("User creation times (UTC):")
+	for _, u := range users {
+		t.Logf("%s: %v", u.Name, u.CreatedAt.UTC())
+	}
+
 	for i := range users {
 		_, err := repo.Create(ctx, &users[i])
 		if err != nil {
@@ -673,11 +683,16 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 	for i, tt := range tests {
 		if tt.name == "Filter by created_at greater than specific time" {
-			// Assume we want to filter users created in the last 24 hours
-			// Users Charlie (created_at -24h) and Eve (created_at -12h)
-			timeThreshold := time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
+			timeThreshold := baseTime.Add(-24 * time.Hour).UTC()
+			t.Logf("Time threshold (UTC): %v", timeThreshold)
 
-			tests[i].query = "?created_at__gte=" + timeThreshold
+			// Format time for SQLite using standard format
+			timeStr := timeThreshold.Format("2006-01-02 15:04:05")
+			tests[i].query = "?created_at__gte=" + url.QueryEscape(timeStr)
+
+			t.Logf("Query string: %s", tests[i].query)
+			t.Logf("Looking for records after: %s", timeStr)
+
 			tests[i].expectedCount = 2 // Charlie and Eve
 			tests[i].expectedNames = []string{"Charlie", "Eve"}
 		}
