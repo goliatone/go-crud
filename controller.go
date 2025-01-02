@@ -2,11 +2,9 @@ package crud
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
-	"github.com/uptrace/bun"
 )
 
 // CrudOperation defines the type for CRUD operations.
@@ -78,12 +76,17 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 }
 
 func (c *Controller[T]) Show(ctx Context) error {
+	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpList)
+	}
+
 	id := ctx.Params("id")
-	record, err := c.Repo.GetByID(ctx.UserContext(), id)
+	record, err := c.Repo.GetByID(ctx.UserContext(), id, criteria...)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
 	}
-	return c.resp.OnData(ctx, record, OpRead)
+	return c.resp.OnData(ctx, record, OpRead, filters)
 }
 
 // Index supports different query string parameters:
@@ -96,151 +99,10 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__or=John,Jack
 // TODO: Support /projects?include=Message&include=Company
 func (c *Controller[T]) Index(ctx Context) error {
-	// Parse known query parameters
-	limit := ctx.QueryInt("limit", 25)
-	offset := ctx.QueryInt("offset", 0)
-	order := ctx.Query("order")
-	selectFields := ctx.Query("select")
-	include := ctx.Query("include")
-
-	filters := &Filters{
-		Limit:     limit,
-		Offset:    offset,
-		Operation: string(OpList),
+	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpList)
 	}
-
-	var criteria []repository.SelectCriteria
-
-	criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Limit(limit).Offset(offset)
-	})
-
-	allowedFieldsMap := getAllowedFields[T]()
-
-	// Select fields
-	if selectFields != "" {
-		fields := strings.Split(selectFields, ",")
-		var columns []string
-		for _, field := range fields {
-			columnName, ok := allowedFieldsMap[field]
-			if !ok {
-				//TODO: log info
-				continue // skip, unknown fields!
-			}
-			columns = append(columns, columnName)
-		}
-		if len(columns) > 0 {
-			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-				return q.Column(columns...)
-			})
-			filters.Fields = columns
-		}
-	}
-
-	if order != "" {
-		orders := strings.Split(order, ",")
-		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, o := range orders {
-				parts := strings.Fields(strings.TrimSpace(o))
-				if len(parts) > 0 {
-					field := parts[0]
-					direction := ""
-					if len(parts) > 1 {
-						direction = parts[1]
-					}
-					// Check if field is allowed
-					columnName, ok := allowedFieldsMap[field]
-					if ok {
-						// Build order clause
-						orderClause := columnName
-						if direction != "" {
-							orderClause += " " + direction
-						}
-						q = q.Order(orderClause)
-						filters.Order = append(filters.Order, Order{
-							Field: orderClause,
-							Dir:   direction,
-						})
-					}
-				}
-			}
-			return q
-		})
-	}
-
-	// Include relations
-	if include != "" {
-		relations := strings.Split(include, ",")
-		//TODO: Need to map user -> User e,g, table name to Class name
-		filters.Include = append(filters.Include, relations...)
-		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, relation := range relations {
-				q = q.Relation(relation)
-			}
-			return q
-		})
-	}
-
-	// Build where conditions from other query parameters
-	excludeParams := map[string]bool{
-		"limit":   true,
-		"offset":  true,
-		"order":   true,
-		"select":  true,
-		"include": true,
-	}
-
-	queryParams := ctx.Queries()
-
-	// For each parameter, if it's not in excludeParams, add a where condition
-	criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-		for param, values := range queryParams {
-			if excludeParams[param] {
-				continue
-			}
-
-			// TODO: we could check that if we are in sqlite that we support the operator, e.g. ilike
-			field, operator := parseFieldOperator(param)
-
-			// Check if field is allowed and get column name
-			columnName, ok := allowedFieldsMap[field]
-			if !ok {
-				continue // skip, not allowed TODO: Log
-			}
-
-			whereGroup := func(q *bun.SelectQuery) *bun.SelectQuery {
-				for i, value := range strings.Split(values, ",") {
-					value = strings.TrimSpace(value)
-					if value == "" {
-						continue
-					}
-					if i == 0 {
-						q = q.Where(fmt.Sprintf("%s = ?", columnName), value)
-					} else {
-						q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), value)
-					}
-				}
-				return q
-			}
-
-			switch strings.ToLower(operator) {
-			case "and":
-				q = q.WhereGroup(" AND ", whereGroup)
-			case "or":
-				q = q.WhereGroup(" OR ", whereGroup)
-			default:
-				// Existing operators
-				for _, value := range strings.Split(values, ",") {
-					value = strings.TrimSpace(value)
-					if value == "" {
-						continue
-					}
-					q = q.Where(fmt.Sprintf("%s %s ?", columnName, operator), value)
-				}
-			}
-		}
-		return q
-	})
 
 	records, count, err := c.Repo.List(ctx.UserContext(), criteria...)
 	if err != nil {
