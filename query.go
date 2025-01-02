@@ -8,6 +8,17 @@ import (
 	"github.com/uptrace/bun"
 )
 
+type relationFilter struct {
+	field    string
+	operator string
+	value    string
+}
+
+type relationInfo struct {
+	name    string
+	filters []relationFilter
+}
+
 type queryCriteria struct {
 	op         CrudOperation
 	pagination []repository.SelectCriteria
@@ -35,6 +46,16 @@ func (q *queryCriteria) compute() []repository.SelectCriteria {
 var DefaultLimit = 25
 var DefaultOffset = 0
 
+// Index supports different query string parameters:
+// GET /users?limit=10&offset=20
+// GET /users?order=name asc,created_at desc
+// GET /users?select=id,name,email
+// GET /users?name__ilike=John&age__gte=30
+// GET /users?name__and=John,Jack
+// GET /users?name__or=John,Jack
+// GET /users?include=Company,Profile
+// GET /users?include=Profile.status=outdated
+// TODO: Support /projects?include=Message&include=Company
 func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.SelectCriteria, *Filters, error) {
 	// Parse known query parameters
 	limit := ctx.QueryInt("limit", DefaultLimit)
@@ -84,29 +105,30 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	// Handle ORDER clauses
 	if order != "" {
 		orders := strings.Split(order, ",")
-		criteria.order = append(criteria.order, func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, o := range orders {
-				parts := strings.Fields(strings.TrimSpace(o))
-				if len(parts) > 0 {
-					field := parts[0]
-					direction := ""
-					if len(parts) > 1 {
-						direction = parts[1]
-					}
-					// Check if field is allowed
-					columnName, ok := allowedFieldsMap[field]
-					if ok {
-						orderClause := columnName
-						if direction != "" {
-							orderClause += " " + direction
-						}
-						q = q.Order(orderClause)
-						filters.Order = append(filters.Order, Order{
-							Field: orderClause,
-							Dir:   direction,
-						})
-					}
+		for _, o := range orders {
+			parts := strings.Fields(strings.TrimSpace(o))
+			if len(parts) > 0 {
+				field := parts[0]
+				direction := "ASC" // default direction
+				if len(parts) > 1 {
+					direction = getDirection(parts[1])
 				}
+
+				// Check if field is allowed
+				columnName, ok := allowedFieldsMap[field]
+				if ok {
+					filters.Order = append(filters.Order, Order{
+						Field: columnName,
+						Dir:   direction,
+					})
+				}
+			}
+		}
+
+		criteria.order = append(criteria.order, func(q *bun.SelectQuery) *bun.SelectQuery {
+			for _, o := range filters.Order {
+				orderClause := fmt.Sprintf("%s %s", o.Field, o.Dir)
+				q = q.Order(orderClause)
 			}
 			return q
 		})
@@ -115,13 +137,27 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	// Handle includes
 	if include != "" {
 		relations := strings.Split(include, ",")
-		filters.Include = append(filters.Include, relations...)
-		criteria.included = append(criteria.included, func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, relation := range relations {
-				q = q.Relation(relation)
+		for _, relation := range relations {
+			relationInfo, err := parseRelation(relation)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid relation format: %v", err)
 			}
-			return q
-		})
+
+			filters.Include = append(filters.Include, relationInfo.name)
+
+			criteria.included = append(criteria.included, func(q *bun.SelectQuery) *bun.SelectQuery {
+				if len(relationInfo.filters) == 0 {
+					return q.Relation(relationInfo.name)
+				}
+
+				return q.Relation(relationInfo.name, func(q *bun.SelectQuery) *bun.SelectQuery {
+					for _, filter := range relationInfo.filters {
+						q = q.Where(fmt.Sprintf("%s %s ?", filter.field, filter.operator), filter.value)
+					}
+					return q
+				})
+			})
+		}
 	}
 
 	// Build WHERE conditions from other query params
@@ -150,7 +186,8 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 				continue // skip, not allowed TODO: Log
 			}
 
-			switch strings.ToLower(operator) {
+			operator = strings.ToLower(operator)
+			switch operator {
 			case "and", "or":
 				// handle "name__and=John,Jack" => name=John AND name=Jack
 				// or => name=John OR name=Jack
@@ -169,7 +206,8 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 					}
 					return q
 				}
-				if strings.ToLower(operator) == "and" {
+
+				if operator == "and" {
 					q = q.WhereGroup(" AND ", whereGroup)
 				} else {
 					q = q.WhereGroup(" OR ", whereGroup)
@@ -190,4 +228,40 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	})
 
 	return criteria.compute(), filters, nil
+}
+
+func parseRelation(relation string) (*relationInfo, error) {
+	parts := strings.Split(relation, ".")
+	if len(parts) < 2 {
+		return &relationInfo{name: relation}, nil
+	}
+
+	info := &relationInfo{
+		name: parts[0],
+	}
+
+	filterPart := strings.Join(parts[1:], ".")
+
+	filterParts := strings.Split(filterPart, "=")
+	if len(filterParts) != 2 {
+		return info, nil
+	}
+
+	field, operator := parseFieldOperator(filterParts[0])
+	filter := relationFilter{
+		field:    field,
+		operator: operator,
+		value:    filterParts[1],
+	}
+	info.filters = append(info.filters, filter)
+
+	return info, nil
+}
+
+func getDirection(dir string) string {
+	dir = strings.TrimSpace(strings.ToUpper(dir))
+	if dir == "ASC" || dir == "DESC" {
+		return dir
+	}
+	return "ASC"
 }

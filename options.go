@@ -9,6 +9,13 @@ import (
 	"github.com/gertd/go-pluralize"
 )
 
+const (
+	TAG_CRUD         = "crud"
+	TAG_BUN          = "bun"
+	TAG_JSON         = "json"
+	TAG_KEY_RESOURCE = "resource"
+)
+
 var pluralizer = pluralize.NewClient()
 var operatorMap = DefaultOperatorMap()
 
@@ -131,7 +138,7 @@ func toKebabCase(s string) string {
 
 func parseFieldOperator(param string) (field string, operator string) {
 	operator = "="
-	field = param
+	field = strings.TrimSpace(param)
 	var exists bool
 	// TODO: support different formats, e.g. field[$operator]=value
 	// Check if param contains "__" to separate field and operator
@@ -146,13 +153,6 @@ func parseFieldOperator(param string) (field string, operator string) {
 	}
 	return
 }
-
-const (
-	TAG_CRUD         = "crud"
-	TAG_BUN          = "bun"
-	TAG_JSON         = "json"
-	TAG_KEY_RESOURCE = "resource"
-)
 
 func getAllowedFields[T any]() map[string]string {
 	var t T
