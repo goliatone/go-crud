@@ -20,16 +20,16 @@ func NewFiberAdapter(r fiber.Router) Router {
 }
 
 func (ra *fiberAdapter) Get(path string, handler func(Context) error) RouterRouteInfo {
-	return &routeInfoAdapter{ri: ra.r.Get(path, ra.wrap(handler))}
+	return &fiberRouteInfoAdapter{ri: ra.r.Get(path, ra.wrap(handler))}
 }
 func (ra *fiberAdapter) Post(path string, handler func(Context) error) RouterRouteInfo {
-	return &routeInfoAdapter{ri: ra.r.Post(path, ra.wrap(handler))}
+	return &fiberRouteInfoAdapter{ri: ra.r.Post(path, ra.wrap(handler))}
 }
 func (ra *fiberAdapter) Put(path string, handler func(Context) error) RouterRouteInfo {
-	return &routeInfoAdapter{ri: ra.r.Put(path, ra.wrap(handler))}
+	return &fiberRouteInfoAdapter{ri: ra.r.Put(path, ra.wrap(handler))}
 }
 func (ra *fiberAdapter) Delete(path string, handler func(Context) error) RouterRouteInfo {
-	return &routeInfoAdapter{ri: ra.r.Delete(path, ra.wrap(handler))}
+	return &fiberRouteInfoAdapter{ri: ra.r.Delete(path, ra.wrap(handler))}
 }
 
 func (ra *fiberAdapter) wrap(h func(Context) error) func(*fiber.Ctx) error {
@@ -38,11 +38,11 @@ func (ra *fiberAdapter) wrap(h func(Context) error) func(*fiber.Ctx) error {
 	}
 }
 
-type routeInfoAdapter struct {
+type fiberRouteInfoAdapter struct {
 	ri fiber.Router
 }
 
-func (ria *routeInfoAdapter) Name(n string) RouterRouteInfo {
+func (ria *fiberRouteInfoAdapter) Name(n string) RouterRouteInfo {
 	ria.ri.Name(n)
 	return ria
 }
