@@ -27,7 +27,7 @@ func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 	return metadata
 }
 
-func (c *Controller[T]) buildRoutesMetadata() []router.RouteMetadata {
+func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 	resourceName, pluralName := GetResourceTitle[T]()
 
 	// Common error response schema
@@ -39,7 +39,7 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteMetadata {
 		},
 	}
 
-	return []router.RouteMetadata{
+	return []router.RouteDefinition{
 		{
 			Method:  "GET",
 			Path:    "/" + pluralName,
