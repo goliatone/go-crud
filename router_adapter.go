@@ -47,7 +47,7 @@ type routerRouteInfoAdapter struct {
 }
 
 func (ria *routerRouteInfoAdapter) Name(n string) RouterRouteInfo {
-	ria.ri.Name(n)
+	ria.ri.SetName(n)
 	return ria
 }
 
