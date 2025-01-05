@@ -115,6 +115,13 @@ func GetResourceName[T any]() (string, string) {
 	return singular, plural
 }
 
+func GetResourceTitle[T any]() (string, string) {
+	resourceName, pluralName := GetResourceName[T]()
+	name := strcase.ToCase(resourceName, strcase.TitleCase, ' ')
+	names := strcase.ToCase(pluralName, strcase.TitleCase, ' ')
+	return name, names
+}
+
 func toKebabCase(s string) string {
 	runes := []rune(s)
 	var result []rune
