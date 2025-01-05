@@ -1,3 +1,5 @@
+dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
+dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7XdTA=
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
@@ -12,8 +14,8 @@ github.com/gofiber/fiber/v2 v2.52.5 h1:tWoP1MJQjGEe4GB5TUGOi7P2E0ZMMRx5ZTG4rT+yG
 github.com/gofiber/fiber/v2 v2.52.5/go.mod h1:KEOE+cXMhXG0zHc9d8+E38hoX+ZN7bhOtgeF2oT6jrQ=
 github.com/goliatone/go-repository-bun v0.0.4 h1:wnqdfAVFFipWygf9h081CXdOWFX/X8uNXdOkagBVxvc=
 github.com/goliatone/go-repository-bun v0.0.4/go.mod h1:mRkMtVPpWJQo8vbjX+ZjiJWxlrNPUtfqC80Al2TWsgI=
-github.com/goliatone/go-router v0.0.2 h1:ta0NlO8brE335Yg8XMPpyKoEt4EF6VxXaOP/2NvRujY=
-github.com/goliatone/go-router v0.0.2/go.mod h1:wqVhphrXb6ZHs2V5u6YQxaO60vCBmUlVfmOaFgG6iVg=
+github.com/goliatone/go-router v0.0.3 h1:gco6/e14Fvtfy1gfOECG6Ywbra4Ws4RQjcZdruAzSNk=
+github.com/goliatone/go-router v0.0.3/go.mod h1:7SNwJRcnDvS6mRM5TzIsxGnkGahsueQK6pHokJTS+pE=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=

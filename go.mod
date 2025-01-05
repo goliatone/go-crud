@@ -9,7 +9,7 @@ require (
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/goliatone/go-repository-bun v0.0.4
-	github.com/goliatone/go-router v0.0.2
+	github.com/goliatone/go-router v0.0.3
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/stretchr/testify v1.10.0
@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	dario.cat/mergo v1.0.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
