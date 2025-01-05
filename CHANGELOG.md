@@ -1,5 +1,45 @@
 # Changelog
 
+# [0.1.1](https://github.com/goliatone/go-crud/compare/v0.1.0...v0.1.1) - (2025-01-05)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Enable test ([a6e550b](https://github.com/goliatone/go-crud/commit/a6e550b5b4278207d670bd0aa74f46ca0a98d1f7))  - (goliatone)
+- Use new interface ([a50254c](https://github.com/goliatone/go-crud/commit/a50254c0c41ca74c38c889b3027a3f3c21111a88))  - (goliatone)
+- Update router API ([c540b06](https://github.com/goliatone/go-crud/commit/c540b069c9331b073b0d51106740a8de75f0b14b))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.1.1 ([68176f7](https://github.com/goliatone/go-crud/commit/68176f7b0569a9a58af7388a0d462565710bef57))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Get resource title ([2e88969](https://github.com/goliatone/go-crud/commit/2e8896918e2faf4de7da478a61d8c6e4e52e98b7))  - (goliatone)
+- Go-router adapter ([4f8e1b1](https://github.com/goliatone/go-crud/commit/4f8e1b1bf098e3bf47918ac309f0d8c06fd4178a))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Combine meta structs ([cb3dc38](https://github.com/goliatone/go-crud/commit/cb3dc3803658348837e62fca2fc075784ee46512))  - (goliatone)
+- Rename info adapter ([bb992c3](https://github.com/goliatone/go-crud/commit/bb992c3daa3dd133178267fcfe0a74c3d4521c89))  - (goliatone)
+
+## <!-- 22 -->🚧 WIP
+
+- Refactor metadata ([0602606](https://github.com/goliatone/go-crud/commit/06026069320a2fce2adfe2fbad43c00b98e4246f))  - (goliatone)
+- Add OpenAPI integration ([676bcaf](https://github.com/goliatone/go-crud/commit/676bcafa68e2ca016e6504cc5ea569ef6fd5a9dd))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.1.0 ([fee241d](https://github.com/goliatone/go-crud/commit/fee241de6fc8b96697b2ca9e4ec4e697fb673613))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#2](https://github.com/goliatone/go-crud/pull/2): go router adapter ([dc5ac5a](https://github.com/goliatone/go-crud/commit/dc5ac5afacded75fb9af6450bc39858aa128dd5a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Add deps ([20f4324](https://github.com/goliatone/go-crud/commit/20f432410a62a7ef7fee1672f0be950f1dac57ce))  - (goliatone)
+- Add deps ([f75b043](https://github.com/goliatone/go-crud/commit/f75b043bce980146fd5ea8049d4272b7f5b6badc))  - (goliatone)
+
 # [0.1.0](https://github.com/goliatone/go-crud/compare/v0.0.2...v0.1.0) - (2025-01-02)
 
 ## <!-- 1 -->🐛 Bug Fixes
