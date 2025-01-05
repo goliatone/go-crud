@@ -13,7 +13,7 @@ var _ router.MetadataProvider = (*Controller[any])(nil)
 // OpenAPI spec or something similar
 func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 	var model T
-	resourceName, pluralName := GetResourceTitle[T]()
+	resourceName, pluralName := GetResourceName[T]()
 	modelType := reflect.TypeOf(model)
 
 	metadata := router.ResourceMetadata{
@@ -28,7 +28,8 @@ func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 }
 
 func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
-	resourceName, pluralName := GetResourceTitle[T]()
+	resourceLabel, resourcePluralLabel := GetResourceTitle[T]()
+	resourceName, resourcePluralName := GetResourceName[T]()
 
 	// Common error response schema
 	errorResponseSchema := map[string]any{
@@ -42,10 +43,10 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 	return []router.RouteDefinition{
 		{
 			Method:  "GET",
-			Path:    "/" + pluralName,
+			Path:    "/" + resourcePluralName,
 			Name:    resourceName + ":list",
-			Summary: "List " + pluralName,
-			Tags:    []string{resourceName},
+			Summary: "List " + resourcePluralLabel,
+			Tags:    []string{resourceLabel},
 			Parameters: []router.Parameter{
 				{
 					Name:     "limit",
@@ -181,15 +182,15 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "GET",
 			Path:        "/" + resourceName + "/:id",
 			Name:        resourceName + ":read",
-			Summary:     "Get " + resourceName + " by ID",
-			Tags:        []string{resourceName},
-			Description: "Retrieves a single " + resourceName + " by its ID",
+			Summary:     "Get " + resourceLabel + " by ID",
+			Tags:        []string{resourceLabel},
+			Description: "Retrieves a single " + resourceLabel + " by its ID",
 			Parameters: []router.Parameter{
 				{
 					Name:        "id",
 					In:          "path",
 					Required:    true,
-					Description: "ID of the " + resourceName,
+					Description: "ID of the " + resourceLabel,
 					Schema:      map[string]any{"type": "string", "format": "uuid"},
 				},
 				{
@@ -221,7 +222,7 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 				},
 				{
 					Code:        404,
-					Description: resourceName + " not found",
+					Description: resourceLabel + " not found",
 					Content: map[string]any{
 						"application/json": map[string]any{
 							"schema": errorResponseSchema,
@@ -235,11 +236,11 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "POST",
 			Path:        "/" + resourceName,
 			Name:        resourceName + ":create",
-			Summary:     "Create new " + resourceName,
-			Tags:        []string{resourceName},
-			Description: "Creates a new " + resourceName + " record",
+			Summary:     "Create new " + resourceLabel,
+			Tags:        []string{resourceLabel},
+			Description: "Creates a new " + resourceLabel + " record",
 			RequestBody: &router.RequestBody{
-				Description: "New " + resourceName + " data",
+				Description: "New " + resourceLabel + " data",
 				Required:    true,
 				Content: map[string]any{
 					"application/json": map[string]any{
@@ -252,7 +253,7 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Responses: []router.Response{
 				{
 					Code:        201,
-					Description: resourceName + " created successfully",
+					Description: resourceLabel + " created successfully",
 					Content: map[string]any{
 						"application/json": map[string]any{
 							"schema": map[string]any{
@@ -276,12 +277,12 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 		{
 			Method:      "POST",
 			Path:        "/" + resourceName + "/batch",
-			Name:        resourceName + ":create:batch",
-			Summary:     "Create multiple " + pluralName,
-			Tags:        []string{resourceName},
-			Description: "Creates multiple " + resourceName + " records in a single request",
+			Name:        resourceLabel + ":create:batch",
+			Summary:     "Create multiple " + resourcePluralLabel,
+			Tags:        []string{resourceLabel},
+			Description: "Creates multiple " + resourceLabel + " records in a single request",
 			RequestBody: &router.RequestBody{
-				Description: "Array of new " + resourceName + " data",
+				Description: "Array of new " + resourceLabel + " data",
 				Required:    true,
 				Content: map[string]any{
 					"application/json": map[string]any{
@@ -325,20 +326,20 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "PUT",
 			Path:        "/" + resourceName + "/:id",
 			Name:        resourceName + ":update",
-			Summary:     "Update " + resourceName + " by ID",
-			Tags:        []string{resourceName},
-			Description: "Updates an existing " + resourceName + " record",
+			Summary:     "Update " + resourceLabel + " by ID",
+			Tags:        []string{resourceLabel},
+			Description: "Updates an existing " + resourceLabel + " record",
 			Parameters: []router.Parameter{
 				{
 					Name:        "id",
 					In:          "path",
 					Required:    true,
-					Description: "ID of the " + resourceName + " to update",
+					Description: "ID of the " + resourceLabel + " to update",
 					Schema:      map[string]any{"type": "string", "format": "uuid"},
 				},
 			},
 			RequestBody: &router.RequestBody{
-				Description: "Updated " + resourceName + " data",
+				Description: "Updated " + resourceLabel + " data",
 				Required:    true,
 				Content: map[string]any{
 					"application/json": map[string]any{
@@ -351,7 +352,7 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Responses: []router.Response{
 				{
 					Code:        200,
-					Description: resourceName + " updated successfully",
+					Description: resourceLabel + " updated successfully",
 					Content: map[string]any{
 						"application/json": map[string]any{
 							"schema": map[string]any{
@@ -362,7 +363,7 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 				},
 				{
 					Code:        404,
-					Description: resourceName + " not found",
+					Description: resourceLabel + " not found",
 					Content: map[string]any{
 						"application/json": map[string]any{
 							"schema": errorResponseSchema,
@@ -376,11 +377,11 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "PUT",
 			Path:        "/" + resourceName + "/batch",
 			Name:        resourceName + ":update:batch",
-			Summary:     "Update multiple " + pluralName,
-			Tags:        []string{resourceName},
-			Description: "Updates multiple " + resourceName + " records in a single request",
+			Summary:     "Update multiple " + resourcePluralLabel,
+			Tags:        []string{resourceLabel},
+			Description: "Updates multiple " + resourceLabel + " records in a single request",
 			RequestBody: &router.RequestBody{
-				Description: "Array of " + resourceName + " updates",
+				Description: "Array of " + resourceLabel + " updates",
 				Required:    true,
 				Content: map[string]any{
 					"application/json": map[string]any{
@@ -424,26 +425,26 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "DELETE",
 			Path:        "/" + resourceName + "/:id",
 			Name:        resourceName + ":delete",
-			Summary:     "Delete " + resourceName + " by ID",
-			Tags:        []string{resourceName},
-			Description: "Deletes a " + resourceName + " record",
+			Summary:     "Delete " + resourceLabel + " by ID",
+			Tags:        []string{resourceLabel},
+			Description: "Deletes a " + resourceLabel + " record",
 			Parameters: []router.Parameter{
 				{
 					Name:        "id",
 					In:          "path",
 					Required:    true,
-					Description: "ID of the " + resourceName + " to delete",
+					Description: "ID of the " + resourceLabel + " to delete",
 					Schema:      map[string]any{"type": "string", "format": "uuid"},
 				},
 			},
 			Responses: []router.Response{
 				{
 					Code:        204,
-					Description: resourceName + " deleted successfully",
+					Description: resourceLabel + " deleted successfully",
 				},
 				{
 					Code:        404,
-					Description: resourceName + " not found",
+					Description: resourceLabel + " not found",
 					Content: map[string]any{
 						"application/json": map[string]any{
 							"schema": errorResponseSchema,
@@ -457,11 +458,11 @@ func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
 			Method:      "DELETE",
 			Path:        "/" + resourceName + "/batch",
 			Name:        resourceName + ":delete:batch",
-			Summary:     "Delete multiple " + pluralName,
-			Tags:        []string{resourceName},
-			Description: "Deletes multiple " + resourceName + " records in a single request",
+			Summary:     "Delete multiple " + resourcePluralLabel,
+			Tags:        []string{resourceLabel},
+			Description: "Deletes multiple " + resourceLabel + " records in a single request",
 			RequestBody: &router.RequestBody{
-				Description: "Array of " + resourceName + " IDs to delete",
+				Description: "Array of " + resourceLabel + " IDs to delete",
 				Required:    true,
 				Content: map[string]any{
 					"application/json": map[string]any{
