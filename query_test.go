@@ -4,13 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-print"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/uptrace/bun"
@@ -186,7 +184,6 @@ func TestBuildQueryCriteria(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create test users
 	users := []TestUser{
 		{
 			ID:        uuid.New(),
@@ -310,7 +307,6 @@ func TestBuildQueryCriteria(t *testing.T) {
 			criteria, _, err := BuildQueryCriteria[TestUser](ctx, tt.operation)
 			assert.NoError(t, err)
 
-			// Create a new query and apply the criteria
 			var results []TestUser
 			q := db.NewSelect().Model(&results)
 
@@ -455,9 +451,6 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				assert.Empty(t, filters.Fields)
 				assert.Empty(t, filters.Order)
 				assert.Contains(t, filters.Include, "Profile")
-
-				// Skip relations test for now until we implement it
-				t.Skip("Relations filtering not yet implemented")
 			},
 		},
 	}
@@ -469,10 +462,6 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.NotNil(t, filters)
-
-			fmt.Println("========")
-			fmt.Println(print.MaybePrettyJSON(filters))
-			fmt.Println("========")
 
 			if tt.validateFilters != nil {
 				tt.validateFilters(t, filters)

@@ -75,6 +75,9 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 		Name(fmt.Sprintf("%s:%s", resource, OpDelete))
 }
 
+// Show supports different query string parameters:
+// GET /user?include=Company,Profile
+// GET /user?select=id,age,email
 func (c *Controller[T]) Show(ctx Context) error {
 	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
 	if err != nil {
@@ -97,7 +100,6 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__ilike=John&age__gte=30
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
-// TODO: Support /projects?include=Message&include=Company
 func (c *Controller[T]) Index(ctx Context) error {
 	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
 	if err != nil {
