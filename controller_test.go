@@ -977,7 +977,7 @@ func TestGetResourceName(t *testing.T) {
 
 func getResourceNameFromType(typ interface{}) (string, string) {
 	typeName := reflect.TypeOf(typ).Elem().Name()
-	name := toKebabCase(typeName)
+	name := ToKebabCase(typeName)
 	singular := pluralizer.Singular(name)
 	plural := pluralizer.Plural(name)
 	return singular, plural

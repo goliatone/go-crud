@@ -105,7 +105,6 @@ func (c *Controller[T]) Index(ctx Context) error {
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
-
 	records, count, err := c.Repo.List(ctx.UserContext(), criteria...)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
