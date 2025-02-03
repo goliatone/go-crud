@@ -106,7 +106,7 @@ func GetResourceName[T any]() (string, string) {
 	if resourceName == "" {
 		// No 'crud' tag found, derive from type name
 		typeName := typ.Name()
-		resourceName = toKebabCase(typeName)
+		resourceName = ToKebabCase(typeName)
 	}
 
 	singular := pluralizer.Singular(resourceName)
@@ -122,7 +122,7 @@ func GetResourceTitle[T any]() (string, string) {
 	return name, names
 }
 
-func toKebabCase(s string) string {
+func ToKebabCase(s string) string {
 	runes := []rune(s)
 	var result []rune
 
