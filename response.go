@@ -63,17 +63,17 @@ func NewDefaultResponseHandler[T any]() ResponseHandler[T] {
 func (h DefaultResponseHandler[T]) OnError(c Context, err error, op CrudOperation) error {
 	switch err.(type) {
 	case *NotFoundError:
-		return c.Status(http.StatusNotFound).JSON(map[string]interface{}{
+		return c.Status(http.StatusNotFound).JSON(map[string]any{
 			"success": false,
 			"error":   err.Error(),
 		})
 	case *ValidationError:
-		return c.Status(http.StatusBadRequest).JSON(map[string]interface{}{
+		return c.Status(http.StatusBadRequest).JSON(map[string]any{
 			"success": false,
 			"error":   err.Error(),
 		})
 	default:
-		return c.Status(http.StatusInternalServerError).JSON(map[string]interface{}{
+		return c.Status(http.StatusInternalServerError).JSON(map[string]any{
 			"success": false,
 			"error":   err.Error(),
 		})
@@ -90,7 +90,7 @@ func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, f
 		filter = filters[0]
 	}
 
-	return c.Status(http.StatusOK).JSON(map[string]interface{}{
+	return c.Status(http.StatusOK).JSON(map[string]any{
 		"$meta":   filter,
 		"success": true,
 		"data":    data,
@@ -102,7 +102,7 @@ func (h DefaultResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
 }
 
 func (h DefaultResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
-	return c.Status(http.StatusOK).JSON(map[string]interface{}{
+	return c.Status(http.StatusOK).JSON(map[string]any{
 		"$meta":   filters,
 		"data":    data,
 		"success": true,
