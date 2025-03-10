@@ -7,7 +7,7 @@ import (
 type Request interface {
 	UserContext() context.Context
 	Params(key string, defaultValue ...string) string
-	BodyParser(out interface{}) error
+	BodyParser(out any) error
 	Query(key string, defaultValue ...string) string
 	QueryInt(key string, defaultValue ...int) int
 	Queries() map[string]string
@@ -16,7 +16,7 @@ type Request interface {
 
 type Response interface {
 	Status(status int) Response
-	JSON(data interface{}, ctype ...string) error
+	JSON(data any, ctype ...string) error
 	SendStatus(status int) error
 }
 
