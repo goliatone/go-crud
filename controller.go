@@ -50,6 +50,9 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	c.resource = resource
 
+	r.Get(fmt.Sprintf("/%s/schema", resource), c.Schema).
+		Name(fmt.Sprintf("%s:%s", resource, "schema"))
+
 	r.Get(fmt.Sprintf("/%s/:id", resource), c.Show).
 		Name(fmt.Sprintf("%s:%s", resource, OpRead))
 
@@ -57,22 +60,26 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 		Name(fmt.Sprintf("%s:%s", resource, OpList))
 
 	r.Post(fmt.Sprintf("/%s/batch", resource), c.CreateBatch).
-		Name(fmt.Sprintf("%s:%s:batch", resource, OpCreateBatch))
+		Name(fmt.Sprintf("%s:%s", resource, OpCreateBatch))
 
 	r.Post(fmt.Sprintf("/%s", resource), c.Create).
 		Name(fmt.Sprintf("%s:%s", resource, OpCreate))
 
 	r.Put(fmt.Sprintf("/%s/batch", resource), c.UpdateBatch).
-		Name(fmt.Sprintf("%s:%s:batch", resource, OpUpdateBatch))
+		Name(fmt.Sprintf("%s:%s", resource, OpUpdateBatch))
 
 	r.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
 		Name(fmt.Sprintf("%s:%s", resource, OpUpdate))
 
 	r.Delete(fmt.Sprintf("/%s/batch", resource), c.DeleteBatch).
-		Name(fmt.Sprintf("%s:%s:batch", resource, OpDeleteBatch))
+		Name(fmt.Sprintf("%s:%s", resource, OpDeleteBatch))
 
 	r.Delete(fmt.Sprintf("/%s/:id", resource), c.Delete).
 		Name(fmt.Sprintf("%s:%s", resource, OpDelete))
+}
+
+func (c *Controller[T]) Schema(ctx Context) error {
+	return ctx.JSON(c.GetMetadata())
 }
 
 // Show supports different query string parameters:
