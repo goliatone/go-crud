@@ -5,7 +5,7 @@ A Go package that provides a generic CRUD controller for REST APIs using Fiber a
 ## Installation
 
 ```bash
-go get github.com/yourusername/crud-controller
+go get github.com/goliatone/go-crud
 ```
 
 ## Quick Start
@@ -14,15 +14,17 @@ go get github.com/yourusername/crud-controller
 package main
 
 import (
-	"time"
 	"database/sql"
+	"log"
+	"time"
 
-    "github.com/uptrace/bun/driver/sqliteshim"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
+	"github.com/mattn/go-sqlite3"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type User struct {
@@ -56,16 +58,18 @@ func NewUserRepository(db bun.IDB) repository.Repository[*User] {
 }
 
 func main() {
-	sqldb, err := sql.Open(sqliteshim.ShimName, "file::memory:?cache=shared")
+	_ = sqlite3.Version() // ensure driver is imported
+	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
 		panic(err)
 	}
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
-
 	server := fiber.New()
 	api := server.Group("/api/v1")
-	crud.NewController[*model.User](model.NewUserRepository(db)).RegisterRoutes(api)
+
+	userRepo := NewUserRepository(db)
+	crud.NewController[*User](userRepo).RegisterRoutes(api)
 
 	log.Fatal(server.Listen(":3000"))
 }
@@ -77,11 +81,15 @@ func main() {
 For a `User` struct, the following routes are automatically created:
 
 ```
-GET    /user/:id      - Get a single user
-GET    /users         - List users
-POST   /user          - Create a user
-PUT    /user/:id      - Update a user
-DELETE /user/:id      - Delete a user
+GET    /user/schema       - Get OpenAPI schema for the resource
+GET    /user/:id          - Get a single user
+GET    /users             - List users (with pagination, filtering, ordering)
+POST   /user              - Create a user
+POST   /user/batch        - Create multiple users
+PUT    /user/:id          - Update a user
+PUT    /user/batch        - Update multiple users
+DELETE /user/:id          - Delete a user
+DELETE /user/batch        - Delete multiple users
 ```
 
 ### Resource Naming Convention
@@ -105,6 +113,16 @@ The package uses proper pluralization rules, handling common irregular cases cor
 - `Person` → `/person` and `/people`
 - `Category` → `/category` and `/categories`
 - `Bus` → `/bus` and `/buses`
+
+## Features
+
+- **OpenAPI Schema Generation**: Each resource automatically generates an OpenAPI-compatible schema endpoint
+- **Batch Operations**: Support for creating, updating, and deleting multiple records in a single request
+- **Advanced Filtering**: Query parameters with operators for complex filtering
+- **Soft Deletes**: Built-in support for soft delete functionality via Bun ORM
+- **Customizable Response Handlers**: Flexible response formatting for different API standards
+- **Logging Support**: Configurable logging with custom logger interface
+- **Router Adapter**: Works with Fiber v2 and can be extended for other routers
 
 ## Configuration
 
@@ -237,14 +255,15 @@ The above handler would produce responses in JSONAPI format:
 ### Query Parameters
 
 The List endpoint supports:
-- Pagination: `?limit=10&offset=20`
+- Pagination: `?limit=10&offset=20` (default limit: 25, offset: 0)
 - Ordering: `?order=name asc,created_at desc`
 - Field selection: `?select=id,name,email`
-- Relations: `?include=company,profile`
+- Relations: `?include=Company,Profile` (supports filtering: `?include=Profile.status=outdated`)
 - Filtering:
   - Basic: `?name=John`
-  - Operators: `?age__gte=30`
-  - Multiple values: `?status__in=active,pending`
+  - Operators: `?age__gte=30`, `?name__ilike=john%`
+  - Available operators: `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`
+  - Multiple values: `?name__or=John,Jack`
 
 
 ## License
