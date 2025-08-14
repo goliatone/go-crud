@@ -24,7 +24,7 @@ type mockContext struct {
 	status      int
 	queries     url.Values
 	// Optionally store a JSON payload or other data for testing
-	jsonData  interface{}
+	jsonData  any
 	sentError error
 }
 
@@ -56,7 +56,7 @@ func (m *mockContext) Params(key string, defaultValue ...string) string {
 }
 
 // BodyParser unmarshals the JSON in requestBody into out.
-func (m *mockContext) BodyParser(out interface{}) error {
+func (m *mockContext) BodyParser(out any) error {
 	if len(m.requestBody) == 0 {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (m *mockContext) Status(status int) Response {
 }
 
 // JSON sets the response data (and optionally you could store the contentType).
-func (m *mockContext) JSON(data interface{}, ctype ...string) error {
+func (m *mockContext) JSON(data any, ctype ...string) error {
 	m.jsonData = data
 	return nil
 }
@@ -130,7 +130,7 @@ func (m *mockContext) GetStatus() int {
 	return m.status
 }
 
-func (m *mockContext) GetJSONData() interface{} {
+func (m *mockContext) GetJSONData() any {
 	return m.jsonData
 }
 

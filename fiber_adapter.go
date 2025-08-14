@@ -69,7 +69,7 @@ func (ca *crudAdapter) Body() []byte {
 	return ca.c.Body()
 }
 
-func (ca *crudAdapter) BodyParser(out interface{}) error {
+func (ca *crudAdapter) BodyParser(out any) error {
 	return ca.c.BodyParser(out)
 }
 
@@ -103,7 +103,7 @@ func (ca *crudAdapter) Status(status int) Response {
 	return ca
 }
 
-func (ca *crudAdapter) JSON(data interface{}, ctype ...string) error {
+func (ca *crudAdapter) JSON(data any, ctype ...string) error {
 	if ca.statusCode == 0 {
 		ca.statusCode = http.StatusOK
 	}

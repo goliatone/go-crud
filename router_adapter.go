@@ -74,7 +74,7 @@ func (ca *contextAdapter) Body() []byte {
 	return ca.c.Body()
 }
 
-func (ca *contextAdapter) BodyParser(out interface{}) error {
+func (ca *contextAdapter) BodyParser(out any) error {
 	return ca.c.Bind(out)
 }
 
@@ -105,7 +105,7 @@ func (ca *contextAdapter) Status(status int) Response {
 	return ca
 }
 
-func (ca *contextAdapter) JSON(data interface{}, ctype ...string) error {
+func (ca *contextAdapter) JSON(data any, ctype ...string) error {
 	if ca.status == 0 {
 		ca.status = http.StatusOK
 	}
