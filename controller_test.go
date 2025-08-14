@@ -53,7 +53,7 @@ func newTestUserRepository(db *bun.DB) repository.Repository[*TestUser] {
 			return "Email"
 		},
 	}
-	return repository.NewRepository[*TestUser](db, handlers)
+	return repository.NewRepository(db, handlers)
 }
 
 func testUserDeserializer(op CrudOperation, ctx Context) (*TestUser, error) {
@@ -101,7 +101,7 @@ func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
 }
 
 func createSchema(ctx context.Context, db *bun.DB) error {
-	models := []interface{}{
+	models := []any{
 		(*TestUser)(nil),
 	}
 
@@ -149,7 +149,7 @@ func TestController_CreateUser(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
 
-	user := map[string]interface{}{
+	user := map[string]any{
 		"name":     "John Doe",
 		"email":    "john.doe@example.com",
 		"password": "secret",
@@ -291,7 +291,7 @@ func TestController_UpdateUser(t *testing.T) {
 	}
 
 	// Prepare update data
-	updatedData := map[string]interface{}{
+	updatedData := map[string]any{
 		"name": "New Name",
 	}
 	body, err := json.Marshal(updatedData)
@@ -949,23 +949,23 @@ func TestGetResourceName(t *testing.T) {
 
 			switch tc.name {
 			case "TestUser":
-				singular, plural := GetResourceName[*TestUser]()
+				singular, plural := GetResourceName(reflect.TypeOf(TestUser{}))
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "OrderItem":
-				singular, plural := GetResourceName[*OrderItem]()
+				singular, plural := GetResourceName(reflect.TypeOf(OrderItem{}))
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "Person":
-				singular, plural := GetResourceName[*Person]()
+				singular, plural := GetResourceName(reflect.TypeOf(Person{}))
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "Category":
-				singular, plural := GetResourceName[*Category]()
+				singular, plural := GetResourceName(reflect.TypeOf(Category{}))
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "ModelWithTag":
-				singular, plural := GetResourceName[*ModelWithTag]()
+				singular, plural := GetResourceName(reflect.TypeOf(ModelWithTag{}))
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			default:
@@ -973,14 +973,6 @@ func TestGetResourceName(t *testing.T) {
 			}
 		})
 	}
-}
-
-func getResourceNameFromType(typ interface{}) (string, string) {
-	typeName := reflect.TypeOf(typ).Elem().Name()
-	name := ToKebabCase(typeName)
-	singular := pluralizer.Singular(name)
-	plural := pluralizer.Plural(name)
-	return singular, plural
 }
 
 func TestRegisterRoutes(t *testing.T) {
@@ -1001,11 +993,11 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	repo := newTestUserRepository(db)
-	controller := NewController[*TestUser](repo, WithDeserializer(testUserDeserializer))
+	controller := NewController(repo, WithDeserializer(testUserDeserializer))
 
 	controller.RegisterRoutes(router)
 
-	singular, plural := GetResourceName[*TestUser]()
+	singular, plural := GetResourceName(reflect.TypeOf(TestUser{}))
 
 	// Expected routes
 	expectedRoutes := []struct {
