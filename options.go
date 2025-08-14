@@ -53,6 +53,12 @@ func WithResponseHandler[T any](handler ResponseHandler[T]) Option[T] {
 	}
 }
 
+func WithLogger[T any](logger Logger) Option[T] {
+	return func(c *Controller[T]) {
+		c.logger = logger
+	}
+}
+
 // DefaultDeserializer provides a generic deserializer.
 func DefaultDeserializer[T any](op CrudOperation, ctx Context) (T, error) {
 	var record T
@@ -74,10 +80,7 @@ func DefaultDeserializerMany[T any](op CrudOperation, ctx Context) ([]T, error) 
 // GetResourceName returns the singular and plural resource names for type T.
 // It first checks for a 'crud:"resource:..."' tag on any embedded fields.
 // If found, it uses the specified resource name. Otherwise, it derives the name from the type's name.
-func GetResourceName[T any]() (string, string) {
-	var t T
-	typ := reflect.TypeOf(t)
-
+func GetResourceName(typ reflect.Type) (string, string) {
 	// If T is a pointer, get the element type
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -115,8 +118,8 @@ func GetResourceName[T any]() (string, string) {
 	return singular, plural
 }
 
-func GetResourceTitle[T any]() (string, string) {
-	resourceName, pluralName := GetResourceName[T]()
+func GetResourceTitle(typ reflect.Type) (string, string) {
+	resourceName, pluralName := GetResourceName(typ)
 	name := strcase.ToCase(resourceName, strcase.TitleCase, ' ')
 	names := strcase.ToCase(pluralName, strcase.TitleCase, ' ')
 	return name, names
