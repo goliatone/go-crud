@@ -70,7 +70,8 @@ func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
 	app := fiber.New()
 
 	// Set up the database (in-memory SQLite for testing)
-	sqldb, err := sql.Open("sqlite3", ":memory:")
+	// Use shared cache to ensure all connections see the same database
+	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
@@ -252,6 +253,13 @@ func TestController_ListUsers(t *testing.T) {
 		t.Fatalf("Failed to perform request: %v", err)
 	}
 
+	// Debug: Print response body if status is not OK
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Logf("Response status: %d, body: %s", resp.StatusCode, string(body))
+		resp.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
+	}
+
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var response APIListResponse[TestUser]
@@ -261,7 +269,9 @@ func TestController_ListUsers(t *testing.T) {
 
 	assert.True(t, response.Success)
 	assert.Len(t, response.Data, 5)
-	assert.Equal(t, 5, response.Meta.Count)
+	if assert.NotNil(t, response.Meta) {
+		assert.Equal(t, 5, response.Meta.Count)
+	}
 
 	for _, user := range response.Data {
 		assert.NotEmpty(t, user.Name)
@@ -391,7 +401,9 @@ func TestController_ListUsers_NoFilters(t *testing.T) {
 
 	assert.True(t, response.Success)
 	assert.Len(t, response.Data, 3)
-	assert.Equal(t, 3, response.Meta.Count)
+	if assert.NotNil(t, response.Meta) {
+		assert.Equal(t, 3, response.Meta.Count)
+	}
 
 	// Optional: Verify each user exists
 	expectedNames := []string{"Alice", "Bob", "Charlie"}
@@ -435,6 +447,13 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 		t.Fatalf("Failed to perform request: %v", err)
 	}
 
+	// Debug: Print response body if status is not OK
+	if respAll.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(respAll.Body)
+		t.Logf("Response status: %d, body: %s", respAll.StatusCode, string(body))
+		respAll.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
+	}
+
 	assert.Equal(t, http.StatusOK, respAll.StatusCode)
 
 	var allUsersResponse APIListResponse[TestUser]
@@ -444,7 +463,9 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 
 	assert.True(t, allUsersResponse.Success)
 	assert.Len(t, allUsersResponse.Data, 3)
-	assert.Equal(t, 3, allUsersResponse.Meta.Count)
+	if assert.NotNil(t, allUsersResponse.Meta) {
+		assert.Equal(t, 3, allUsersResponse.Meta.Count)
+	}
 
 	// Now, filter users where name is 'Bob'
 	req := httptest.NewRequest("GET", "/test-users?name=Bob", nil)
@@ -455,6 +476,13 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 		t.Fatalf("Failed to perform request: %v", err)
 	}
 
+	// Debug: Print response body if status is not OK
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Logf("Response status: %d, body: %s", resp.StatusCode, string(body))
+		resp.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
+	}
+
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var filteredResponse APIListResponse[TestUser]
@@ -463,9 +491,12 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 	}
 
 	assert.True(t, filteredResponse.Success)
-	assert.Len(t, filteredResponse.Data, 1)
-	assert.Equal(t, 1, filteredResponse.Meta.Count)
-	assert.Equal(t, "Bob", filteredResponse.Data[0].Name)
+	if assert.Len(t, filteredResponse.Data, 1) {
+		assert.Equal(t, "Bob", filteredResponse.Data[0].Name)
+	}
+	if assert.NotNil(t, filteredResponse.Meta) {
+		assert.Equal(t, 1, filteredResponse.Meta.Count)
+	}
 }
 
 func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
@@ -759,7 +790,9 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		assert.True(t, response.Success)
 		// TODO: Maybe this should be assert.Len(t, response.Data, 0)
 		assert.Len(t, response.Data, 5)
-		assert.Equal(t, 5, response.Meta.Count)
+		if assert.NotNil(t, response.Meta) {
+			assert.Equal(t, 5, response.Meta.Count)
+		}
 	})
 
 	t.Run("Filter with multiple OR operators on different fields", func(t *testing.T) {
@@ -781,7 +814,9 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		assert.True(t, response.Success)
 		expectedNames := []string{"Alice", "Bob", "Charlie"}
 		assert.Equal(t, 3, len(response.Data))
-		assert.Equal(t, 3, response.Meta.Count)
+		if assert.NotNil(t, response.Meta) {
+			assert.Equal(t, 3, response.Meta.Count)
+		}
 		for _, user := range response.Data {
 			assert.Contains(t, expectedNames, user.Name)
 		}
@@ -805,7 +840,9 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 		assert.True(t, response.Success)
 		assert.Len(t, response.Data, 0)
-		assert.Equal(t, 0, response.Meta.Count)
+		if assert.NotNil(t, response.Meta) {
+			assert.Equal(t, 0, response.Meta.Count)
+		}
 	})
 
 	t.Run("Filter with JSON injection attempt", func(t *testing.T) {
@@ -830,7 +867,9 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 		assert.True(t, response.Success)
 		assert.Len(t, response.Data, 0)
-		assert.Equal(t, 0, response.Meta.Count)
+		if assert.NotNil(t, response.Meta) {
+			assert.Equal(t, 0, response.Meta.Count)
+		}
 	})
 }
 
