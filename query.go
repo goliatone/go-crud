@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goliatone/go-print"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
 )
@@ -70,6 +71,8 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 		Operation: string(op),
 	}
 
+	fmt.Println("======= build criteria")
+	fmt.Println(print.MaybePrettyJSON(filters))
 	// Start building our criteria slice
 	criteria := &queryCriteria{op: op}
 
@@ -170,6 +173,7 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	}
 
 	queryParams := ctx.Queries()
+	fmt.Printf("query params: %s\n", print.MaybePrettyJSON(queryParams))
 
 	// For each parameter, if it's not in excludeParams, add a where condition
 	criteria.filters = append(criteria.filters, func(q *bun.SelectQuery) *bun.SelectQuery {
