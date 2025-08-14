@@ -13,8 +13,8 @@ var _ router.MetadataProvider = (*Controller[any])(nil)
 // OpenAPI spec or something similar
 func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 	var model T
-	resourceName, pluralName := GetResourceName[T]()
 	modelType := reflect.TypeOf(model)
+	resourceName, pluralName := GetResourceName(modelType)
 
 	metadata := router.ResourceMetadata{
 		Name:       resourceName,
@@ -28,8 +28,8 @@ func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 }
 
 func (c *Controller[T]) buildRoutesMetadata() []router.RouteDefinition {
-	resourceLabel, resourcePluralLabel := GetResourceTitle[T]()
-	resourceName, resourcePluralName := GetResourceName[T]()
+	resourceName, resourcePluralName := GetResourceName(c.resourceType)
+	resourceLabel, resourcePluralLabel := GetResourceTitle(c.resourceType)
 
 	// Common error response schema
 	errorResponseSchema := map[string]any{
