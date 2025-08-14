@@ -2,6 +2,7 @@ package crud
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
@@ -28,15 +29,20 @@ type Controller[T any] struct {
 	deserialiMany func(op CrudOperation, ctx Context) ([]T, error)
 	resp          ResponseHandler[T]
 	resource      string
+	resourceType  reflect.Type
+	logger        Logger
 }
 
 // NewController creates a new Controller with functional options.
 func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
+	var t T
 	controller := &Controller[T]{
 		Repo:          repo,
 		deserializer:  DefaultDeserializer[T],
 		deserialiMany: DefaultDeserializerMany[T],
 		resp:          NewDefaultResponseHandler[T](),
+		resourceType:  reflect.TypeOf(t),
+		logger:        &defaultLogger{},
 	}
 
 	for _, opt := range opts {
@@ -46,7 +52,7 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 }
 
 func (c *Controller[T]) RegisterRoutes(r Router) {
-	resource, resources := GetResourceName[T]()
+	resource, resources := GetResourceName(c.resourceType)
 
 	c.resource = resource
 
