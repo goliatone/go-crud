@@ -182,7 +182,7 @@ type JSONAPIResponseHandler[T any] struct{}
 func (h JSONAPIResponseHandler[T]) OnData(c *fiber.Ctx, data T, op CrudOperation) error {
     c.Set("Content-type", "application/vnd.api+json")
     return c.JSON(fiber.Map{
-        "data": map[string]interface{}{
+        "data": map[string]any{
             "type":       "users",
             "id":         getId(data),
             "attributes": data,
@@ -191,9 +191,9 @@ func (h JSONAPIResponseHandler[T]) OnData(c *fiber.Ctx, data T, op CrudOperation
 }
 
 func (h JSONAPIResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperation, total int) error {
-    items := make([]map[string]interface{}, len(data))
+    items := make([]map[string]any, len(data))
     for i, item := range data {
-        items[i] = map[string]interface{}{
+        items[i] = map[string]any{
             "type":       "users",
             "id":         getId(item),
             "attributes": item,
@@ -202,7 +202,7 @@ func (h JSONAPIResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperati
     c.Set("Content-type", "application/vnd.api+json")
     return c.JSON(fiber.Map{
         "data": items,
-        "meta": map[string]interface{}{
+        "meta": map[string]any{
             "total": total,
         },
     })
@@ -215,7 +215,7 @@ func (h JSONAPIResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOpera
     }
     c.Set("Content-type", "application/vnd.api+json")
     return c.Status(status).JSON(fiber.Map{
-        "errors": []map[string]interface{}{
+        "errors": []map[string]any{
             {
                 "status": status,
                 "title":  "Error",
