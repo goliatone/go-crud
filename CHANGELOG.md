@@ -1,5 +1,43 @@
 # Changelog
 
+# [0.2.0](https://github.com/goliatone/go-crud/compare/v0.1.1...v0.2.0) - (2025-10-03)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Use any ([f343748](https://github.com/goliatone/go-crud/commit/f343748b2cf2f047a16da3989d498023868f0012))  - (goliatone)
+- Test ([24efea4](https://github.com/goliatone/go-crud/commit/24efea4cdaf7c6a6a2b865b8ecbe25160d513a76))  - (goliatone)
+- Changelog docs ([26f9955](https://github.com/goliatone/go-crud/commit/26f99553ab98be808222e2a4b384ba2099218f8a))  - (goliatone)
+- Use reflect type ([61b8722](https://github.com/goliatone/go-crud/commit/61b8722e569f12498e28d306edb09fb2e7fd6c78))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.2.0 ([bc9843d](https://github.com/goliatone/go-crud/commit/bc9843d67831abfe33ff10cefb59b1be6104f8dd))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Logger ([56360d0](https://github.com/goliatone/go-crud/commit/56360d023f3b6e1ba9f6fbc87fa515c550e2d537))  - (goliatone)
+- Controller test ([b35c4c7](https://github.com/goliatone/go-crud/commit/b35c4c71158b1c4cb95b8f25c0698d02f944c039))  - (goliatone)
+- Schema endpoint ([6ce82a6](https://github.com/goliatone/go-crud/commit/6ce82a6ed77bfd5ff7064211e674c3759f26f38b))  - (goliatone)
+- Exort helper function ([f10415d](https://github.com/goliatone/go-crud/commit/f10415dd96c0aadbd2d09027c74766e6abe6a42f))  - (goliatone)
+
+## <!-- 22 -->🚧 WIP
+
+- Fix query ([a8f5a97](https://github.com/goliatone/go-crud/commit/a8f5a97eec04a3e552b0dbf544d26d8b700ea898))  - (goliatone)
+- Use resource type ([d065175](https://github.com/goliatone/go-crud/commit/d06517591bef9818b6e8fc300ca21e119be1aace))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.1.1 ([f41ad76](https://github.com/goliatone/go-crud/commit/f41ad7671910c23887379c9ff45a1fd915c99723))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- Clean up code ([5b1173a](https://github.com/goliatone/go-crud/commit/5b1173ac5efe990d4ae8a6a057417a47497a9913))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([f93003e](https://github.com/goliatone/go-crud/commit/f93003e42bb524e4e42e26132c9d1018eb5822d4))  - (goliatone)
+- Update readme ([41cb1ee](https://github.com/goliatone/go-crud/commit/41cb1eee87fdf4421a8b949085a55ddbe8f0e45d))  - (goliatone)
+
 # [0.1.1](https://github.com/goliatone/go-crud/compare/v0.1.0...v0.1.1) - (2025-01-05)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -38,7 +76,6 @@
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Add deps ([20f4324](https://github.com/goliatone/go-crud/commit/20f432410a62a7ef7fee1672f0be950f1dac57ce))  - (goliatone)
-- Add deps ([f75b043](https://github.com/goliatone/go-crud/commit/f75b043bce980146fd5ea8049d4272b7f5b6badc))  - (goliatone)
 
 # [0.1.0](https://github.com/goliatone/go-crud/compare/v0.0.2...v0.1.0) - (2025-01-02)
 
@@ -62,12 +99,9 @@
 - Support include and selected fields in GET ([cf24758](https://github.com/goliatone/go-crud/commit/cf247582b50d95ea683654f1f66f3b19121501f6))  - (goliatone)
 - Query parsing ([972c6a3](https://github.com/goliatone/go-crud/commit/972c6a31de16287b754259dd77e1d7091a26dd63))  - (goliatone)
 - New interface methods ([210ee6b](https://github.com/goliatone/go-crud/commit/210ee6b749a366c28ba44885ce0d0243386e8477))  - (goliatone)
-- New interface methods ([ff11079](https://github.com/goliatone/go-crud/commit/ff11079a3cdc1bf6ca281fed6536ca6069b4c757))  - (goliatone)
-- New interface methods ([c127ba6](https://github.com/goliatone/go-crud/commit/c127ba6987e99fb0dffc0ae0ff7065ec3e5adffe))  - (goliatone)
 - Delete batch endpoint ([5465ea8](https://github.com/goliatone/go-crud/commit/5465ea8663eb7bb4eb6fe3c1cabdf9c26fbf2776))  - (goliatone)
 - New meta attributes ([215c2d3](https://github.com/goliatone/go-crud/commit/215c2d39897725243f124af5ea53a5969b8f9635))  - (goliatone)
 - New Batch methods to Create/Update records ([c146d87](https://github.com/goliatone/go-crud/commit/c146d8740159141fec3af3b941d226ad25d38061))  - (goliatone)
-- New Batch methods to Create/Update records ([33bd4d4](https://github.com/goliatone/go-crud/commit/33bd4d4fdcaf725a0fca2ba4d5154ca1f3b9072c))  - (goliatone)
 - Fiber adapter ([299f5ee](https://github.com/goliatone/go-crud/commit/299f5eebfa4fe2a68590cb51ea9fc2ca299559a2))  - (goliatone)
 - New interfaces for request response ([266b077](https://github.com/goliatone/go-crud/commit/266b077825de776f7bc73f9707b5a4bf3663fa44))  - (goliatone)
 
@@ -76,13 +110,11 @@
 - Options use new interface, remove fiver ([1468c1a](https://github.com/goliatone/go-crud/commit/1468c1a8b3f5a5a81413d70d8e240058e48c0a8b))  - (goliatone)
 - Options use new interface, remove fiber ([d259436](https://github.com/goliatone/go-crud/commit/d2594362fcad35804e8875ba8f36579925d46ff0))  - (goliatone)
 - Use interfaces instead of concrete frameworks ([1e3a41a](https://github.com/goliatone/go-crud/commit/1e3a41ac57dc9df73e619fddac40dfcdcb3eb775))  - (goliatone)
-- Use interfaces instead of concrete frameworks ([734aaf4](https://github.com/goliatone/go-crud/commit/734aaf4bd7428ad0692c4092eb477f1037bddb1a))  - (goliatone)
 
 ## <!-- 22 -->🚧 WIP
 
 - Clean up code ([304fbdc](https://github.com/goliatone/go-crud/commit/304fbdc92257429bfc337a5e6bf01d7076f44a58))  - (goliatone)
 - Adding metadata to response ([9c1bb40](https://github.com/goliatone/go-crud/commit/9c1bb407c98f69201d162988f488ff2362e71222))  - (goliatone)
-- Adding metadata to response ([2b1f671](https://github.com/goliatone/go-crud/commit/2b1f671b9e0593490653fdd38457fda9594bb1c3))  - (goliatone)
 
 ## <!-- 3 -->📚 Documentation
 
@@ -113,7 +145,6 @@
 
 - Defualt response struct ([95aede4](https://github.com/goliatone/go-crud/commit/95aede4b8cd7115b4aff1276c90168eba17b20d0))  - (goliatone)
 - Abstract response handler ([90d6a83](https://github.com/goliatone/go-crud/commit/90d6a830c22868a020d72c1487b4963b8439906e))  - (goliatone)
-- Abstract response handler ([e7a43c6](https://github.com/goliatone/go-crud/commit/e7a43c6c9d508983c92cee61fd04c33f7f376df0))  - (goliatone)
 
 ## <!-- 30 -->📝 Other
 
@@ -129,12 +160,10 @@
 
 - Test task ([f7f1182](https://github.com/goliatone/go-crud/commit/f7f1182fb75d35d3b7fe32cf8655f49097d815d6))  - (goliatone)
 - Crud controller ([4238602](https://github.com/goliatone/go-crud/commit/42386020a73b3ab5f75cda2540868bd18db30888))  - (goliatone)
-- Crud controller ([4515e04](https://github.com/goliatone/go-crud/commit/4515e04bb57995fa9f9bcfd15c60ccc83733c031))  - (goliatone)
 
 ## <!-- 22 -->🚧 WIP
 
 - Clean up ([77999de](https://github.com/goliatone/go-crud/commit/77999decb79655748a20b383b4713c8cdb7dd6b2))  - (goliatone)
-- Clean up ([263cb0c](https://github.com/goliatone/go-crud/commit/263cb0c2e675cb8bbdaf58a1a562dc6bdb76a4db))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
