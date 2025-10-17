@@ -150,6 +150,12 @@ func WithRouteConfig[T any](config RouteConfig) Option[T] {
 	}
 }
 
+func WithLifecycleHooks[T any](hooks LifecycleHooks[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.hooks = hooks
+	}
+}
+
 // DefaultDeserializer provides a generic deserializer.
 func DefaultDeserializer[T any](op CrudOperation, ctx Context) (T, error) {
 	var record T
