@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.3.0](https://github.com/goliatone/go-crud/compare/v0.2.0...v0.3.0) - (2025-10-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Use router GetMetadata implementation ([2054886](https://github.com/goliatone/go-crud/commit/2054886aedb839ec73d09bb29ec7528a3933df67))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.3.0 ([b326e48](https://github.com/goliatone/go-crud/commit/b326e48ac577973fb327c3acdcbf2dfec1b0a3d8))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.2.0 ([75e7575](https://github.com/goliatone/go-crud/commit/75e75759aa2dbaf51da78d3cd71d573b5174b4c2))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([e5e0797](https://github.com/goliatone/go-crud/commit/e5e079761e1db9724f1d417136012795bed91646))  - (goliatone)
+
 # [0.2.0](https://github.com/goliatone/go-crud/compare/v0.1.1...v0.2.0) - (2025-10-03)
 
 ## <!-- 1 -->🐛 Bug Fixes
