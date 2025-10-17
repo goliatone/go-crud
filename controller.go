@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/goliatone/go-repository-bun"
+	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
 )
 
@@ -56,32 +57,82 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	c.resource = resource
 
-	r.Get(fmt.Sprintf("/%s/schema", resource), c.Schema).
-		Name(fmt.Sprintf("%s:%s", resource, "schema"))
+	metadata := router.GetResourceMetadata(c.resourceType)
+	routeMeta := map[string]router.RouteDefinition{}
+	if metadata != nil {
+		for _, def := range metadata.Routes {
+			key := fmt.Sprintf("%s %s", string(def.Method), def.Path)
+			routeMeta[key] = def
+		}
+	}
 
-	r.Get(fmt.Sprintf("/%s/:id", resource), c.Show).
-		Name(fmt.Sprintf("%s:%s", resource, OpRead))
+	applyMeta := func(method, path string, info RouterRouteInfo) {
+		metaAware, ok := info.(MetadataRouterRouteInfo)
+		if !ok {
+			return
+		}
+		if def, ok := routeMeta[fmt.Sprintf("%s %s", method, path)]; ok {
+			if def.Description != "" {
+				metaAware.Description(def.Description)
+			}
+			if def.Summary != "" {
+				metaAware.Summary(def.Summary)
+			}
+			if len(def.Tags) > 0 {
+				metaAware.Tags(def.Tags...)
+			}
+			for _, p := range def.Parameters {
+				metaAware.Parameter(p.Name, p.In, p.Required, p.Schema)
+			}
+			if def.RequestBody != nil {
+				metaAware.RequestBody(def.RequestBody.Description, def.RequestBody.Required, def.RequestBody.Content)
+			}
+			for _, resp := range def.Responses {
+				metaAware.Response(resp.Code, resp.Description, resp.Content)
+			}
+		}
+	}
 
-	r.Get(fmt.Sprintf("/%s", resources), c.Index).
-		Name(fmt.Sprintf("%s:%s", resource, OpList))
+	schemaPath := fmt.Sprintf("/%s/schema", resource)
+	schemaRoute := fmt.Sprintf("%s:%s", resource, "schema")
+	r.Get(schemaPath, c.Schema).
+		Name(schemaRoute)
 
-	r.Post(fmt.Sprintf("/%s/batch", resource), c.CreateBatch).
-		Name(fmt.Sprintf("%s:%s", resource, OpCreateBatch))
+	showPath := fmt.Sprintf("/%s/:id", resource)
+	readRoute := fmt.Sprintf("%s:%s", resource, OpRead)
+	applyMeta("GET", showPath, r.Get(showPath, c.Show).
+		Name(readRoute))
 
-	r.Post(fmt.Sprintf("/%s", resource), c.Create).
-		Name(fmt.Sprintf("%s:%s", resource, OpCreate))
+	listPath := fmt.Sprintf("/%s", resources)
+	listRoute := fmt.Sprintf("%s:%s", resource, OpList)
+	applyMeta("GET", listPath, r.Get(listPath, c.Index).
+		Name(listRoute))
 
-	r.Put(fmt.Sprintf("/%s/batch", resource), c.UpdateBatch).
-		Name(fmt.Sprintf("%s:%s", resource, OpUpdateBatch))
+	createBatchPath := fmt.Sprintf("/%s/batch", resource)
+	createBatchRoute := fmt.Sprintf("%s:%s", resource, OpCreateBatch)
+	applyMeta("POST", createBatchPath, r.Post(createBatchPath, c.CreateBatch).
+		Name(createBatchRoute))
 
-	r.Put(fmt.Sprintf("/%s/:id", resource), c.Update).
-		Name(fmt.Sprintf("%s:%s", resource, OpUpdate))
+	createPath := fmt.Sprintf("/%s", resource)
+	createRoute := fmt.Sprintf("%s:%s", resource, OpCreate)
+	applyMeta("POST", createPath, r.Post(createPath, c.Create).
+		Name(createRoute))
 
-	r.Delete(fmt.Sprintf("/%s/batch", resource), c.DeleteBatch).
-		Name(fmt.Sprintf("%s:%s", resource, OpDeleteBatch))
+	updateBatchRoute := fmt.Sprintf("%s:%s", resource, OpUpdateBatch)
+	applyMeta("PUT", createBatchPath, r.Put(createBatchPath, c.UpdateBatch).
+		Name(updateBatchRoute))
 
-	r.Delete(fmt.Sprintf("/%s/:id", resource), c.Delete).
-		Name(fmt.Sprintf("%s:%s", resource, OpDelete))
+	updateRoute := fmt.Sprintf("%s:%s", resource, OpUpdate)
+	applyMeta("PUT", showPath, r.Put(showPath, c.Update).
+		Name(updateRoute))
+
+	deleteBatchRoute := fmt.Sprintf("%s:%s", resource, OpDeleteBatch)
+	applyMeta("DELETE", createBatchPath, r.Delete(createBatchPath, c.DeleteBatch).
+		Name(deleteBatchRoute))
+
+	deleteRoute := fmt.Sprintf("%s:%s", resource, OpDelete)
+	applyMeta("DELETE", showPath, r.Delete(showPath, c.Delete).
+		Name(deleteRoute))
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
