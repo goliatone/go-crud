@@ -1,6 +1,8 @@
 package crud
 
 import (
+	"maps"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -17,6 +19,78 @@ const (
 var operatorMap = DefaultOperatorMap()
 
 type FieldMapProvider func(reflect.Type) map[string]string
+
+type RouteOptions struct {
+	Enabled *bool
+	Method  string
+}
+
+type RouteConfig struct {
+	Operations map[CrudOperation]RouteOptions
+}
+
+func DefaultRouteConfig() RouteConfig {
+	return RouteConfig{}
+}
+
+func BoolPtr(v bool) *bool {
+	return &v
+}
+
+func (rc RouteConfig) merge(other RouteConfig) RouteConfig {
+	switch {
+	case len(rc.Operations) == 0 && len(other.Operations) == 0:
+		return RouteConfig{}
+	case len(rc.Operations) == 0:
+		return RouteConfig{Operations: cloneRouteOptionsMap(other.Operations)}
+	case len(other.Operations) == 0:
+		return RouteConfig{Operations: cloneRouteOptionsMap(rc.Operations)}
+	default:
+		merged := make(map[CrudOperation]RouteOptions, len(rc.Operations)+len(other.Operations))
+		maps.Copy(merged, rc.Operations)
+		maps.Copy(merged, other.Operations)
+		return RouteConfig{Operations: merged}
+	}
+}
+
+func cloneRouteOptionsMap(in map[CrudOperation]RouteOptions) map[CrudOperation]RouteOptions {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[CrudOperation]RouteOptions, len(in))
+	maps.Copy(out, in)
+	return out
+}
+
+func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, string) {
+	method := defaultMethod
+	enabled := true
+
+	if len(method) == 0 {
+		method = http.MethodGet
+	}
+
+	if rc.Operations != nil {
+		if opt, ok := rc.Operations[op]; ok {
+			if opt.Enabled != nil {
+				enabled = *opt.Enabled
+			}
+			if opt.Method != "" {
+				method = strings.ToUpper(opt.Method)
+			}
+		}
+	}
+
+	if method == "" {
+		method = defaultMethod
+	}
+
+	if method == "" {
+		method = http.MethodGet
+	}
+
+	return enabled, strings.ToUpper(method)
+}
 
 func DefaultOperatorMap() map[string]string {
 	return map[string]string{
@@ -67,6 +141,12 @@ func WithQueryLogging[T any](enabled bool) Option[T] {
 func WithFieldMapProvider[T any](provider FieldMapProvider) Option[T] {
 	return func(c *Controller[T]) {
 		c.fieldMapProvider = provider
+	}
+}
+
+func WithRouteConfig[T any](config RouteConfig) Option[T] {
+	return func(c *Controller[T]) {
+		c.routeConfig = c.routeConfig.merge(config)
 	}
 }
 
