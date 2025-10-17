@@ -174,9 +174,6 @@ func getOrBuildFieldMap(typ reflect.Type, provider FieldMapProvider) map[string]
 				if fieldMap == nil {
 					fieldMap = providedMap
 				} else {
-					for k, v := range providedMap {
-						fieldMap[k] = v
-					}
 					maps.Copy(fieldMap, providedMap)
 				}
 			}
@@ -237,9 +234,7 @@ func normalizeFieldMap(in map[string]string) map[string]string {
 
 func cloneStringMap(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
