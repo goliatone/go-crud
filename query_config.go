@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -164,15 +165,26 @@ func getOrBuildFieldMap(typ reflect.Type, provider FieldMapProvider) map[string]
 		return m.(map[string]string)
 	}
 
-	var fieldMap map[string]string
+	fieldMap := buildDefaultFieldMap(typ)
+
 	if provider != nil {
 		if provided := provider(typ); len(provided) > 0 {
-			fieldMap = normalizeFieldMap(provided)
+			providedMap := normalizeFieldMap(provided)
+			if len(providedMap) > 0 {
+				if fieldMap == nil {
+					fieldMap = providedMap
+				} else {
+					for k, v := range providedMap {
+						fieldMap[k] = v
+					}
+					maps.Copy(fieldMap, providedMap)
+				}
+			}
 		}
 	}
 
 	if fieldMap == nil {
-		fieldMap = buildDefaultFieldMap(typ)
+		fieldMap = make(map[string]string)
 	}
 
 	fieldsCache.Store(typ, fieldMap)
