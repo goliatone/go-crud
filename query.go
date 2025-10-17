@@ -2,9 +2,9 @@ package crud
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/goliatone/go-print"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
 )
@@ -13,11 +13,14 @@ type relationFilter struct {
 	field    string
 	operator string
 	value    string
+	column   string
 }
 
-type relationInfo struct {
-	name    string
-	filters []relationFilter
+type relationIncludeNode struct {
+	name        string
+	requestName string
+	filters     []relationFilter
+	children    map[string]*relationIncludeNode
 }
 
 type queryCriteria struct {
@@ -71,9 +74,6 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 		Operation: string(op),
 	}
 
-	fmt.Println("======= build criteria")
-	fmt.Println(print.MaybePrettyJSON(filters))
-	// Start building our criteria slice
 	criteria := &queryCriteria{op: op}
 
 	// Basic limit/offset criteria
@@ -139,27 +139,29 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 
 	// Handle includes
 	if include != "" {
-		relations := strings.Split(include, ",")
-		for _, relation := range relations {
-			relationInfo, err := parseRelation(relation)
-			if err != nil {
-				return nil, nil, fmt.Errorf("invalid relation format: %v", err)
-			}
+		meta := getRelationMetadataForType(typeOf[T]())
+		includeNodes, err := buildIncludeTree(include, meta)
+		if err != nil {
+			return nil, nil, err
+		}
 
-			filters.Include = append(filters.Include, relationInfo.name)
+		if len(includeNodes) > 0 {
+			includePaths, relationInfos := collectIncludeDetails(includeNodes)
+			filters.Include = append(filters.Include, includePaths...)
+			filters.Relations = append(filters.Relations, relationInfos...)
 
-			criteria.included = append(criteria.included, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if len(relationInfo.filters) == 0 {
-					return q.Relation(relationInfo.name)
+			rootKeys := sortedRelationKeys(includeNodes)
+			for _, key := range rootKeys {
+				node := includeNodes[key]
+				if node == nil {
+					continue
 				}
-
-				return q.Relation(relationInfo.name, func(q *bun.SelectQuery) *bun.SelectQuery {
-					for _, filter := range relationInfo.filters {
-						q = q.Where(fmt.Sprintf("%s %s ?", filter.field, filter.operator), filter.value)
+				criteria.included = append(criteria.included, func(n *relationIncludeNode) repository.SelectCriteria {
+					return func(q *bun.SelectQuery) *bun.SelectQuery {
+						return includeRelation(q, n)
 					}
-					return q
-				})
-			})
+				}(node))
+			}
 		}
 	}
 
@@ -173,7 +175,6 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	}
 
 	queryParams := ctx.Queries()
-	fmt.Printf("query params: %s\n", print.MaybePrettyJSON(queryParams))
 
 	// For each parameter, if it's not in excludeParams, add a where condition
 	criteria.filters = append(criteria.filters, func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -234,38 +235,225 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 	return criteria.compute(), filters, nil
 }
 
-func parseRelation(relation string) (*relationInfo, error) {
-	parts := strings.Split(relation, ".")
-	if len(parts) < 2 {
-		return &relationInfo{name: relation}, nil
-	}
-
-	info := &relationInfo{
-		name: parts[0],
-	}
-
-	filterPart := strings.Join(parts[1:], ".")
-
-	filterParts := strings.Split(filterPart, "=")
-	if len(filterParts) != 2 {
-		return info, nil
-	}
-
-	field, operator := parseFieldOperator(filterParts[0])
-	filter := relationFilter{
-		field:    field,
-		operator: operator,
-		value:    filterParts[1],
-	}
-	info.filters = append(info.filters, filter)
-
-	return info, nil
-}
-
 func getDirection(dir string) string {
 	dir = strings.TrimSpace(strings.ToUpper(dir))
 	if dir == "ASC" || dir == "DESC" {
 		return dir
 	}
 	return "ASC"
+}
+
+func buildIncludeTree(includeParam string, meta *relationMetadata) (map[string]*relationIncludeNode, error) {
+	result := make(map[string]*relationIncludeNode)
+	if strings.TrimSpace(includeParam) == "" {
+		return result, nil
+	}
+
+	paths := strings.Split(includeParam, ",")
+	for _, raw := range paths {
+		path := strings.TrimSpace(raw)
+		if path == "" {
+			continue
+		}
+
+		node, err := parseIncludePath(path, meta)
+		if err != nil {
+			return nil, fmt.Errorf("invalid relation include %q: %w", path, err)
+		}
+		mergeIncludeTrees(result, node)
+	}
+
+	return result, nil
+}
+
+func parseIncludePath(path string, meta *relationMetadata) (*relationIncludeNode, error) {
+	if meta == nil {
+		return nil, fmt.Errorf("relation metadata unavailable")
+	}
+
+	segments := strings.Split(path, ".")
+	currentMeta := meta
+
+	var root *relationIncludeNode
+	var current *relationIncludeNode
+
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			return nil, fmt.Errorf("empty segment in include")
+		}
+
+		if strings.Contains(segment, "=") {
+			if current == nil {
+				return nil, fmt.Errorf("filter specified before relation")
+			}
+			fieldPart, value, found := strings.Cut(segment, "=")
+			if !found {
+				return nil, fmt.Errorf("invalid filter syntax")
+			}
+			fieldName, operator := parseFieldOperator(fieldPart)
+			columnName := ""
+			if currentMeta != nil && currentMeta.fields != nil {
+				columnName = currentMeta.fields[fieldName]
+			}
+			if columnName == "" {
+				return nil, fmt.Errorf("unsupported filter field %q on relation %q", fieldName, current.requestName)
+			}
+			current.filters = append(current.filters, relationFilter{
+				field:    fieldName,
+				operator: operator,
+				value:    value,
+				column:   columnName,
+			})
+			continue
+		}
+
+		if currentMeta == nil {
+			return nil, fmt.Errorf("relation metadata unavailable for %q", segment)
+		}
+
+		childMeta, ok := currentMeta.children[strings.ToLower(segment)]
+		if !ok {
+			return nil, fmt.Errorf("unknown relation %q", segment)
+		}
+
+		node := &relationIncludeNode{
+			name:        childMeta.relationName,
+			requestName: segment,
+			filters:     make([]relationFilter, 0),
+			children:    make(map[string]*relationIncludeNode),
+		}
+
+		if current == nil {
+			root = node
+		} else {
+			current.children[node.name] = node
+		}
+
+		current = node
+		currentMeta = childMeta
+	}
+
+	if root == nil {
+		return nil, fmt.Errorf("invalid include path %q", path)
+	}
+
+	return root, nil
+}
+
+func mergeIncludeTrees(dst map[string]*relationIncludeNode, node *relationIncludeNode) {
+	if node == nil {
+		return
+	}
+
+	if existing, ok := dst[node.name]; ok {
+		mergeIncludeNode(existing, node)
+		return
+	}
+
+	dst[node.name] = node
+}
+
+func mergeIncludeNode(into, other *relationIncludeNode) {
+	if into == nil || other == nil {
+		return
+	}
+
+	into.filters = append(into.filters, other.filters...)
+
+	if into.children == nil && len(other.children) > 0 {
+		into.children = make(map[string]*relationIncludeNode, len(other.children))
+	}
+
+	for name, child := range other.children {
+		if existing, ok := into.children[name]; ok {
+			mergeIncludeNode(existing, child)
+		} else {
+			into.children[name] = child
+		}
+	}
+}
+
+func collectIncludeDetails(nodes map[string]*relationIncludeNode) ([]string, []RelationInfo) {
+	var includes []string
+	var relations []RelationInfo
+
+	keys := sortedRelationKeys(nodes)
+	for _, key := range keys {
+		node := nodes[key]
+		if node == nil {
+			continue
+		}
+		collectRelationDetails(node, nil, &includes, &relations)
+	}
+
+	return includes, relations
+}
+
+func collectRelationDetails(node *relationIncludeNode, path []string, includes *[]string, relations *[]RelationInfo) {
+	if node == nil {
+		return
+	}
+
+	currentPath := append(path, node.requestName)
+	pathStr := strings.Join(currentPath, ".")
+	*includes = append(*includes, pathStr)
+
+	if len(node.filters) > 0 {
+		relationFilters := make([]RelationFilter, len(node.filters))
+		for i, filter := range node.filters {
+			relationFilters[i] = RelationFilter{
+				Field:    filter.field,
+				Operator: filter.operator,
+				Value:    filter.value,
+			}
+		}
+		*relations = append(*relations, RelationInfo{
+			Name:    pathStr,
+			Filters: relationFilters,
+		})
+	}
+
+	childKeys := sortedRelationKeys(node.children)
+	for _, key := range childKeys {
+		collectRelationDetails(node.children[key], currentPath, includes, relations)
+	}
+}
+
+func includeRelation(q *bun.SelectQuery, node *relationIncludeNode) *bun.SelectQuery {
+	if node == nil {
+		return q
+	}
+
+	return q.Relation(node.name, func(rel *bun.SelectQuery) *bun.SelectQuery {
+		rel = applyRelationFilters(rel, node.filters)
+		childKeys := sortedRelationKeys(node.children)
+		for _, key := range childKeys {
+			rel = includeRelation(rel, node.children[key])
+		}
+		return rel
+	})
+}
+
+func applyRelationFilters(q *bun.SelectQuery, filters []relationFilter) *bun.SelectQuery {
+	for _, filter := range filters {
+		column := filter.column
+		if column == "" {
+			column = filter.field
+		}
+		q = q.Where(fmt.Sprintf("%s %s ?", column, filter.operator), filter.value)
+	}
+	return q
+}
+
+func sortedRelationKeys(nodes map[string]*relationIncludeNode) []string {
+	if len(nodes) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(nodes))
+	for key := range nodes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
