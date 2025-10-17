@@ -24,6 +24,17 @@ const (
 	OpDeleteBatch CrudOperation = "delete:batch"
 )
 
+var operationDefaultMethods = map[CrudOperation]string{
+	OpCreate:      http.MethodPost,
+	OpCreateBatch: http.MethodPost,
+	OpRead:        http.MethodGet,
+	OpList:        http.MethodGet,
+	OpUpdate:      http.MethodPut,
+	OpUpdateBatch: http.MethodPut,
+	OpDelete:      http.MethodDelete,
+	OpDeleteBatch: http.MethodDelete,
+}
+
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
 	Repo                repository.Repository[T]
@@ -36,6 +47,10 @@ type Controller[T any] struct {
 	fieldMapProvider    FieldMapProvider
 	queryLoggingEnabled bool
 	routeConfig         RouteConfig
+	hooks               LifecycleHooks[T]
+	routeMethods        map[CrudOperation]string
+	routePaths          map[CrudOperation]string
+	routeNames          map[CrudOperation]string
 }
 
 // NewController creates a new Controller with functional options.
@@ -49,6 +64,9 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		resourceType:  reflect.TypeOf(t),
 		logger:        &defaultLogger{},
 		routeConfig:   DefaultRouteConfig(),
+		routeMethods:  make(map[CrudOperation]string),
+		routePaths:    make(map[CrudOperation]string),
+		routeNames:    make(map[CrudOperation]string),
 	}
 
 	for _, opt := range opts {
@@ -121,7 +139,9 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 		if info == nil {
 			return
 		}
-		applyMeta(method, path, info.Name(routeName))
+		named := info.Name(routeName)
+		applyMeta(method, path, named)
+		c.recordRouteMetadata(op, method, path, routeName)
 	}
 
 	showPath := fmt.Sprintf("/%s/:id", resource)
@@ -168,6 +188,75 @@ func invokeRoute(r Router, method, path string, handler func(Context) error) Rou
 	default:
 		return nil
 	}
+}
+
+func (c *Controller[T]) recordRouteMetadata(op CrudOperation, method, path, routeName string) {
+	if method != "" {
+		c.routeMethods[op] = method
+	}
+
+	if path != "" {
+		c.routePaths[op] = path
+	}
+
+	if routeName != "" {
+		c.routeNames[op] = routeName
+	}
+}
+
+func (c *Controller[T]) methodForOperation(op CrudOperation) string {
+	if method, ok := c.routeMethods[op]; ok && method != "" {
+		return method
+	}
+
+	if def, ok := operationDefaultMethods[op]; ok {
+		return def
+	}
+
+	return ""
+}
+
+func (c *Controller[T]) routeNameForOperation(op CrudOperation) string {
+	if name, ok := c.routeNames[op]; ok && name != "" {
+		return name
+	}
+
+	if c.resource != "" {
+		return fmt.Sprintf("%s:%s", c.resource, op)
+	}
+
+	return string(op)
+}
+
+func (c *Controller[T]) hookMetadata(op CrudOperation) HookMetadata {
+	return HookMetadata{
+		Operation: op,
+		Resource:  c.resource,
+		RouteName: c.routeNameForOperation(op),
+		Method:    c.methodForOperation(op),
+		Path:      c.routePaths[op],
+	}
+}
+
+func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation) HookContext {
+	return HookContext{
+		Context:  ctx,
+		Metadata: c.hookMetadata(op),
+	}
+}
+
+func (c *Controller[T]) runHook(ctx Context, op CrudOperation, hook HookFunc[T], record T) error {
+	if hook == nil || isNil(record) {
+		return nil
+	}
+	return hook(c.newHookContext(ctx, op), record)
+}
+
+func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBatchFunc[T], records []T) error {
+	if hook == nil || len(records) == 0 {
+		return nil
+	}
+	return hook(c.newHookContext(ctx, op), records)
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
@@ -220,8 +309,16 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
 	}
 
+	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record); err != nil {
+		return c.resp.OnError(ctx, err, OpCreate)
+	}
+
 	createdRecord, err := c.Repo.Create(ctx.UserContext(), record)
 	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreate)
+	}
+
+	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord); err != nil {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
@@ -232,8 +329,17 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
 	}
+
+	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records); err != nil {
+		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+
 	createdRecords, err := c.Repo.CreateMany(ctx.UserContext(), records)
 	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+
+	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords); err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
@@ -257,21 +363,37 @@ func (c *Controller[T]) Update(ctx Context) error {
 
 	c.Repo.Handlers().SetID(record, id)
 
+	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record); err != nil {
+		return c.resp.OnError(ctx, err, OpUpdate)
+	}
+
 	updatedRecord, err := c.Repo.Update(ctx.UserContext(), record)
 	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdate)
+	}
+
+	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
 }
 
 func (c *Controller[T]) UpdateBatch(ctx Context) error {
-	records, err := c.deserialiMany(OpUpdate, ctx)
+	records, err := c.deserialiMany(OpUpdateBatch, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
 	}
 
+	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records); err != nil {
+		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	}
+
 	updatedRecords, err := c.Repo.UpdateMany(ctx.UserContext(), records)
 	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	}
+
+	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
@@ -288,8 +410,16 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
+	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record); err != nil {
+		return c.resp.OnError(ctx, err, OpDelete)
+	}
+
 	err = c.Repo.Delete(ctx.UserContext(), record)
 	if err != nil {
+		return c.resp.OnError(ctx, err, OpDelete)
+	}
+
+	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record); err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
@@ -297,9 +427,13 @@ func (c *Controller[T]) Delete(ctx Context) error {
 }
 
 func (c *Controller[T]) DeleteBatch(ctx Context) error {
-	records, err := c.deserialiMany(OpUpdate, ctx)
+	records, err := c.deserialiMany(OpDeleteBatch, ctx)
 	if err != nil {
-		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
+		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
+	}
+
+	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records); err != nil {
+		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
 	criteria := []repository.DeleteCriteria{}
@@ -310,8 +444,26 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 
 	err = c.Repo.DeleteMany(ctx.UserContext(), criteria...)
 	if err != nil {
-		return c.resp.OnError(ctx, err, OpDelete)
+		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	return c.resp.OnEmpty(ctx, OpDelete)
+	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records); err != nil {
+		return c.resp.OnError(ctx, err, OpDeleteBatch)
+	}
+
+	return c.resp.OnEmpty(ctx, OpDeleteBatch)
+}
+
+func isNil[T any](val T) bool {
+	v := any(val)
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(val)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
