@@ -3,10 +3,9 @@ package crud
 import (
 	"reflect"
 	"strings"
-	"unicode"
 
 	"github.com/ettle/strcase"
-	"github.com/gertd/go-pluralize"
+	"github.com/goliatone/go-router"
 )
 
 const (
@@ -16,7 +15,6 @@ const (
 	TAG_KEY_RESOURCE = "resource"
 )
 
-var pluralizer = pluralize.NewClient()
 var operatorMap = DefaultOperatorMap()
 
 func DefaultOperatorMap() map[string]string {
@@ -81,69 +79,11 @@ func DefaultDeserializerMany[T any](op CrudOperation, ctx Context) ([]T, error) 
 // It first checks for a 'crud:"resource:..."' tag on any embedded fields.
 // If found, it uses the specified resource name. Otherwise, it derives the name from the type's name.
 func GetResourceName(typ reflect.Type) (string, string) {
-	// If T is a pointer, get the element type
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-
-	resourceName := ""
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		crudTag := field.Tag.Get(TAG_CRUD)
-		if crudTag == "" {
-			continue
-		}
-
-		// Parse the crud tag, expecting format 'resource:user'
-		parts := strings.SplitN(crudTag, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-		if key == TAG_KEY_RESOURCE && value != "" {
-			resourceName = value
-			break
-		}
-	}
-
-	if resourceName == "" {
-		// No 'crud' tag found, derive from type name
-		typeName := typ.Name()
-		resourceName = ToKebabCase(typeName)
-	}
-
-	singular := pluralizer.Singular(resourceName)
-	plural := pluralizer.Plural(resourceName)
-
-	return singular, plural
+	return router.GetResourceName(typ)
 }
 
 func GetResourceTitle(typ reflect.Type) (string, string) {
-	resourceName, pluralName := GetResourceName(typ)
-	name := strcase.ToCase(resourceName, strcase.TitleCase, ' ')
-	names := strcase.ToCase(pluralName, strcase.TitleCase, ' ')
-	return name, names
-}
-
-func ToKebabCase(s string) string {
-	runes := []rune(s)
-	var result []rune
-
-	for i, r := range runes {
-		if unicode.IsUpper(r) {
-			if i > 0 {
-				prev := runes[i-1]
-				if unicode.IsLower(prev) || (unicode.IsUpper(prev) && i+1 < len(runes) && unicode.IsLower(runes[i+1])) {
-					result = append(result, '-')
-				}
-			}
-			result = append(result, unicode.ToLower(r))
-		} else {
-			result = append(result, r)
-		}
-	}
-
-	return string(result)
+	return router.GetResourceTitle(typ)
 }
 
 func parseFieldOperator(param string) (field string, operator string) {
