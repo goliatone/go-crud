@@ -78,11 +78,11 @@ func main() {
 	app.WrappedRouter().Static("/static", "./views")
 
 	// Create CRUD controller
-	controller := crud.NewController[*User](repo)
+	controller := crud.NewController(repo)
 
 	// API routes with JSON responses
 	api := app.Router().Group("/api")
-	apiAdapter := crud.NewGoRouterAdapter[*fiber.App](api)
+	apiAdapter := crud.NewGoRouterAdapter(api)
 	controller.RegisterRoutes(apiAdapter)
 
 	// Front-end routes with HTML rendering
@@ -97,8 +97,8 @@ func main() {
 	// Register front-end routes
 	createFrontEndRoutes(front, repo)
 
-	// OpenAPI documentation
-	router.ServeOpenAPI(front, &router.OpenAPIRenderer{
+	// OpenAPI documentation - serve on root router to see all routes including API
+	router.ServeOpenAPI(app.Router(), &router.OpenAPIRenderer{
 		Title:   "go-crud Web Demo",
 		Version: "v0.1.0",
 		Description: `## CRUD Operations Demo

@@ -7,7 +7,7 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.13
 	github.com/goliatone/go-crud v0.4.0
 	github.com/goliatone/go-repository-bun v0.5.4
-	github.com/goliatone/go-router v0.17.1
+	github.com/goliatone/go-router v0.18.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/uptrace/bun v1.2.14
@@ -40,7 +40,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
