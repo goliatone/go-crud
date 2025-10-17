@@ -259,6 +259,7 @@ The List endpoint supports:
 - Ordering: `?order=name asc,created_at desc`
 - Field selection: `?select=id,name,email`
 - Relations: `?include=Company,Profile` (supports filtering: `?include=Profile.status=outdated`)
+- Nested relations & filters: `?include=Blocks.Translations.locale__eq=es` (any depth, multiple clauses)
 - Filtering:
   - Basic: `?name=John`
   - Operators: `?age__gte=30`, `?name__ilike=john%`
