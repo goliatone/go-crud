@@ -60,3 +60,14 @@ type Router interface {
 type RouterRouteInfo interface {
 	Name(string) RouterRouteInfo
 }
+
+// MetadataRouterRouteInfo exposes optional metadata configuration methods
+type MetadataRouterRouteInfo interface {
+	RouterRouteInfo
+	Description(string) MetadataRouterRouteInfo
+	Summary(string) MetadataRouterRouteInfo
+	Tags(...string) MetadataRouterRouteInfo
+	Parameter(name, in string, required bool, schema map[string]any) MetadataRouterRouteInfo
+	RequestBody(desc string, required bool, content map[string]any) MetadataRouterRouteInfo
+	Response(code int, desc string, content map[string]any) MetadataRouterRouteInfo
+}
