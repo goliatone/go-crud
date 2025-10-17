@@ -1082,6 +1082,94 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesWithDisabledOperation(t *testing.T) {
+	app := fiber.New()
+	router := NewFiberAdapter(app)
+
+	sqldb, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+	defer sqldb.Close()
+
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+
+	ctx := context.Background()
+	if err := createSchema(ctx, db); err != nil {
+		t.Fatalf("Failed to create schema: %v", err)
+	}
+
+	repo := newTestUserRepository(db)
+	controller := NewController(
+		repo,
+		WithDeserializer(testUserDeserializer),
+		WithRouteConfig[*TestUser](RouteConfig{
+			Operations: map[CrudOperation]RouteOptions{
+				OpDelete:      {Enabled: BoolPtr(false)},
+				OpDeleteBatch: {Enabled: BoolPtr(false)},
+			},
+		}),
+	)
+
+	controller.RegisterRoutes(router)
+
+	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+
+	deleteRoute := fmt.Sprintf("%s:%s", singular, OpDelete)
+	assert.False(t, fiberRouteExists(app, deleteRoute), "delete route should not be registered when disabled")
+
+	deleteBatchRoute := fmt.Sprintf("%s:%s", singular, OpDeleteBatch)
+	assert.False(t, fiberRouteExists(app, deleteBatchRoute), "delete batch route should not be registered when disabled")
+}
+
+func TestRegisterRoutesWithMethodOverride(t *testing.T) {
+	app := fiber.New()
+	router := NewFiberAdapter(app)
+
+	sqldb, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+	defer sqldb.Close()
+
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+
+	ctx := context.Background()
+	if err := createSchema(ctx, db); err != nil {
+		t.Fatalf("Failed to create schema: %v", err)
+	}
+
+	repo := newTestUserRepository(db)
+	controller := NewController(
+		repo,
+		WithDeserializer(testUserDeserializer),
+		WithRouteConfig[*TestUser](RouteConfig{
+			Operations: map[CrudOperation]RouteOptions{
+				OpUpdate: {Method: http.MethodPatch},
+			},
+		}),
+	)
+
+	controller.RegisterRoutes(router)
+
+	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+
+	updateRoute := fmt.Sprintf("%s:%s", singular, OpUpdate)
+	route := app.GetRoute(updateRoute)
+	if assert.NotNil(t, route, "update route should be registered") {
+		assert.Equal(t, http.MethodPatch, route.Method, "update route should use overridden method")
+	}
+}
+
+func fiberRouteExists(app *fiber.App, name string) bool {
+	for _, route := range app.GetRoutes() {
+		if route.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func Test_ParseFieldOperator(t *testing.T) {
 	tests := []struct {
 		name          string
