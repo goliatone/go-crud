@@ -366,6 +366,83 @@ func TestBuildIncludeTree(t *testing.T) {
 	assert.Equal(t, "es", filter.value)
 }
 
+func TestFieldMapProviderOverrides(t *testing.T) {
+	type Custom struct {
+		Title string `json:"title" bun:"title"`
+		Slug  string `json:"slug" bun:"slug"`
+	}
+
+	provider := func(t reflect.Type) map[string]string {
+		if indirectType(t).Name() == "Custom" {
+			return map[string]string{
+				"display_title": "title",
+			}
+		}
+		return nil
+	}
+
+	registerQueryConfig(reflect.TypeOf(Custom{}), provider)
+
+	fields := getAllowedFields[Custom]()
+	require.Contains(t, fields, "display_title")
+	assert.Equal(t, "title", fields["display_title"])
+	require.Contains(t, fields, "slug")
+	assert.Equal(t, "slug", fields["slug"])
+
+	ctx := newMockContextWithQuery(map[string]string{
+		"select": "display_title",
+	})
+
+	_, filters, err := BuildQueryCriteria[Custom](ctx, OpList)
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	assert.Contains(t, filters.Fields, "title")
+}
+
+func TestFieldMapProviderNestedRelations(t *testing.T) {
+	type NestedTranslation struct {
+		Locale string `json:"locale_code" bun:"locale"`
+		Label  string `json:"label" bun:"label"`
+	}
+
+	type NestedBlock struct {
+		Name         string              `json:"name" bun:"name"`
+		Translations []NestedTranslation `json:"translations" bun:"rel:has-many"`
+	}
+
+	type NestedPage struct {
+		Blocks []NestedBlock `json:"blocks" bun:"rel:has-many"`
+	}
+
+	provider := func(t reflect.Type) map[string]string {
+		switch indirectType(t).Name() {
+		case "NestedTranslation":
+			return map[string]string{
+				"locale_alias": "locale",
+			}
+		default:
+			return nil
+		}
+	}
+
+	registerQueryConfig(reflect.TypeOf(NestedPage{}), provider)
+
+	include := "Blocks.Translations.locale_alias__eq=es"
+	ctx := newMockContextWithQuery(map[string]string{
+		"include": include,
+	})
+
+	_, filters, err := BuildQueryCriteria[NestedPage](ctx, OpList)
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	assert.Contains(t, filters.Include, "Blocks.Translations")
+	require.Len(t, filters.Relations, 1)
+	assert.Equal(t, "Blocks.Translations", filters.Relations[0].Name)
+	require.Len(t, filters.Relations[0].Filters, 1)
+	assert.Equal(t, "locale_alias", filters.Relations[0].Filters[0].Field)
+	assert.Equal(t, "es", filters.Relations[0].Filters[0].Value)
+}
+
 func TestBuildQueryCriteria_Filters(t *testing.T) {
 	SetOperatorMap(DefaultOperatorMap())
 
