@@ -101,6 +101,39 @@ func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
 	return app, db
 }
 
+func setupAppWithHooks(t *testing.T, hooks LifecycleHooks[*TestUser]) (*fiber.App, repository.Repository[*TestUser], *bun.DB) {
+	app := fiber.New()
+
+	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+
+	if os.Getenv("TEST_SQL_DEBUG") != "" {
+		db.AddQueryHook(bundebug.NewQueryHook(
+			bundebug.WithVerbose(true),
+		))
+	}
+
+	ctx := context.Background()
+	if err := createSchema(ctx, db); err != nil {
+		t.Fatalf("Failed to create schema: %v", err)
+	}
+
+	repo := newTestUserRepository(db)
+	controller := NewController[*TestUser](repo,
+		WithDeserializer(testUserDeserializer),
+		WithLifecycleHooks[*TestUser](hooks),
+	)
+
+	router := NewFiberAdapter(app)
+	controller.RegisterRoutes(router)
+
+	return app, repo, db
+}
+
 func createSchema(ctx context.Context, db *bun.DB) error {
 	models := []any{
 		(*TestUser)(nil),
@@ -1168,6 +1201,66 @@ func fiberRouteExists(app *fiber.App, name string) bool {
 		}
 	}
 	return false
+}
+
+func TestLifecycleHooks_Create(t *testing.T) {
+	var beforeCalled, afterCalled bool
+	var beforeMeta, afterMeta HookMetadata
+
+	hooks := LifecycleHooks[*TestUser]{
+		BeforeCreate: func(hctx HookContext, user *TestUser) error {
+			beforeCalled = true
+			beforeMeta = hctx.Metadata
+			user.Name = "mutated-before"
+			user.Age = 21
+			return nil
+		},
+		AfterCreate: func(hctx HookContext, user *TestUser) error {
+			afterCalled = true
+			afterMeta = hctx.Metadata
+			user.Age = 99
+			return nil
+		},
+	}
+
+	app, repo, db := setupAppWithHooks(t, hooks)
+	defer db.Close()
+
+	body := `{"name":"original","email":"hooks@example.com","password":"secret","age":10}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var created TestUser
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.True(t, beforeCalled, "before hook should run")
+	assert.True(t, afterCalled, "after hook should run")
+
+	assert.Equal(t, OpCreate, beforeMeta.Operation)
+	assert.Equal(t, OpCreate, afterMeta.Operation)
+	assert.Equal(t, beforeMeta, afterMeta)
+	assert.Equal(t, http.MethodPost, beforeMeta.Method)
+	assert.Equal(t, "/test-user", beforeMeta.Path)
+	assert.Equal(t, "test-user:create", beforeMeta.RouteName)
+
+	assert.Equal(t, "mutated-before", created.Name)
+	assert.Equal(t, 99, created.Age)
+
+	saved, err := repo.GetByID(context.Background(), created.ID.String())
+	if err != nil {
+		t.Fatalf("Failed to load saved record: %v", err)
+	}
+	assert.Equal(t, 21, saved.Age)
+	assert.Equal(t, "mutated-before", saved.Name)
 }
 
 func Test_ParseFieldOperator(t *testing.T) {
