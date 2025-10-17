@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
@@ -154,6 +156,22 @@ type Profile struct {
 type Company struct {
 	ID   int    `json:"id" bun:"id"`
 	Type string `json:"type" bun:"type"`
+}
+
+type Translation struct {
+	ID     int    `json:"id" bun:"id"`
+	Locale string `json:"locale" bun:"locale"`
+	Status string `json:"status" bun:"status"`
+}
+
+type Block struct {
+	ID           int           `json:"id" bun:"id"`
+	Translations []Translation `json:"translations" bun:"rel:has-many"`
+}
+
+type Page struct {
+	ID     int     `json:"id" bun:"id"`
+	Blocks []Block `json:"blocks" bun:"rel:has-many"`
 }
 
 // Enhanced mockContext constructor with query parameters
@@ -325,44 +343,27 @@ func TestBuildQueryCriteria(t *testing.T) {
 	}
 }
 
-func TestParseRelation(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		expectedField string
-		expectedOp    string
-		expectedValue string
-	}{
-		{
-			name:          "simple equals filter",
-			input:         "Profile.status=active",
-			expectedField: "status",
-			expectedOp:    "=",
-			expectedValue: "active",
-		},
-		{
-			name:          "greater than filter",
-			input:         "Profile.points__gte=1000",
-			expectedField: "points",
-			expectedOp:    ">=",
-			expectedValue: "1000",
-		},
-	}
+func TestBuildIncludeTree(t *testing.T) {
+	meta := getRelationMetadataForType(reflect.TypeOf(Page{}))
+	require.NotNil(t, meta)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			info, err := parseRelation(tt.input)
-			assert.NoError(t, err)
-			assert.Equal(t, "Profile", info.name)
+	nodes, err := buildIncludeTree("Blocks.Translations.locale__eq=es", meta)
+	require.NoError(t, err)
+	require.NotNil(t, nodes)
 
-			if len(info.filters) > 0 {
-				filter := info.filters[0]
-				assert.Equal(t, tt.expectedField, filter.field)
-				assert.Equal(t, tt.expectedOp, filter.operator)
-				assert.Equal(t, tt.expectedValue, filter.value)
-			}
-		})
-	}
+	blockNode, ok := nodes["Blocks"]
+	require.True(t, ok)
+	assert.Equal(t, "Blocks", blockNode.name)
+
+	translationNode, ok := blockNode.children["Translations"]
+	require.True(t, ok)
+	assert.Equal(t, "Translations", translationNode.name)
+	require.Len(t, translationNode.filters, 1)
+
+	filter := translationNode.filters[0]
+	assert.Equal(t, "locale", filter.field)
+	assert.Equal(t, "=", filter.operator)
+	assert.Equal(t, "es", filter.value)
 }
 
 func TestBuildQueryCriteria_Filters(t *testing.T) {
@@ -372,6 +373,7 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 		name            string
 		queryParams     map[string]string
 		operation       CrudOperation
+		model           string
 		validateFilters func(*testing.T, *Filters)
 	}{
 		{
@@ -381,6 +383,7 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				"offset": "20",
 			},
 			operation: OpList,
+			model:     "user",
 			validateFilters: func(t *testing.T, filters *Filters) {
 				assert.Equal(t, 10, filters.Limit)
 				assert.Equal(t, 20, filters.Offset)
@@ -396,6 +399,7 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				"select": "id,name,email",
 			},
 			operation: OpList,
+			model:     "user",
 			validateFilters: func(t *testing.T, filters *Filters) {
 				assert.Equal(t, DefaultLimit, filters.Limit)
 				assert.Equal(t, DefaultOffset, filters.Offset)
@@ -411,6 +415,7 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				"order": "name asc,age desc",
 			},
 			operation: OpList,
+			model:     "user",
 			validateFilters: func(t *testing.T, filters *Filters) {
 				assert.Equal(t, DefaultLimit, filters.Limit)
 				assert.Equal(t, DefaultOffset, filters.Offset)
@@ -431,6 +436,7 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				"include": "Profile,Company",
 			},
 			operation: OpList,
+			model:     "model",
 			validateFilters: func(t *testing.T, filters *Filters) {
 				assert.Equal(t, DefaultLimit, filters.Limit)
 				assert.Equal(t, DefaultOffset, filters.Offset)
@@ -445,12 +451,43 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				"include": "Profile.status=active,Profile.points__gte=1000",
 			},
 			operation: OpList,
+			model:     "model",
 			validateFilters: func(t *testing.T, filters *Filters) {
 				assert.Equal(t, DefaultLimit, filters.Limit)
 				assert.Equal(t, DefaultOffset, filters.Offset)
 				assert.Empty(t, filters.Fields)
 				assert.Empty(t, filters.Order)
 				assert.Contains(t, filters.Include, "Profile")
+				require.Len(t, filters.Relations, 1)
+				if len(filters.Relations) > 0 {
+					rel := filters.Relations[0]
+					assert.Equal(t, "Profile", rel.Name)
+					require.Len(t, rel.Filters, 2)
+					assert.Equal(t, "status", rel.Filters[0].Field)
+					assert.Equal(t, "active", rel.Filters[0].Value)
+					assert.Equal(t, "points", rel.Filters[1].Field)
+					assert.Equal(t, "1000", rel.Filters[1].Value)
+				}
+			},
+		},
+		{
+			name: "nested relation with locale filter",
+			queryParams: map[string]string{
+				"include": "Blocks.Translations.locale__eq=es",
+			},
+			operation: OpList,
+			model:     "page",
+			validateFilters: func(t *testing.T, filters *Filters) {
+				assert.Contains(t, filters.Include, "Blocks")
+				assert.Contains(t, filters.Include, "Blocks.Translations")
+				require.Len(t, filters.Relations, 1)
+				if len(filters.Relations) > 0 {
+					rel := filters.Relations[0]
+					assert.Equal(t, "Blocks.Translations", rel.Name)
+					require.Len(t, rel.Filters, 1)
+					assert.Equal(t, "locale", rel.Filters[0].Field)
+					assert.Equal(t, "es", rel.Filters[0].Value)
+				}
 			},
 		},
 	}
@@ -458,7 +495,16 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := newMockContextWithQuery(tt.queryParams)
-			_, filters, err := BuildQueryCriteria[TestUser](ctx, tt.operation)
+			var filters *Filters
+			var err error
+			switch tt.model {
+			case "model":
+				_, filters, err = BuildQueryCriteria[TestModel](ctx, tt.operation)
+			case "page":
+				_, filters, err = BuildQueryCriteria[Page](ctx, tt.operation)
+			default:
+				_, filters, err = BuildQueryCriteria[TestUser](ctx, tt.operation)
+			}
 
 			assert.NoError(t, err)
 			assert.NotNil(t, filters)
