@@ -51,6 +51,36 @@ func (ria *routerRouteInfoAdapter) Name(n string) RouterRouteInfo {
 	return ria
 }
 
+func (ria *routerRouteInfoAdapter) Description(d string) MetadataRouterRouteInfo {
+	ria.ri.SetDescription(d)
+	return ria
+}
+
+func (ria *routerRouteInfoAdapter) Summary(s string) MetadataRouterRouteInfo {
+	ria.ri.SetSummary(s)
+	return ria
+}
+
+func (ria *routerRouteInfoAdapter) Tags(t ...string) MetadataRouterRouteInfo {
+	ria.ri.AddTags(t...)
+	return ria
+}
+
+func (ria *routerRouteInfoAdapter) Parameter(name, in string, required bool, schema map[string]any) MetadataRouterRouteInfo {
+	ria.ri.AddParameter(name, in, required, schema)
+	return ria
+}
+
+func (ria *routerRouteInfoAdapter) RequestBody(desc string, required bool, content map[string]any) MetadataRouterRouteInfo {
+	ria.ri.SetRequestBody(desc, required, content)
+	return ria
+}
+
+func (ria *routerRouteInfoAdapter) Response(code int, desc string, content map[string]any) MetadataRouterRouteInfo {
+	ria.ri.AddResponse(code, desc, content)
+	return ria
+}
+
 // contextAdapter wraps a router.Context to implement crud.Context
 type contextAdapter struct {
 	c      router.Context

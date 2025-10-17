@@ -22,12 +22,15 @@ func NewFiberAdapter(r fiber.Router) Router {
 func (ra *fiberAdapter) Get(path string, handler func(Context) error) RouterRouteInfo {
 	return &fiberRouteInfoAdapter{ri: ra.r.Get(path, ra.wrap(handler))}
 }
+
 func (ra *fiberAdapter) Post(path string, handler func(Context) error) RouterRouteInfo {
 	return &fiberRouteInfoAdapter{ri: ra.r.Post(path, ra.wrap(handler))}
 }
+
 func (ra *fiberAdapter) Put(path string, handler func(Context) error) RouterRouteInfo {
 	return &fiberRouteInfoAdapter{ri: ra.r.Put(path, ra.wrap(handler))}
 }
+
 func (ra *fiberAdapter) Delete(path string, handler func(Context) error) RouterRouteInfo {
 	return &fiberRouteInfoAdapter{ri: ra.r.Delete(path, ra.wrap(handler))}
 }
