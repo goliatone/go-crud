@@ -25,13 +25,14 @@ const (
 
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
-	Repo          repository.Repository[T]
-	deserializer  func(op CrudOperation, ctx Context) (T, error)
-	deserialiMany func(op CrudOperation, ctx Context) ([]T, error)
-	resp          ResponseHandler[T]
-	resource      string
-	resourceType  reflect.Type
-	logger        Logger
+	Repo             repository.Repository[T]
+	deserializer     func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany    func(op CrudOperation, ctx Context) ([]T, error)
+	resp             ResponseHandler[T]
+	resource         string
+	resourceType     reflect.Type
+	logger           Logger
+	fieldMapProvider FieldMapProvider
 }
 
 // NewController creates a new Controller with functional options.
@@ -49,6 +50,15 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 	for _, opt := range opts {
 		opt(controller)
 	}
+
+	if controller.fieldMapProvider == nil {
+		if provider := newFieldMapProviderFromRepo(controller.Repo, controller.resourceType); provider != nil {
+			controller.fieldMapProvider = provider
+		}
+	}
+
+	registerQueryConfig(controller.resourceType, controller.fieldMapProvider)
+
 	return controller
 }
 
