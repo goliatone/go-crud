@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ettle/strcase"
 	"github.com/goliatone/go-router"
 )
 
@@ -16,6 +15,8 @@ const (
 )
 
 var operatorMap = DefaultOperatorMap()
+
+type FieldMapProvider func(reflect.Type) map[string]string
 
 func DefaultOperatorMap() map[string]string {
 	return map[string]string{
@@ -54,6 +55,12 @@ func WithResponseHandler[T any](handler ResponseHandler[T]) Option[T] {
 func WithLogger[T any](logger Logger) Option[T] {
 	return func(c *Controller[T]) {
 		c.logger = logger
+	}
+}
+
+func WithFieldMapProvider[T any](provider FieldMapProvider) Option[T] {
+	return func(c *Controller[T]) {
+		c.fieldMapProvider = provider
 	}
 }
 
@@ -105,40 +112,9 @@ func parseFieldOperator(param string) (field string, operator string) {
 }
 
 func getAllowedFields[T any]() map[string]string {
-	var t T
-	typ := reflect.TypeOf(t)
-	// If T is a pointer, get the element type
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
+	meta := getRelationMetadataForType(typeOf[T]())
+	if meta == nil {
+		return map[string]string{}
 	}
-	fields := make(map[string]string)
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-
-		crudTag := field.Tag.Get(TAG_CRUD)
-		if crudTag == "-" {
-			continue
-		}
-
-		// Get the bun tag to get the column name
-		bunTag := field.Tag.Get(TAG_BUN)
-		var columnName string
-		if bunTag != "" {
-			parts := strings.Split(bunTag, ",")
-			columnName = parts[0]
-		} else {
-			// Use the field name converted to snake_case
-			columnName = strcase.ToSnake(field.Name)
-		}
-
-		jsonTag := field.Tag.Get(TAG_JSON)
-		if jsonTag != "" {
-			jsonTag = strings.Split(jsonTag, ",")[0] // remove options
-		} else {
-			jsonTag = strcase.ToSnake(field.Name)
-		}
-
-		fields[jsonTag] = columnName
-	}
-	return fields
+	return cloneStringMap(meta.fields)
 }
