@@ -69,6 +69,15 @@ function _install:envset {
     fi
 }
 
+function lgr {
+  if command -v lgr >/dev/null 2>&1; then
+    command lgr "$@"
+  else
+    printf '%s\n' "$*"
+  fi
+}
+
+
 ##########################################
 # Application management
 ##########################################
@@ -284,26 +293,21 @@ function release {
     # Set message: default to New major|minor|patch release: vx.x.x
     message=${2:-"New ${level} release: v${tag}"}
 
+    # Generate changelog
+    git cliff --output CHANGELOG.md
+
     # Update version file
     version:set "${tag}"
 
     # Add updated version file to git
-    git add "${VERSION_FILE}"
-    git commit -m "Bump version: v${tag}"
+    git add "${VERSION_FILE}" CHANGELOG.md
+    git commit -m "release: v${tag}"
 
     # Create a new tag
     git tag -a "v${tag}" -m "${message}"
 
     # Push tags and trigger release 🚀 🥳
-    git push --tags
-    git push
-
-    # Generate changelog
-    git cliff --output CHANGELOG.md
-    git add CHANGELOG.md
-    git commit -m "docs: update changelog for v${tag}"
-
-    git push
+    git push --follow-tags
 }
 
 ##########################################
