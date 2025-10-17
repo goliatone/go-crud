@@ -1,5 +1,35 @@
 # Changelog
 
+# [unreleased]
+
+## <!-- 0 -->🚀 Features
+
+- Nested relationships ([44d19e4](https://github.com/goliatone/go-crud/commit/44d19e4cb28dd6a61d23a79a49dbc7554ac0620a))  - (goliatone)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Taskfile for intall and release ([26c54fd](https://github.com/goliatone/go-crud/commit/26c54fdfc676716860fc5d403d067d3e169cfcfd))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Logging for query builder ([0544f68](https://github.com/goliatone/go-crud/commit/0544f681f60f3f1e98648c358e0515b29eab843e))  - (goliatone)
+- Base logger imp ([ba92856](https://github.com/goliatone/go-crud/commit/ba9285678854f6ad71c75f0268d4888a15fc8f18))  - (goliatone)
+- Field mpa provider ([92989db](https://github.com/goliatone/go-crud/commit/92989dbc334f75bd84530f1a2bdf24c73a4daea9))  - (goliatone)
+- Filed map provider ([c4ef40a](https://github.com/goliatone/go-crud/commit/c4ef40a85f2b746f9395978bb2446483f1365eca))  - (goliatone)
+- Extract metadata to build nested relationships ([add2c66](https://github.com/goliatone/go-crud/commit/add2c66aa550b774c3521adae95f89aa167bdca6))  - (goliatone)
+- Controller use metadata to build open api if available ([d454825](https://github.com/goliatone/go-crud/commit/d454825ad7c6cda500d103dd5bd3eb3a079ab681))  - (goliatone)
+- MetadataRouterRouteInfo interface ([6432018](https://github.com/goliatone/go-crud/commit/643201816c54e6cae95754d6b5d18979abbf4491))  - (goliatone)
+- Router adapter implements MetadataRouterRouteInfo ([46b4b45](https://github.com/goliatone/go-crud/commit/46b4b455dd9d344a5c45ada0d2254a254dfd9f10))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.3.0 ([1509b19](https://github.com/goliatone/go-crud/commit/1509b19eeda5f16fd3ada54b2660444acf571632))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([0ae91b5](https://github.com/goliatone/go-crud/commit/0ae91b56887e74b452fc77da45e2dece2a09b630))  - (goliatone)
+- Update readme ([7d1e376](https://github.com/goliatone/go-crud/commit/7d1e3760914c084bd8c01a802c4c055c7603b6e9))  - (goliatone)
+
 # [0.3.0](https://github.com/goliatone/go-crud/compare/v0.2.0...v0.3.0) - (2025-10-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
