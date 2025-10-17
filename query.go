@@ -47,6 +47,22 @@ func (q *queryCriteria) compute() []repository.SelectCriteria {
 	return out
 }
 
+func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.SelectCriteria, *Filters, error) {
+	return buildQueryCriteria[T](ctx, op, nil)
+}
+
+func BuildQueryCriteriaWithLogger[T any](ctx Context, op CrudOperation, logger Logger, enableTrace bool) ([]repository.SelectCriteria, *Filters, error) {
+	var trace *queryTraceOptions
+	if logger != nil {
+		trace = &queryTraceOptions{
+			logger:  logger,
+			enabled: enableTrace,
+		}
+	}
+
+	return buildQueryCriteria[T](ctx, op, trace)
+}
+
 var DefaultLimit = 25
 var DefaultOffset = 0
 
@@ -60,7 +76,7 @@ var DefaultOffset = 0
 // GET /users?include=Company,Profile
 // GET /users?include=Profile.status=outdated
 // TODO: Support /projects?include=Message&include=Company
-func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.SelectCriteria, *Filters, error) {
+func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceOptions) ([]repository.SelectCriteria, *Filters, error) {
 	// Parse known query parameters
 	limit := ctx.QueryInt("limit", DefaultLimit)
 	offset := ctx.QueryInt("offset", DefaultOffset)
@@ -231,6 +247,10 @@ func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.Sele
 		}
 		return q
 	})
+
+	if trace != nil {
+		trace.debug(filters, queryParams)
+	}
 
 	return criteria.compute(), filters, nil
 }
@@ -456,4 +476,30 @@ func sortedRelationKeys(nodes map[string]*relationIncludeNode) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+type queryTraceOptions struct {
+	logger  Logger
+	enabled bool
+}
+
+func (o *queryTraceOptions) debug(filters *Filters, params map[string]string) {
+	if o == nil || !o.enabled || o.logger == nil {
+		return
+	}
+
+	fields := Fields{
+		"filters": filters,
+	}
+
+	if len(params) > 0 {
+		fields["query_params"] = cloneStringMap(params)
+	}
+
+	if loggerWithFields, ok := o.logger.(loggerWithFields); ok {
+		loggerWithFields.WithFields(fields).Debug("query criteria built")
+		return
+	}
+
+	o.logger.Debug("query criteria built filters=%+v query_params=%+v", filters, fields["query_params"])
 }
