@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -134,6 +135,121 @@ func (m *mockContext) GetStatus() int {
 
 func (m *mockContext) GetJSONData() any {
 	return m.jsonData
+}
+
+type logEntry struct {
+	level   string
+	message string
+	fields  Fields
+}
+
+type recordingLoggerState struct {
+	entries []logEntry
+}
+
+type recordingLogger struct {
+	state  *recordingLoggerState
+	fields Fields
+}
+
+func newRecordingLogger() *recordingLogger {
+	return &recordingLogger{
+		state:  &recordingLoggerState{},
+		fields: make(Fields),
+	}
+}
+
+func (l *recordingLogger) Debug(format string, args ...any) {
+	l.log("DEBUG", format, args...)
+}
+
+func (l *recordingLogger) Info(format string, args ...any) {
+	l.log("INFO", format, args...)
+}
+
+func (l *recordingLogger) Error(format string, args ...any) {
+	l.log("ERROR", format, args...)
+}
+
+func (l *recordingLogger) WithFields(fields Fields) Logger {
+	merged := make(Fields, len(l.fields)+len(fields))
+	for k, v := range l.fields {
+		merged[k] = v
+	}
+	for k, v := range fields {
+		merged[k] = v
+	}
+
+	return &recordingLogger{
+		state:  l.state,
+		fields: merged,
+	}
+}
+
+func (l *recordingLogger) Entries() []logEntry {
+	if l.state == nil {
+		return nil
+	}
+	return l.state.entries
+}
+
+func (l *recordingLogger) log(level string, format string, args ...any) {
+	if l.state == nil {
+		l.state = &recordingLoggerState{}
+	}
+
+	message := fmt.Sprintf(format, args...)
+
+	snapshot := make(Fields, len(l.fields))
+	for k, v := range l.fields {
+		snapshot[k] = v
+	}
+
+	l.state.entries = append(l.state.entries, logEntry{
+		level:   level,
+		message: message,
+		fields:  snapshot,
+	})
+}
+
+type basicRecordingLogger struct {
+	state *recordingLoggerState
+}
+
+func newBasicRecordingLogger() *basicRecordingLogger {
+	return &basicRecordingLogger{
+		state: &recordingLoggerState{},
+	}
+}
+
+func (l *basicRecordingLogger) Debug(format string, args ...any) {
+	l.log("DEBUG", format, args...)
+}
+
+func (l *basicRecordingLogger) Info(format string, args ...any) {
+	l.log("INFO", format, args...)
+}
+
+func (l *basicRecordingLogger) Error(format string, args ...any) {
+	l.log("ERROR", format, args...)
+}
+
+func (l *basicRecordingLogger) Entries() []logEntry {
+	if l.state == nil {
+		return nil
+	}
+	return l.state.entries
+}
+
+func (l *basicRecordingLogger) log(level string, format string, args ...any) {
+	if l.state == nil {
+		l.state = &recordingLoggerState{}
+	}
+	message := fmt.Sprintf(format, args...)
+	l.state.entries = append(l.state.entries, logEntry{
+		level:   level,
+		message: message,
+	})
 }
 
 // TestModel represents a model with all possible field types for testing
@@ -591,4 +707,67 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildQueryCriteriaWithLoggerEnabled(t *testing.T) {
+	ctx := newMockContextWithQuery(map[string]string{
+		"limit": "5",
+		"name":  "Alice",
+	})
+
+	logger := newRecordingLogger()
+	criteria, filters, err := BuildQueryCriteriaWithLogger[TestUser](ctx, OpList, logger, true)
+	require.NoError(t, err)
+	require.NotNil(t, criteria)
+	require.NotNil(t, filters)
+
+	entries := logger.Entries()
+	require.NotEmpty(t, entries)
+
+	last := entries[len(entries)-1]
+	assert.Equal(t, "DEBUG", last.level)
+	assert.Equal(t, "query criteria built", last.message)
+	assert.Contains(t, last.fields, "filters")
+	assert.Contains(t, last.fields, "query_params")
+	loggedFilters, ok := last.fields["filters"].(*Filters)
+	require.True(t, ok)
+	assert.Equal(t, filters.Limit, loggedFilters.Limit)
+	assert.Equal(t, filters.Offset, loggedFilters.Offset)
+	queryParams, ok := last.fields["query_params"].(map[string]string)
+	require.True(t, ok)
+	assert.Contains(t, queryParams, "limit")
+	assert.Contains(t, queryParams, "name")
+}
+
+func TestBuildQueryCriteriaWithLoggerDisabled(t *testing.T) {
+	ctx := newMockContextWithQuery(map[string]string{
+		"limit": "10",
+	})
+
+	logger := newRecordingLogger()
+	_, _, err := BuildQueryCriteriaWithLogger[TestUser](ctx, OpList, logger, false)
+	require.NoError(t, err)
+
+	assert.Empty(t, logger.Entries())
+}
+
+func TestBuildQueryCriteriaWithLoggerFallback(t *testing.T) {
+	ctx := newMockContextWithQuery(map[string]string{
+		"limit": "3",
+		"name":  "Test",
+	})
+
+	logger := newBasicRecordingLogger()
+	_, filters, err := BuildQueryCriteriaWithLogger[TestUser](ctx, OpList, logger, true)
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+
+	entries := logger.Entries()
+	require.NotEmpty(t, entries)
+
+	last := entries[len(entries)-1]
+	assert.Equal(t, "DEBUG", last.level)
+	assert.Contains(t, last.message, "filters=")
+	assert.Contains(t, last.message, "query_params=")
+	assert.Nil(t, last.fields)
 }
