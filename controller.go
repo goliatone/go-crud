@@ -2,6 +2,7 @@ package crud
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/goliatone/go-repository-bun"
@@ -34,6 +35,7 @@ type Controller[T any] struct {
 	logger              Logger
 	fieldMapProvider    FieldMapProvider
 	queryLoggingEnabled bool
+	routeConfig         RouteConfig
 }
 
 // NewController creates a new Controller with functional options.
@@ -46,6 +48,7 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		resp:          NewDefaultResponseHandler[T](),
 		resourceType:  reflect.TypeOf(t),
 		logger:        &defaultLogger{},
+		routeConfig:   DefaultRouteConfig(),
 	}
 
 	for _, opt := range opts {
@@ -109,41 +112,62 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 	r.Get(schemaPath, c.Schema).
 		Name(schemaRoute)
 
+	registerRoute := func(op CrudOperation, defaultMethod, path string, handler func(Context) error, routeName string) {
+		enabled, method := c.routeConfig.resolve(op, defaultMethod)
+		if !enabled {
+			return
+		}
+		info := invokeRoute(r, method, path, handler)
+		if info == nil {
+			return
+		}
+		applyMeta(method, path, info.Name(routeName))
+	}
+
 	showPath := fmt.Sprintf("/%s/:id", resource)
 	readRoute := fmt.Sprintf("%s:%s", resource, OpRead)
-	applyMeta("GET", showPath, r.Get(showPath, c.Show).
-		Name(readRoute))
+	registerRoute(OpRead, http.MethodGet, showPath, c.Show, readRoute)
 
 	listPath := fmt.Sprintf("/%s", resources)
 	listRoute := fmt.Sprintf("%s:%s", resource, OpList)
-	applyMeta("GET", listPath, r.Get(listPath, c.Index).
-		Name(listRoute))
+	registerRoute(OpList, http.MethodGet, listPath, c.Index, listRoute)
 
 	createBatchPath := fmt.Sprintf("/%s/batch", resource)
 	createBatchRoute := fmt.Sprintf("%s:%s", resource, OpCreateBatch)
-	applyMeta("POST", createBatchPath, r.Post(createBatchPath, c.CreateBatch).
-		Name(createBatchRoute))
+	registerRoute(OpCreateBatch, http.MethodPost, createBatchPath, c.CreateBatch, createBatchRoute)
 
 	createPath := fmt.Sprintf("/%s", resource)
 	createRoute := fmt.Sprintf("%s:%s", resource, OpCreate)
-	applyMeta("POST", createPath, r.Post(createPath, c.Create).
-		Name(createRoute))
+	registerRoute(OpCreate, http.MethodPost, createPath, c.Create, createRoute)
 
 	updateBatchRoute := fmt.Sprintf("%s:%s", resource, OpUpdateBatch)
-	applyMeta("PUT", createBatchPath, r.Put(createBatchPath, c.UpdateBatch).
-		Name(updateBatchRoute))
+	registerRoute(OpUpdateBatch, http.MethodPut, createBatchPath, c.UpdateBatch, updateBatchRoute)
 
 	updateRoute := fmt.Sprintf("%s:%s", resource, OpUpdate)
-	applyMeta("PUT", showPath, r.Put(showPath, c.Update).
-		Name(updateRoute))
+	registerRoute(OpUpdate, http.MethodPut, showPath, c.Update, updateRoute)
 
 	deleteBatchRoute := fmt.Sprintf("%s:%s", resource, OpDeleteBatch)
-	applyMeta("DELETE", createBatchPath, r.Delete(createBatchPath, c.DeleteBatch).
-		Name(deleteBatchRoute))
+	registerRoute(OpDeleteBatch, http.MethodDelete, createBatchPath, c.DeleteBatch, deleteBatchRoute)
 
 	deleteRoute := fmt.Sprintf("%s:%s", resource, OpDelete)
-	applyMeta("DELETE", showPath, r.Delete(showPath, c.Delete).
-		Name(deleteRoute))
+	registerRoute(OpDelete, http.MethodDelete, showPath, c.Delete, deleteRoute)
+}
+
+func invokeRoute(r Router, method, path string, handler func(Context) error) RouterRouteInfo {
+	switch method {
+	case http.MethodGet:
+		return r.Get(path, handler)
+	case http.MethodPost:
+		return r.Post(path, handler)
+	case http.MethodPut:
+		return r.Put(path, handler)
+	case http.MethodPatch:
+		return r.Patch(path, handler)
+	case http.MethodDelete:
+		return r.Delete(path, handler)
+	default:
+		return nil
+	}
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
