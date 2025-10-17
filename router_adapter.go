@@ -30,6 +30,10 @@ func (ra *goRouterAdapter[T]) Put(path string, handler func(Context) error) Rout
 	return &routerRouteInfoAdapter{ri: ra.r.Put(path, ra.wrap(handler))}
 }
 
+func (ra *goRouterAdapter[T]) Patch(path string, handler func(Context) error) RouterRouteInfo {
+	return &routerRouteInfoAdapter{ri: ra.r.Patch(path, ra.wrap(handler))}
+}
+
 func (ra *goRouterAdapter[T]) Delete(path string, handler func(Context) error) RouterRouteInfo {
 	return &routerRouteInfoAdapter{ri: ra.r.Delete(path, ra.wrap(handler))}
 }

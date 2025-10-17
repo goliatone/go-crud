@@ -48,6 +48,7 @@ type Router interface {
 	Get(path string, handler func(Context) error) RouterRouteInfo
 	Post(path string, handler func(Context) error) RouterRouteInfo
 	Put(path string, handler func(Context) error) RouterRouteInfo
+	Patch(path string, handler func(Context) error) RouterRouteInfo
 	Delete(path string, handler func(Context) error) RouterRouteInfo
 
 	// GET(path string, handler func(Context) error) RouterRouteInfo

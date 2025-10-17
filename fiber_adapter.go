@@ -31,6 +31,10 @@ func (ra *fiberAdapter) Put(path string, handler func(Context) error) RouterRout
 	return &fiberRouteInfoAdapter{ri: ra.r.Put(path, ra.wrap(handler))}
 }
 
+func (ra *fiberAdapter) Patch(path string, handler func(Context) error) RouterRouteInfo {
+	return &fiberRouteInfoAdapter{ri: ra.r.Patch(path, ra.wrap(handler))}
+}
+
 func (ra *fiberAdapter) Delete(path string, handler func(Context) error) RouterRouteInfo {
 	return &fiberRouteInfoAdapter{ri: ra.r.Delete(path, ra.wrap(handler))}
 }
