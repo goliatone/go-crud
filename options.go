@@ -58,6 +58,12 @@ func WithLogger[T any](logger Logger) Option[T] {
 	}
 }
 
+func WithQueryLogging[T any](enabled bool) Option[T] {
+	return func(c *Controller[T]) {
+		c.queryLoggingEnabled = enabled
+	}
+}
+
 func WithFieldMapProvider[T any](provider FieldMapProvider) Option[T] {
 	return func(c *Controller[T]) {
 		c.fieldMapProvider = provider
