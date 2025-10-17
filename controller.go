@@ -25,14 +25,15 @@ const (
 
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
-	Repo             repository.Repository[T]
-	deserializer     func(op CrudOperation, ctx Context) (T, error)
-	deserialiMany    func(op CrudOperation, ctx Context) ([]T, error)
-	resp             ResponseHandler[T]
-	resource         string
-	resourceType     reflect.Type
-	logger           Logger
-	fieldMapProvider FieldMapProvider
+	Repo                repository.Repository[T]
+	deserializer        func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany       func(op CrudOperation, ctx Context) ([]T, error)
+	resp                ResponseHandler[T]
+	resource            string
+	resourceType        reflect.Type
+	logger              Logger
+	fieldMapProvider    FieldMapProvider
+	queryLoggingEnabled bool
 }
 
 // NewController creates a new Controller with functional options.
@@ -153,7 +154,7 @@ func (c *Controller[T]) Schema(ctx Context) error {
 // GET /user?include=Company,Profile
 // GET /user?select=id,age,email
 func (c *Controller[T]) Show(ctx Context) error {
-	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
+	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
@@ -175,7 +176,7 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
 func (c *Controller[T]) Index(ctx Context) error {
-	criteria, filters, err := BuildQueryCriteria[T](ctx, OpList)
+	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
