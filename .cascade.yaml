@@ -1,0 +1,25 @@
+manifest_version: 1
+defaults:
+    branch: main
+    tests:
+        - cmd:
+            - go
+            - test
+            - ./...
+            - -race
+            - -count=1
+    extra_commands: []
+    labels:
+        - automation:cascade
+    commit_template: 'chore(deps): bump {{ .Module }} to {{ .Version }}'
+    notifications:
+        slack_channel: '#cascade-updates'
+    pr:
+        title: 'chore(deps): bump {{ .Module }} to {{ .Version }}'
+        body_template: Automated dependency update for {{ .Module }} to {{ .Version }}
+modules:
+    - name: go-crud
+      module: github.com/goliatone/go-crud
+      repo: goliatone/go-crud
+      release_artifact: ""
+      dependents: []
