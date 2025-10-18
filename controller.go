@@ -41,6 +41,7 @@ type Controller[T any] struct {
 	deserializer        func(op CrudOperation, ctx Context) (T, error)
 	deserialiMany       func(op CrudOperation, ctx Context) ([]T, error)
 	resp                ResponseHandler[T]
+	service             Service[T]
 	resource            string
 	resourceType        reflect.Type
 	logger              Logger
@@ -61,6 +62,7 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		deserializer:  DefaultDeserializer[T],
 		deserialiMany: DefaultDeserializerMany[T],
 		resp:          NewDefaultResponseHandler[T](),
+		service:       nil,
 		resourceType:  reflect.TypeOf(t),
 		logger:        &defaultLogger{},
 		routeConfig:   DefaultRouteConfig(),
@@ -71,6 +73,10 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 
 	for _, opt := range opts {
 		opt(controller)
+	}
+
+	if controller.service == nil {
+		controller.service = NewRepositoryService(controller.Repo)
 	}
 
 	if controller.fieldMapProvider == nil {
@@ -273,7 +279,7 @@ func (c *Controller[T]) Show(ctx Context) error {
 	}
 
 	id := ctx.Params("id")
-	record, err := c.Repo.GetByID(ctx.UserContext(), id, criteria...)
+	record, err := c.service.Show(ctx, id, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
 	}
@@ -293,7 +299,7 @@ func (c *Controller[T]) Index(ctx Context) error {
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
-	records, count, err := c.Repo.List(ctx.UserContext(), criteria...)
+	records, count, err := c.service.Index(ctx, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
@@ -313,7 +319,7 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
-	createdRecord, err := c.Repo.Create(ctx.UserContext(), record)
+	createdRecord, err := c.service.Create(ctx, record)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
@@ -334,7 +340,7 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
-	createdRecords, err := c.Repo.CreateMany(ctx.UserContext(), records)
+	createdRecords, err := c.service.CreateBatch(ctx, records)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
@@ -367,7 +373,7 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
-	updatedRecord, err := c.Repo.Update(ctx.UserContext(), record)
+	updatedRecord, err := c.service.Update(ctx, record)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
@@ -388,7 +394,7 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
-	updatedRecords, err := c.Repo.UpdateMany(ctx.UserContext(), records)
+	updatedRecords, err := c.service.UpdateBatch(ctx, records)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
@@ -405,7 +411,7 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 
 func (c *Controller[T]) Delete(ctx Context) error {
 	id := ctx.Params("id")
-	record, err := c.Repo.GetByID(ctx.UserContext(), id)
+	record, err := c.service.Show(ctx, id, nil)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
@@ -414,7 +420,7 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
-	err = c.Repo.Delete(ctx.UserContext(), record)
+	err = c.service.Delete(ctx, record)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
@@ -436,13 +442,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	criteria := []repository.DeleteCriteria{}
-	for _, record := range records {
-		id := c.Repo.Handlers().GetID(record)
-		criteria = append(criteria, repository.DeleteByID(id.String()))
-	}
-
-	err = c.Repo.DeleteMany(ctx.UserContext(), criteria...)
+	err = c.service.DeleteBatch(ctx, records)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
