@@ -192,59 +192,102 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceO
 
 	queryParams := ctx.Queries()
 
-	// For each parameter, if it's not in excludeParams, add a where condition
-	criteria.filters = append(criteria.filters, func(q *bun.SelectQuery) *bun.SelectQuery {
-		for param, values := range queryParams {
-			if excludeParams[param] {
+	andConditions := []func(*bun.SelectQuery) *bun.SelectQuery{}
+	orGroups := []func(*bun.SelectQuery) *bun.SelectQuery{}
+
+	// For each parameter, if it's not in excludeParams, record a where condition
+	for param, values := range queryParams {
+		if excludeParams[param] {
+			continue
+		}
+
+		field, operator := parseFieldOperator(param)
+		columnName, ok := allowedFieldsMap[field]
+		if !ok {
+			continue
+		}
+
+		operator = strings.ToLower(operator)
+		switch operator {
+		case "and":
+			valuesList := strings.Split(values, ",")
+			cleaned := make([]string, 0, len(valuesList))
+			for _, value := range valuesList {
+				if v := strings.TrimSpace(value); v != "" {
+					cleaned = append(cleaned, v)
+				}
+			}
+			if len(cleaned) == 0 {
 				continue
 			}
-			// TODO: we could check that if we are in sqlite that we support the operator, e.g. ilike
-			// parseFieldOperator might parse, e.g. "name__ilike" => ("name", "ilike")
-			field, operator := parseFieldOperator(param)
 
-			columnName, ok := allowedFieldsMap[field]
-			if !ok {
-				continue // skip, not allowed TODO: Log
+			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
+				for _, v := range cleaned {
+					q = q.Where(fmt.Sprintf("%s = ?", columnName), v)
+				}
+				return q
+			})
+		case "or":
+			valuesList := strings.Split(values, ",")
+			cleaned := make([]string, 0, len(valuesList))
+			for _, value := range valuesList {
+				if v := strings.TrimSpace(value); v != "" {
+					cleaned = append(cleaned, v)
+				}
+			}
+			if len(cleaned) == 0 {
+				continue
 			}
 
-			operator = strings.ToLower(operator)
-			switch operator {
-			case "and", "or":
-				// handle "name__and=John,Jack" => name=John AND name=Jack
-				// or => name=John OR name=Jack
-				whereGroup := func(q *bun.SelectQuery) *bun.SelectQuery {
-					splitted := strings.Split(values, ",")
-					for i, value := range splitted {
-						v := strings.TrimSpace(value)
-						if v == "" {
-							continue
-						}
-						if i == 0 {
-							q = q.Where(fmt.Sprintf("%s = ?", columnName), v)
-						} else {
-							q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), v)
-						}
+			orGroups = append(orGroups, func(q *bun.SelectQuery) *bun.SelectQuery {
+				for i, v := range cleaned {
+					if i == 0 {
+						q = q.Where(fmt.Sprintf("%s = ?", columnName), v)
+					} else {
+						q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), v)
 					}
-					return q
 				}
+				return q
+			})
+		default:
+			splitted := strings.Split(values, ",")
+			cleaned := make([]string, 0, len(splitted))
+			for _, value := range splitted {
+				if v := strings.TrimSpace(value); v != "" {
+					cleaned = append(cleaned, v)
+				}
+			}
+			if len(cleaned) == 0 {
+				continue
+			}
 
-				if operator == "and" {
-					q = q.WhereGroup(" AND ", whereGroup)
-				} else {
-					q = q.WhereGroup(" OR ", whereGroup)
-				}
-			default:
-				// Handle typical operator: eq, gt, gte, ilike, etc.
-				splitted := strings.Split(values, ",")
-				for _, value := range splitted {
-					v := strings.TrimSpace(value)
-					if v == "" {
-						continue
-					}
+			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
+				for _, v := range cleaned {
 					q = q.Where(fmt.Sprintf("%s %s ?", columnName, operator), v)
 				}
-			}
+				return q
+			})
 		}
+	}
+
+	criteria.filters = append(criteria.filters, func(q *bun.SelectQuery) *bun.SelectQuery {
+		for _, fn := range andConditions {
+			q = fn(q)
+		}
+
+		if len(orGroups) > 0 {
+			q = q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				for i, grp := range orGroups {
+					if i == 0 {
+						q = grp(q)
+					} else {
+						q = q.WhereGroup(" OR ", grp)
+					}
+				}
+				return q
+			})
+		}
+
 		return q
 	})
 
