@@ -116,13 +116,16 @@ The package uses proper pluralization rules, handling common irregular cases cor
 
 ## Features
 
-- **OpenAPI Schema Generation**: Each resource automatically generates an OpenAPI-compatible schema endpoint
-- **Batch Operations**: Support for creating, updating, and deleting multiple records in a single request
-- **Advanced Filtering**: Query parameters with operators for complex filtering
-- **Soft Deletes**: Built-in support for soft delete functionality via Bun ORM
-- **Customizable Response Handlers**: Flexible response formatting for different API standards
-- **Logging Support**: Configurable logging with custom logger interface
-- **Router Adapter**: Works with Fiber v2 and can be extended for other routers
+- **Service Layer Delegation** – plug domain logic between the controller and repository without rewriting handlers. Supply a full `Service[T]` or override selected operations with helpers like `WithServiceFuncs`.
+- **Lifecycle Hooks** – register before/after callbacks for single and batch create/update/delete operations to weave in auditing, validation, or side effects.
+- **Route/Operation Toggles** – enable/disable or remap individual HTTP verbs when registering routes (e.g., prefer PATCH over PUT, drop batch operations).
+- **Advanced Query Builder** – field-mapped filtering with AND/OR operators, pagination, ordering, and nested relation includes.
+- **OpenAPI integration** – automatic schema and path generation, with metadata propagated from struct tags and route definitions.
+- **Batch Operations & Soft Deletes** – first-class support for bulk create/update/delete and Bun’s soft-delete conventions.
+- **Flexible Responses & Logging** – swap response handlers (JSON API, HAL, etc.) and wire custom loggers to trace query building.
+- **Router Adapters** – ships with Fiber adapter and can be extended for other router implementations.
+
+The repository also ships with a **web demo** (`examples/web`) that shows a combined API + HTML interface, complete with OpenAPI docs and front-end routes annotated with metadata. Run `go run ./examples/web` to explore the UI and generated documentation.
 
 ## Configuration
 
@@ -224,6 +227,71 @@ func (h JSONAPIResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOpera
         },
     })
 }
+```
+
+### Delegating to a Service Layer
+
+Controllers can delegate every CRUD operation to a domain service. Provide a complete implementation via `WithService` or override specific operations with `WithServiceFuncs`, which layers on top of the default repository-backed service.
+
+```go
+type UserService struct {
+	repo repository.Repository[*User]
+}
+
+func (s *UserService) Create(ctx crud.Context, record *User) (*User, error) {
+	record.CreatedAt = timePtr(time.Now())
+	return s.repo.Create(ctx.UserContext(), record)
+}
+
+// ...implement remaining methods or embed crud.NewRepositoryService(...)
+
+controller := crud.NewController(
+	userRepo,
+	crud.WithServiceFuncs[*User](crud.ServiceFuncs[*User]{
+		Create: func(ctx crud.Context, record *User) (*User, error) {
+			now := time.Now()
+			record.CreatedAt = &now
+			return crud.NewRepositoryService(userRepo).Create(ctx, record)
+		},
+	}),
+)
+```
+
+### Lifecycle Hooks
+
+Register before/after callbacks without implementing a full service:
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithLifecycleHooks(crud.LifecycleHooks[*User]{
+		BeforeCreate: func(hctx crud.HookContext, user *User) error {
+			user.CreatedBy = hctx.Context.UserContext().Value(authKey).(string)
+			return nil
+		},
+		AfterDelete: func(_ crud.HookContext, user *User) error {
+			audit.LogDeletion(user.ID)
+			return nil
+		},
+	}),
+)
+```
+
+### Route/Operation Toggles
+
+Fine-tune which routes get registered and which HTTP verbs they use:
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithRouteConfig(crud.RouteConfig{
+		Operations: map[crud.CrudOperation]crud.RouteOptions{
+			crud.OpUpdate:      {Method: http.MethodPatch}, // use PATCH instead of PUT
+			crud.OpDeleteBatch: {Enabled: crud.BoolPtr(false)}, // disable batch delete
+		},
+	}),
+)
+```
 
 func (h JSONAPIResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error {
     c.Set("Content-type", "application/vnd.api+json")
