@@ -4,11 +4,33 @@
 
 ## <!-- 0 -->🚀 Features
 
+- Hook for before/after crud ops ([6a37d02](https://github.com/goliatone/go-crud/commit/6a37d028a76f0ecf083046618effcbcfe4079558))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Hooks manager ([dccfa2f](https://github.com/goliatone/go-crud/commit/dccfa2f1d37a34756c2a0a1020700cb32be0ad8d))  - (goliatone)
+- Route options for configurable routes ([61d32fb](https://github.com/goliatone/go-crud/commit/61d32fb1f899bd5e7a932bc26ee3f0bf92001c01))  - (goliatone)
+- Path support ([80e46d5](https://github.com/goliatone/go-crud/commit/80e46d5809c861f014eda15c21d1d92fcc33c15d))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update example routes ([d835dd0](https://github.com/goliatone/go-crud/commit/d835dd07d13a44395d51155b215981ca83fffb95))  - (goliatone)
+- Update docs ([d1b2e93](https://github.com/goliatone/go-crud/commit/d1b2e9381d038e6cd6824a82ed21ec47693057d3))  - (goliatone)
+- Web example ([7ea8725](https://github.com/goliatone/go-crud/commit/7ea8725039033434a3fc1d1f508c8f6c52bf583a))  - (goliatone)
+
+# [0.4.0](https://github.com/goliatone/go-crud/compare/v0.3.0...v0.4.0) - (2025-10-17)
+
+## <!-- 0 -->🚀 Features
+
 - Nested relationships ([44d19e4](https://github.com/goliatone/go-crud/commit/44d19e4cb28dd6a61d23a79a49dbc7554ac0620a))  - (goliatone)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Taskfile for intall and release ([26c54fd](https://github.com/goliatone/go-crud/commit/26c54fdfc676716860fc5d403d067d3e169cfcfd))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.4.0 ([e103574](https://github.com/goliatone/go-crud/commit/e10357411110f8e9aa6cad098db6fd5a9d37d8e4))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
