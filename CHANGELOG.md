@@ -4,7 +4,25 @@
 
 ## <!-- 0 -->🚀 Features
 
+- Service abstraction to override methods ([03a8251](https://github.com/goliatone/go-crud/commit/03a8251084fdeb08f4f1ae55becaf4fae9d0b926))  - (goliatone)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Filter order ensure OR groups ([7186dc7](https://github.com/goliatone/go-crud/commit/7186dc7a6b8579d577c1fb530d4bc9dd115c9da7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Cascade meta ([c783f2b](https://github.com/goliatone/go-crud/commit/c783f2bbda13da7544bf2e7b2958ef9bb588c4a8))  - (goliatone)
+
+# [0.5.0](https://github.com/goliatone/go-crud/compare/v0.4.0...v0.5.0) - (2025-10-18)
+
+## <!-- 0 -->🚀 Features
+
 - Hook for before/after crud ops ([6a37d02](https://github.com/goliatone/go-crud/commit/6a37d028a76f0ecf083046618effcbcfe4079558))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.5.0 ([e327389](https://github.com/goliatone/go-crud/commit/e327389dd1535c90ee311526d7acbf0afe870d35))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
