@@ -196,22 +196,49 @@ func seedDatabase(repo repository.Repository[*User]) {
 
 // Front-end route handlers
 func createFrontEndRoutes[T any](front router.Router[T], repo repository.Repository[*User]) {
-	// Home page - User list
-	front.Get("/", renderUserList(repo))
+	users := front.Group("/users")
 
-	// Create user form
-	front.Get("/users/new", renderCreateForm())
+	front.Get("/", renderUserList(repo)).
+		SetName("web:users:list").
+		SetSummary("User Directory").
+		SetDescription("HTML view that lists all users").
+		AddTags("Front-End", "Users")
 
-	// User detail page
-	front.Get("/users/:id", renderUserDetail(repo))
+	users.Get("/new", renderCreateForm()).
+		SetName("web:users:new").
+		SetSummary("Create User Form").
+		SetDescription("Displays the form to create a new user").
+		AddTags("Front-End", "Users")
 
-	// Edit user form
-	front.Get("/users/:id/edit", renderEditForm(repo))
+	users.Get("/:id", renderUserDetail(repo)).
+		SetName("web:users:detail").
+		SetSummary("User Detail Page").
+		SetDescription("Shows details for a single user").
+		AddTags("Front-End", "Users")
 
-	// Form submissions
-	front.Post("/users", handleCreateUser(repo))
-	front.Post("/users/:id", handleUpdateUser(repo))
-	front.Post("/users/:id/delete", handleDeleteUser(repo))
+	users.Get("/:id/edit", renderEditForm(repo)).
+		SetName("web:users:edit").
+		SetSummary("Edit User Form").
+		SetDescription("Displays the form to edit an existing user").
+		AddTags("Front-End", "Users")
+
+	users.Post("/", handleCreateUser(repo)).
+		SetName("web:users:create").
+		SetSummary("Submit Create Form").
+		SetDescription("Processes the HTML form submission to create a user").
+		AddTags("Front-End", "Users")
+
+	users.Post("/:id", handleUpdateUser(repo)).
+		SetName("web:users:update").
+		SetSummary("Submit Update Form").
+		SetDescription("Processes the HTML form submission to update an existing user").
+		AddTags("Front-End", "Users")
+
+	users.Post("/:id/delete", handleDeleteUser(repo)).
+		SetName("web:users:delete").
+		SetSummary("Submit Delete Form").
+		SetDescription("Processes the HTML form submission to delete a user").
+		AddTags("Front-End", "Users")
 }
 
 func renderUserList(repo repository.Repository[*User]) router.HandlerFunc {
