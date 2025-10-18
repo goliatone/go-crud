@@ -65,7 +65,7 @@ func testUserDeserializer(op CrudOperation, ctx Context) (*TestUser, error) {
 	return &user, nil
 }
 
-func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
+func setupApp(t *testing.T, options ...Option[*TestUser]) (*fiber.App, *bun.DB) {
 	// Initialize the Fiber app
 	app := fiber.New()
 
@@ -92,7 +92,8 @@ func setupApp(t *testing.T) (*fiber.App, *bun.DB) {
 
 	// Initialize the repository and controller
 	repo := newTestUserRepository(db)
-	controller := NewController[*TestUser](repo, WithDeserializer(testUserDeserializer))
+	opts := append([]Option[*TestUser]{WithDeserializer(testUserDeserializer)}, options...)
+	controller := NewController[*TestUser](repo, opts...)
 
 	// Register routes
 	router := NewFiberAdapter(app)
@@ -215,6 +216,61 @@ func TestController_CreateUser(t *testing.T) {
 	assert.NotEmpty(t, createdUser.ID)
 }
 
+func TestController_Create_DelegatesToService(t *testing.T) {
+	var called bool
+
+	opt := func(ctrl *Controller[*TestUser]) {
+		base := NewRepositoryService(ctrl.Repo)
+		overrides := ServiceFuncs[*TestUser]{
+			Create: func(ctx Context, record *TestUser) (*TestUser, error) {
+				called = true
+				record.Name = record.Name + " via service"
+				return base.Create(ctx, record)
+			},
+		}
+		ctrl.service = ComposeService(base, overrides)
+	}
+
+	app, db := setupApp(t, opt)
+	defer db.Close()
+
+	user := map[string]any{
+		"name":     "Service User",
+		"email":    "service.user@example.com",
+		"password": "secret",
+	}
+
+	body, err := json.Marshal(user)
+	if err != nil {
+		t.Fatalf("Failed to marshal user: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/test-user", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.True(t, called, "expected service override to be invoked")
+
+	var createdUser TestUser
+	if err := json.NewDecoder(resp.Body).Decode(&createdUser); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.Equal(t, "Service User via service", createdUser.Name)
+
+	repo := newTestUserRepository(db)
+	saved, err := repo.GetByID(context.Background(), createdUser.ID.String())
+	if err != nil {
+		t.Fatalf("Failed to fetch created user: %v", err)
+	}
+	assert.Equal(t, "Service User via service", saved.Name)
+}
+
 func TestController_GetUser(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
@@ -311,6 +367,49 @@ func TestController_ListUsers(t *testing.T) {
 		assert.NotEmpty(t, user.Email)
 		assert.Empty(t, user.Password)
 	}
+}
+
+func TestController_Index_DelegatesToService(t *testing.T) {
+	var called bool
+
+	opt := func(ctrl *Controller[*TestUser]) {
+		base := NewRepositoryService(ctrl.Repo)
+		overrides := ServiceFuncs[*TestUser]{
+			Index: func(ctx Context, criteria []repository.SelectCriteria) ([]*TestUser, int, error) {
+				called = true
+				return base.Index(ctx, criteria)
+			},
+		}
+		ctrl.service = ComposeService(base, overrides)
+	}
+
+	app, db := setupApp(t, opt)
+	defer db.Close()
+
+	ctx := context.Background()
+	repo := newTestUserRepository(db)
+	user := &TestUser{
+		ID:        uuid.New(),
+		Name:      "Index User",
+		Email:     "index.user@example.com",
+		Password:  "secret",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if _, err := repo.Create(ctx, user); err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/test-users", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.True(t, called, "expected service override to be invoked for index")
 }
 
 func TestController_UpdateUser(t *testing.T) {
