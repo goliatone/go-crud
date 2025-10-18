@@ -144,6 +144,19 @@ func WithFieldMapProvider[T any](provider FieldMapProvider) Option[T] {
 	}
 }
 
+func WithService[T any](service Service[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.service = service
+	}
+}
+
+func WithServiceFuncs[T any](overrides ServiceFuncs[T]) Option[T] {
+	return func(c *Controller[T]) {
+		base := NewRepositoryService(c.Repo)
+		c.service = ComposeService(base, overrides)
+	}
+}
+
 func WithRouteConfig[T any](config RouteConfig) Option[T] {
 	return func(c *Controller[T]) {
 		c.routeConfig = c.routeConfig.merge(config)
