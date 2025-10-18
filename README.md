@@ -125,7 +125,7 @@ The package uses proper pluralization rules, handling common irregular cases cor
 - **Flexible Responses & Logging** – swap response handlers (JSON API, HAL, etc.) and wire custom loggers to trace query building.
 - **Router Adapters** – ships with Fiber adapter and can be extended for other router implementations.
 
-The repository also ships with a **web demo** (`examples/web`) that shows a combined API + HTML interface, complete with OpenAPI docs and front-end routes annotated with metadata. Run `go run ./examples/web` to explore the UI and generated documentation.
+The repository also ships with a **web demo** (`examples/web`) that shows a combined API + HTML interface, complete with OpenAPI docs and frontend routes annotated with metadata. Run `go run ./examples/web` to explore the UI and generated documentation.
 
 ## Configuration
 
@@ -211,6 +211,11 @@ func (h JSONAPIResponseHandler[T]) OnList(c *fiber.Ctx, data []T, op CrudOperati
     })
 }
 
+func (h JSONAPIResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error {
+    c.Set("Content-type", "application/vnd.api+json")
+    return c.SendStatus(fiber.StatusNoContent)
+}
+
 func (h JSONAPIResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOperation) error {
     status := fiber.StatusInternalServerError
     if _, isNotFound := err.(*NotFoundError); isNotFound {
@@ -291,12 +296,6 @@ controller := crud.NewController(
 		},
 	}),
 )
-```
-
-func (h JSONAPIResponseHandler[T]) OnEmpty(c *fiber.Ctx, op CrudOperation) error {
-    c.Set("Content-type", "application/vnd.api+json")
-    return c.SendStatus(fiber.StatusNoContent)
-}
 
 // Using the custom handler
 controller := crud.NewController[*User](
