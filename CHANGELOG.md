@@ -2,13 +2,22 @@
 
 # [unreleased]
 
-## <!-- 0 -->🚀 Features
+## <!-- 16 -->➕ Add
 
-- Add web example regression tests to cover shared OpenAPI parameters and `format=options` pagination (unreleased)
+- Relationship meta and options ([44d0b28](https://github.com/goliatone/go-crud/commit/44d0b281d638310b92f3afdfcbbe02efa4920994))  - (goliatone)
+- Relation descriptior ([e13db19](https://github.com/goliatone/go-crud/commit/e13db1951391c8f4dbde987f63ea96983836b8bc))  - (goliatone)
 
-## <!-- 3 -->📚 Documentation
+## <!-- 7 -->⚙️ Miscellaneous Tasks
 
-- Document shared query components, pagination behaviour, and coordinated tagging guidance for go-router/go-crud releases (unreleased)
+- Update examples ([b7d8d52](https://github.com/goliatone/go-crud/commit/b7d8d529ee3414ffe9aefb3e5ce409871499e44d))  - (goliatone)
+- Update readme ([b568ef1](https://github.com/goliatone/go-crud/commit/b568ef1e634052e8ecd458bdada429ba383707a8))  - (goliatone)
+- Update tests ([576a996](https://github.com/goliatone/go-crud/commit/576a996052895e2121b54e5117bc0a16d71fe20a))  - (goliatone)
+
+# [0.7.1](https://github.com/goliatone/go-crud/compare/v0.7.0...v0.7.1) - (2025-10-31)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.7.1 ([cc38271](https://github.com/goliatone/go-crud/commit/cc38271a0ed9ea516a087a9f3c33dd8026f0a8e5))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
