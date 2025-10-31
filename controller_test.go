@@ -232,9 +232,67 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 
 	componentsParams, ok := components["parameters"].(map[string]any)
 	require.True(t, ok, "expected shared parameter components")
-	for _, parameter := range []string{"Limit", "Offset", "Include", "Select", "Order"} {
-		_, exists := componentsParams[parameter]
-		assert.Truef(t, exists, "expected %s parameter component", parameter)
+
+	checkNumberParam := func(name, description string, expectedDefault float64) {
+		param, ok := componentsParams[name].(map[string]any)
+		require.Truef(t, ok, "expected %s parameter component", name)
+		assert.Equalf(t, strings.ToLower(name), param["name"], "unexpected %s name", name)
+		assert.Equalf(t, "query", param["in"], "unexpected %s location", name)
+		assert.Equalf(t, description, param["description"], "unexpected %s description", name)
+
+		schema, ok := param["schema"].(map[string]any)
+		require.Truef(t, ok, "expected %s schema definition", name)
+		assert.Equalf(t, "integer", schema["type"], "unexpected %s schema type", name)
+		assert.Equalf(t, expectedDefault, schema["default"], "unexpected %s default", name)
+	}
+
+	checkStringParam := func(name, description string) {
+		param, ok := componentsParams[name].(map[string]any)
+		require.Truef(t, ok, "expected %s parameter component", name)
+		assert.Equalf(t, strings.ToLower(name), param["name"], "unexpected %s name", name)
+		assert.Equalf(t, "query", param["in"], "unexpected %s location", name)
+		assert.Equalf(t, description, param["description"], "unexpected %s description", name)
+
+		schema, ok := param["schema"].(map[string]any)
+		require.Truef(t, ok, "expected %s schema definition", name)
+		assert.Equalf(t, "string", schema["type"], "unexpected %s schema type", name)
+	}
+
+	checkNumberParam("Limit", "Maximum number of records to return (default 25)", 25)
+	checkNumberParam("Offset", "Number of records to skip before starting to return results (default 0)", 0)
+	checkStringParam("Include", "Related resources to include, comma separated (e.g. Company,Profile)")
+	checkStringParam("Select", "Fields to include in the response, comma separated (e.g. id,name,email)")
+	checkStringParam("Order", "Sort order, comma separated with direction (e.g. name asc,created_at desc)")
+
+	listPath, ok := paths["/test-users"].(map[string]any)
+	require.True(t, ok, "expected list path metadata")
+
+	getOperation, ok := listPath["get"].(map[string]any)
+	require.True(t, ok, "expected GET operation metadata for list path")
+
+	rawParams, ok := getOperation["parameters"].([]any)
+	require.True(t, ok, "expected parameters array on list GET operation")
+
+	expectedRefs := map[string]bool{
+		"#/components/parameters/Limit":   false,
+		"#/components/parameters/Offset":  false,
+		"#/components/parameters/Include": false,
+		"#/components/parameters/Select":  false,
+		"#/components/parameters/Order":   false,
+	}
+
+	for _, p := range rawParams {
+		param, ok := p.(map[string]any)
+		require.True(t, ok, "unexpected parameter value in GET operation")
+		if ref, ok := param["$ref"].(string); ok {
+			if _, exists := expectedRefs[ref]; exists {
+				expectedRefs[ref] = true
+			}
+		}
+	}
+
+	for ref, seen := range expectedRefs {
+		assert.Truef(t, seen, "expected to find parameter reference %s on GET operation", ref)
 	}
 }
 
