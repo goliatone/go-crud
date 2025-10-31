@@ -8,6 +8,7 @@ import (
 
 	"github.com/ettle/strcase"
 	"github.com/goliatone/go-repository-bun"
+	"github.com/goliatone/go-router"
 )
 
 type relationMetadata struct {
@@ -72,6 +73,10 @@ func registerQueryConfig(typ reflect.Type, provider FieldMapProvider) {
 		return
 	}
 
+	if descriptor := getRelationDescriptorForType(base); descriptor != nil {
+		root = pruneRelationMetadata(root, descriptor)
+	}
+
 	queryConfigRegistry.Store(base, &queryConfig{root: root})
 }
 
@@ -84,6 +89,10 @@ func getRelationMetadataForType(typ reflect.Type) *relationMetadata {
 	root := buildRelationMetadata(base, nil, make(map[reflect.Type]bool))
 	if root == nil {
 		return nil
+	}
+
+	if descriptor := getRelationDescriptorForType(base); descriptor != nil {
+		root = pruneRelationMetadata(root, descriptor)
 	}
 
 	queryConfigRegistry.Store(base, &queryConfig{root: root})
@@ -236,6 +245,38 @@ func cloneStringMap(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	maps.Copy(out, in)
 	return out
+}
+
+func pruneRelationMetadata(root *relationMetadata, descriptor *router.RelationDescriptor) *relationMetadata {
+	if root == nil || descriptor == nil || descriptor.Tree == nil {
+		return root
+	}
+	pruneRelationNode(root, descriptor.Tree)
+	return root
+}
+
+func pruneRelationNode(meta *relationMetadata, node *router.RelationNode) {
+	if meta == nil || node == nil {
+		return
+	}
+
+	if len(meta.children) == 0 {
+		return
+	}
+
+	allowed := make(map[string]*router.RelationNode, len(node.Children))
+	for key, child := range node.Children {
+		allowed[strings.ToLower(key)] = child
+	}
+
+	for key, childMeta := range meta.children {
+		childNode, ok := allowed[key]
+		if !ok {
+			delete(meta.children, key)
+			continue
+		}
+		pruneRelationNode(childMeta, childNode)
+	}
 }
 
 func indirectType(t reflect.Type) reflect.Type {
