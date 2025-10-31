@@ -177,6 +177,12 @@ Access the interactive API documentation at:
 http://localhost:9090/meta/docs
 ```
 
+For raw machine-readable metadata, each resource exposes its schema as an OpenAPI 3.0 document. For example:
+```
+curl http://localhost:9090/api/user/schema | jq
+```
+returns the generated paths, tags, and `components.schemas.User` definition that you can feed into Swagger or Stoplight tooling.
+
 ## Customization
 
 ### Changing the Port

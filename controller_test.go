@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/extra/bundebug"
@@ -146,6 +147,55 @@ func createSchema(ctx context.Context, db *bun.DB) error {
 		}
 	}
 	return nil
+}
+
+func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var doc map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.Equal(t, "3.0.3", doc["openapi"])
+
+	paths, ok := doc["paths"].(map[string]any)
+	require.True(t, ok, "paths section missing")
+	_, hasListPath := paths["/test-users"]
+	assert.True(t, hasListPath, "expected list path in OpenAPI document")
+
+	components, ok := doc["components"].(map[string]any)
+	require.True(t, ok, "components section missing")
+
+	schemas, ok := components["schemas"].(map[string]any)
+	require.True(t, ok, "schemas section missing")
+
+	entitySchema, ok := schemas["test-user"].(map[string]any)
+	require.True(t, ok, "test-user schema missing")
+	assert.Equal(t, "object", entitySchema["type"])
+
+	requiredFields, ok := entitySchema["required"].([]any)
+	require.True(t, ok, "required list missing")
+	assert.Contains(t, requiredFields, "id")
+	assert.Contains(t, requiredFields, "email")
+
+	props, ok := entitySchema["properties"].(map[string]any)
+	require.True(t, ok, "properties map missing")
+
+	idProp, ok := props["id"].(map[string]any)
+	require.True(t, ok, "id property missing")
+	assert.Equal(t, "string", idProp["type"])
 }
 
 func printBody(t *testing.T, resp *http.Response) {

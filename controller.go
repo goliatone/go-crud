@@ -266,7 +266,21 @@ func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBat
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
-	return ctx.JSON(c.GetMetadata())
+	meta := c.GetMetadata()
+	if meta.Name == "" {
+		return ctx.SendStatus(http.StatusNotFound)
+	}
+
+	aggregator := router.NewMetadataAggregator()
+	aggregator.AddProvider(c)
+	aggregator.Compile()
+
+	doc := aggregator.GenerateOpenAPI()
+	if len(doc) == 0 {
+		return ctx.SendStatus(http.StatusNoContent)
+	}
+
+	return ctx.JSON(doc)
 }
 
 // Show supports different query string parameters:

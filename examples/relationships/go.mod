@@ -1,31 +1,26 @@
-module github.com/goliatone/go-crud
+module github.com/goliatone/go-crud/examples/relationships
 
 go 1.23.4
 
 require (
-	github.com/ettle/strcase v0.2.0
-	github.com/gertd/go-pluralize v0.2.1
 	github.com/gofiber/fiber/v2 v2.52.6
-	github.com/goliatone/go-print v0.4.1
+	github.com/goliatone/go-crud v0.4.0
 	github.com/goliatone/go-repository-bun v0.5.4
-	github.com/goliatone/go-router v0.20.0
+	github.com/goliatone/go-router v0.18.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
-	github.com/stretchr/testify v1.10.0
 	github.com/uptrace/bun v1.2.14
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.14
-	github.com/uptrace/bun/extra/bundebug v1.2.6
 )
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/alecthomas/chroma/v2 v2.16.0 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
-	github.com/fatih/color v1.18.0 // indirect
 	github.com/flosch/pongo2/v6 v6.0.0 // indirect
+	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
@@ -34,7 +29,6 @@ require (
 	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-errors v0.9.0 // indirect
-	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -48,8 +42,8 @@ require (
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
-	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.52.0 // indirect
@@ -62,3 +56,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/goliatone/go-crud => ../..
+
+replace github.com/goliatone/go-repository-bun => ../../../go-repository-bun
+
+replace github.com/goliatone/go-router => ../../../go-router
