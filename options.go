@@ -169,6 +169,22 @@ func WithLifecycleHooks[T any](hooks LifecycleHooks[T]) Option[T] {
 	}
 }
 
+func WithRelationMetadataProvider[T any](provider router.RelationMetadataProvider) Option[T] {
+	return func(c *Controller[T]) {
+		c.relationProvider = provider
+	}
+}
+
+func WithRelationFilter[T any](filter router.RelationFilterFunc) Option[T] {
+	return func(c *Controller[T]) {
+		if filter == nil {
+			return
+		}
+		router.RegisterRelationFilter(filter)
+		invalidateRelationDescriptorCache()
+	}
+}
+
 // DefaultDeserializer provides a generic deserializer.
 func DefaultDeserializer[T any](op CrudOperation, ctx Context) (T, error) {
 	var record T
