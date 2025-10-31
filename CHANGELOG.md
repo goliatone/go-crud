@@ -2,6 +2,17 @@
 
 # [unreleased]
 
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([7d351b4](https://github.com/goliatone/go-crud/commit/7d351b44cafbf3b9490e0550abd8e5605cb497dd))  - (goliatone)
+- Update docs ([ff1bb5c](https://github.com/goliatone/go-crud/commit/ff1bb5c6fb243760722824eae0bd886f8d89708f))  - (goliatone)
+
+# [0.7.0](https://github.com/goliatone/go-crud/compare/v0.6.0...v0.7.0) - (2025-10-31)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.7.0 ([9173d95](https://github.com/goliatone/go-crud/commit/9173d954039bf04a1b467a6ff8266a007ac47d87))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Return OpenAPI bundles from schema endpoint ([7d41cd0](https://github.com/goliatone/go-crud/commit/7d41cd09d3720272356dfc006827aaca45c25ee0))  - (goliatone)
