@@ -125,7 +125,7 @@ func (ca *contextAdapter) QueryInt(key string, defaultValue ...int) int {
 	if len(defaultValue) > 0 {
 		def = defaultValue[0]
 	}
-	return ca.c.GetInt(key, def)
+	return ca.c.QueryInt(key, def)
 }
 
 func (ca *contextAdapter) Queries() map[string]string {
