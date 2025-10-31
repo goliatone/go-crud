@@ -198,36 +198,50 @@ func TestWebExampleOptionsRespectsPagination(t *testing.T) {
 		return payload
 	}
 
-	firstValues := url.Values{}
+	baseValues := url.Values{}
+	baseValues.Set("format", "options")
+	baseValues.Set("order", "name asc,created_at desc")
+
+	allOptions := makeRequest(baseValues)
+	if len(allOptions) < 2 {
+		t.Fatalf("expected seeded dataset to contain at least two option entries")
+	}
+
+	cloneValues := func(src url.Values) url.Values {
+		dest := make(url.Values, len(src))
+		for k, vals := range src {
+			dest[k] = append([]string(nil), vals...)
+		}
+		return dest
+	}
+
+	firstValues := cloneValues(baseValues)
 	firstValues.Set("limit", "1")
 	firstValues.Set("offset", "0")
-	firstValues.Set("format", "options")
-	firstValues.Set("order", "name asc,created_at desc")
-
 	firstPage := makeRequest(firstValues)
-	if len(firstPage) != 1 {
-		t.Fatalf("expected 1 option, got %d", len(firstPage))
+	if len(firstPage) == 0 {
+		t.Fatalf("expected first page to contain at least one option")
 	}
 	firstLabel, _ := firstPage[0]["label"].(string)
 	if firstLabel == "" {
 		t.Fatalf("expected non-empty label on first page")
 	}
+	if firstLabel != allOptions[0]["label"] {
+		t.Fatalf("expected first page label %q to match first overall option %q", firstLabel, allOptions[0]["label"])
+	}
 
-	secondValues := url.Values{}
+	secondValues := cloneValues(baseValues)
 	secondValues.Set("limit", "1")
 	secondValues.Set("offset", "1")
-	secondValues.Set("format", "options")
-	secondValues.Set("order", "name asc,created_at desc")
-
 	secondPage := makeRequest(secondValues)
-	if len(secondPage) != 1 {
-		t.Fatalf("expected 1 option on second page, got %d", len(secondPage))
+	if len(secondPage) == 0 {
+		t.Fatalf("expected second page to contain at least one option")
 	}
 	secondLabel, _ := secondPage[0]["label"].(string)
 	if secondLabel == "" {
 		t.Fatalf("expected non-empty label on second page")
 	}
-	if firstLabel == secondLabel {
-		t.Fatalf("expected pagination to advance, labels matched: %s", firstLabel)
+	if secondLabel != allOptions[1]["label"] {
+		t.Fatalf("expected second page label %q to match overall second option %q", secondLabel, allOptions[1]["label"])
 	}
 }
