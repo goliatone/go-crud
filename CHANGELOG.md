@@ -2,6 +2,22 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Return OpenAPI bundles from schema endpoint ([7d41cd0](https://github.com/goliatone/go-crud/commit/7d41cd09d3720272356dfc006827aaca45c25ee0))  - (goliatone)
+- Emit OpenAPI shcmea ([42c2c6a](https://github.com/goliatone/go-crud/commit/42c2c6a825e2a8933f3ba784ac95c0f9696782fd))  - (goliatone)
+- Relationships example ([24877fd](https://github.com/goliatone/go-crud/commit/24877fde019e08e51a3866445960eb34625f40a2))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#3](https://github.com/goliatone/go-crud/pull/3): openapi schema ([1db6ed2](https://github.com/goliatone/go-crud/commit/1db6ed2ad977f75ca83b83681f64079994358419))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([15277b8](https://github.com/goliatone/go-crud/commit/15277b8a4eaba7f3b7358a7d2d6ce50a5172196b))  - (goliatone)
+
+# [0.6.0](https://github.com/goliatone/go-crud/compare/v0.5.0...v0.6.0) - (2025-10-18)
+
 ## <!-- 0 -->🚀 Features
 
 - Service abstraction to override methods ([03a8251](https://github.com/goliatone/go-crud/commit/03a8251084fdeb08f4f1ae55becaf4fae9d0b926))  - (goliatone)
@@ -9,6 +25,10 @@
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Filter order ensure OR groups ([7186dc7](https://github.com/goliatone/go-crud/commit/7186dc7a6b8579d577c1fb530d4bc9dd115c9da7))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.6.0 ([1976f32](https://github.com/goliatone/go-crud/commit/1976f32f4e5e17ad7c858497db875d4d00e3214d))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
