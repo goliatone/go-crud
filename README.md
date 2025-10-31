@@ -81,7 +81,7 @@ func main() {
 For a `User` struct, the following routes are automatically created:
 
 ```
-GET    /user/schema       - Get OpenAPI schema for the resource
+GET    /user/schema       - Get the OpenAPI bundle for this resource
 GET    /user/:id          - Get a single user
 GET    /users             - List users (with pagination, filtering, ordering)
 POST   /user              - Create a user
@@ -113,6 +113,38 @@ The package uses proper pluralization rules, handling common irregular cases cor
 - `Person` → `/person` and `/people`
 - `Category` → `/category` and `/categories`
 - `Bus` → `/bus` and `/buses`
+
+### Schema Endpoint Output
+
+Each controller exposes a `/resource/schema` endpoint that now returns a self-contained OpenAPI 3.0 document for that entity. The payload mirrors the format produced by `go-router`'s `MetadataAggregator`, including the controller's paths, tags, and component schema:
+
+```json
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/user": {"post": { "summary": "Create User" }},
+    "/users": {"get": { "summary": "List Users" }},
+    "/user/{id}": {"get": { "summary": "Get User" }}
+  },
+  "tags": [
+    { "name": "User" }
+  ],
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id", "email"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "email": {"type": "string"}
+        }
+      }
+    }
+  }
+}
+```
+
+You can feed this JSON directly into Swagger UI, Stoplight Elements, or any OpenAPI tooling to visualize or validate the resource contract. Relationship metadata is embedded automatically via the generated schema.
 
 ## Features
 
