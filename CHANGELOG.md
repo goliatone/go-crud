@@ -2,6 +2,17 @@
 
 # [unreleased]
 
+## <!-- 1 -->🐛 Bug Fixes
+
+- Use the proper router method ([d0ba164](https://github.com/goliatone/go-crud/commit/d0ba16430e3ec5d445219d43c072a38cdab2511c))  - (goliatone)
+- Test for example ([df88b2b](https://github.com/goliatone/go-crud/commit/df88b2bad57ba2ba83a3b7bd53bd90a57e7e425d))  - (goliatone)
+
+# [0.8.0](https://github.com/goliatone/go-crud/compare/v0.7.1...v0.8.0) - (2025-10-31)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.8.0 ([daef429](https://github.com/goliatone/go-crud/commit/daef429337be3cee275b9be2a3757b1692865294))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Relationship meta and options ([44d0b28](https://github.com/goliatone/go-crud/commit/44d0b281d638310b92f3afdfcbbe02efa4920994))  - (goliatone)
