@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
+	"github.com/ettle/strcase"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
@@ -52,23 +54,30 @@ type Controller[T any] struct {
 	routeMethods        map[CrudOperation]string
 	routePaths          map[CrudOperation]string
 	routeNames          map[CrudOperation]string
+	relationProvider    router.RelationMetadataProvider
+}
+
+type optionItem struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 // NewController creates a new Controller with functional options.
 func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
 	var t T
 	controller := &Controller[T]{
-		Repo:          repo,
-		deserializer:  DefaultDeserializer[T],
-		deserialiMany: DefaultDeserializerMany[T],
-		resp:          NewDefaultResponseHandler[T](),
-		service:       nil,
-		resourceType:  reflect.TypeOf(t),
-		logger:        &defaultLogger{},
-		routeConfig:   DefaultRouteConfig(),
-		routeMethods:  make(map[CrudOperation]string),
-		routePaths:    make(map[CrudOperation]string),
-		routeNames:    make(map[CrudOperation]string),
+		Repo:             repo,
+		deserializer:     DefaultDeserializer[T],
+		deserialiMany:    DefaultDeserializerMany[T],
+		resp:             NewDefaultResponseHandler[T](),
+		service:          nil,
+		resourceType:     reflect.TypeOf(t),
+		logger:           &defaultLogger{},
+		routeConfig:      DefaultRouteConfig(),
+		routeMethods:     make(map[CrudOperation]string),
+		routePaths:       make(map[CrudOperation]string),
+		routeNames:       make(map[CrudOperation]string),
+		relationProvider: router.NewDefaultRelationProvider(),
 	}
 
 	for _, opt := range opts {
@@ -85,6 +94,11 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		}
 	}
 
+	if controller.relationProvider == nil {
+		controller.relationProvider = router.NewDefaultRelationProvider()
+	}
+
+	registerRelationProvider(controller.resourceType, controller.relationProvider)
 	registerQueryConfig(controller.resourceType, controller.fieldMapProvider)
 
 	return controller
@@ -271,7 +285,8 @@ func (c *Controller[T]) Schema(ctx Context) error {
 		return ctx.SendStatus(http.StatusNotFound)
 	}
 
-	aggregator := router.NewMetadataAggregator()
+	aggregator := router.NewMetadataAggregator().
+		WithRelationProvider(router.NewDefaultRelationProvider())
 	aggregator.AddProvider(c)
 	aggregator.Compile()
 
@@ -320,6 +335,11 @@ func (c *Controller[T]) Index(ctx Context) error {
 
 	filters.Count = count
 
+	if shouldReturnOptions(ctx) {
+		options := c.buildOptionItems(records)
+		return ctx.Status(http.StatusOK).JSON(options)
+	}
+
 	return c.resp.OnList(ctx, records, OpList, filters)
 }
 
@@ -361,6 +381,11 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 
 	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords); err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+
+	if shouldReturnOptions(ctx) {
+		options := c.buildOptionItems(createdRecords)
+		return ctx.Status(http.StatusOK).JSON(options)
 	}
 
 	return c.resp.OnList(ctx, createdRecords, OpCreateBatch, &Filters{
@@ -417,6 +442,11 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
+	if shouldReturnOptions(ctx) {
+		options := c.buildOptionItems(updatedRecords)
+		return ctx.Status(http.StatusOK).JSON(options)
+	}
+
 	return c.resp.OnList(ctx, updatedRecords, OpUpdateBatch, &Filters{
 		Count:     len(updatedRecords),
 		Operation: string(OpUpdateBatch),
@@ -466,6 +496,117 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 	}
 
 	return c.resp.OnEmpty(ctx, OpDeleteBatch)
+}
+
+func shouldReturnOptions(ctx Context) bool {
+	return strings.EqualFold(strings.TrimSpace(ctx.Query("format")), "options")
+}
+
+func (c *Controller[T]) buildOptionItems(records []T) []optionItem {
+	if len(records) == 0 {
+		return nil
+	}
+
+	metadata := c.GetMetadata()
+	labelField := metadata.Schema.LabelField
+	handlers := c.Repo.Handlers()
+
+	getID := handlers.GetID
+	getIdentifierValue := handlers.GetIdentifierValue
+
+	options := make([]optionItem, 0, len(records))
+	for _, record := range records {
+		value := ""
+		if getID != nil {
+			value = strings.TrimSpace(fmt.Sprint(getID(record)))
+		}
+		if value == "" && getIdentifierValue != nil {
+			value = strings.TrimSpace(getIdentifierValue(record))
+		}
+		if value == "" {
+			if v, ok := jsonFieldAsString(record, "id"); ok {
+				value = v
+			}
+		}
+
+		label := ""
+		if labelField != "" {
+			if v, ok := jsonFieldAsString(record, labelField); ok {
+				label = v
+			}
+		}
+		if label == "" && getIdentifierValue != nil {
+			if v := strings.TrimSpace(getIdentifierValue(record)); v != "" {
+				label = v
+			}
+		}
+		if label == "" {
+			label = value
+		}
+
+		options = append(options, optionItem{
+			Value: value,
+			Label: label,
+		})
+	}
+
+	return options
+}
+
+func jsonFieldAsString(record any, target string) (string, bool) {
+	if target == "" {
+		return "", false
+	}
+
+	value := reflect.ValueOf(record)
+	if !value.IsValid() {
+		return "", false
+	}
+
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return "", false
+		}
+		value = value.Elem()
+	}
+
+	if value.Kind() != reflect.Struct {
+		return "", false
+	}
+
+	typ := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		fieldName := jsonFieldName(field)
+		if fieldName != target {
+			continue
+		}
+
+		fieldValue := value.Field(i)
+		for fieldValue.Kind() == reflect.Pointer {
+			if fieldValue.IsNil() {
+				return "", false
+			}
+			fieldValue = fieldValue.Elem()
+		}
+
+		return strings.TrimSpace(fmt.Sprint(fieldValue.Interface())), true
+	}
+
+	return "", false
+}
+
+func jsonFieldName(field reflect.StructField) string {
+	if tagValue := field.Tag.Get("json"); tagValue != "" {
+		if name := strings.Split(tagValue, ",")[0]; name != "" && name != "-" {
+			return name
+		}
+	}
+	return strcase.ToSnake(field.Name)
 }
 
 func isNil[T any](val T) bool {
