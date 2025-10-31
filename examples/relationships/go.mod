@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-crud v0.4.0
 	github.com/goliatone/go-repository-bun v0.5.4
-	github.com/goliatone/go-router v0.18.0
+	github.com/goliatone/go-router v0.20.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/uptrace/bun v1.2.14
