@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,16 +28,32 @@ import (
 	"github.com/goliatone/go-repository-bun"
 )
 
+type TestUserProfile struct {
+	bun.BaseModel `bun:"table:test_user_profiles,alias:p"`
+
+	ID        uuid.UUID `bun:"id,pk,notnull" json:"id"`
+	UserID    uuid.UUID `bun:"user_id,notnull" json:"user_id"`
+	Bio       string    `bun:"bio" json:"bio"`
+	CreatedAt time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt time.Time `bun:"updated_at,notnull" json:"updated_at"`
+}
+
 type TestUser struct {
 	bun.BaseModel `bun:"table:test_users,alias:u"`
 
-	ID        uuid.UUID `bun:"id,pk,notnull" json:"id"`
-	Name      string    `bun:"name,notnull" json:"name"`
-	Email     string    `bun:"email,notnull,unique" json:"email"`
-	Age       int       `bun:"age" json:"age"`
-	Password  string    `bun:"password,notnull" json:"-" crud:"-"`
-	CreatedAt time.Time `bun:"created_at,notnull" json:"created_at"`
-	UpdatedAt time.Time `bun:"updated_at,notnull" json:"updated_at"`
+	ID        uuid.UUID          `bun:"id,pk,notnull" json:"id"`
+	Name      string             `bun:"name,notnull" json:"name" crud:"label"`
+	Email     string             `bun:"email,notnull,unique" json:"email"`
+	Age       int                `bun:"age" json:"age"`
+	Password  string             `bun:"password,notnull" json:"-" crud:"-"`
+	CreatedAt time.Time          `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt time.Time          `bun:"updated_at,notnull" json:"updated_at"`
+	Profiles  []*TestUserProfile `bun:"rel:has-many,join:id=user_id" json:"profiles,omitempty"`
+}
+
+type optionResponse struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 func newTestUserRepository(db *bun.DB) repository.Repository[*TestUser] {
@@ -139,6 +156,7 @@ func setupAppWithHooks(t *testing.T, hooks LifecycleHooks[*TestUser]) (*fiber.Ap
 func createSchema(ctx context.Context, db *bun.DB) error {
 	models := []any{
 		(*TestUser)(nil),
+		(*TestUserProfile)(nil),
 	}
 
 	for _, model := range models {
@@ -185,6 +203,10 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 	require.True(t, ok, "test-user schema missing")
 	assert.Equal(t, "object", entitySchema["type"])
 
+	labelField, ok := entitySchema["x-formgen-label-field"].(string)
+	require.True(t, ok, "expected x-formgen-label-field extension")
+	assert.Equal(t, "name", labelField)
+
 	requiredFields, ok := entitySchema["required"].([]any)
 	require.True(t, ok, "required list missing")
 	assert.Contains(t, requiredFields, "id")
@@ -196,6 +218,130 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 	idProp, ok := props["id"].(map[string]any)
 	require.True(t, ok, "id property missing")
 	assert.Equal(t, "string", idProp["type"])
+
+	relationExt, ok := entitySchema["x-formgen-relations"].(map[string]any)
+	require.True(t, ok, "expected x-formgen-relations extension")
+
+	includes, includesOK := relationExt["includes"].([]any)
+	require.True(t, includesOK, "expected includes slice in relation metadata")
+	assert.Contains(t, includes, "profiles")
+
+	tree, treeOK := relationExt["tree"].(map[string]any)
+	require.True(t, treeOK, "expected relation tree metadata")
+	assert.Equal(t, "testuser", tree["name"])
+
+	componentsParams, ok := components["parameters"].(map[string]any)
+	require.True(t, ok, "expected shared parameter components")
+	for _, parameter := range []string{"Limit", "Offset", "Include", "Select", "Order"} {
+		_, exists := componentsParams[parameter]
+		assert.Truef(t, exists, "expected %s parameter component", parameter)
+	}
+}
+
+func TestController_RelationMetadataMatchesSchema(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	repo := newTestUserRepository(db)
+	user := &TestUser{
+		ID:        uuid.New(),
+		Name:      "Schema Relation User",
+		Email:     "relation.user@example.com",
+		Password:  "secret",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := repo.Create(ctx, user)
+	require.NoError(t, err)
+
+	profile := &TestUserProfile{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		Bio:       "Remote",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = db.NewInsert().Model(profile).Exec(ctx)
+	require.NoError(t, err)
+
+	schemaReq := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
+	schemaResp, err := app.Test(schemaReq, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, schemaResp.StatusCode)
+
+	var schemaDoc map[string]any
+	require.NoError(t, json.NewDecoder(schemaResp.Body).Decode(&schemaDoc))
+
+	components := schemaDoc["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	entitySchema := schemas["test-user"].(map[string]any)
+	relationExt := entitySchema["x-formgen-relations"].(map[string]any)
+
+	includesAny, includesOK := relationExt["includes"].([]any)
+	require.True(t, includesOK)
+	includeSet := make(map[string]struct{}, len(includesAny))
+	for _, v := range includesAny {
+		if s, ok := v.(string); ok {
+			includeSet[strings.ToLower(s)] = struct{}{}
+		}
+	}
+
+	relationsAny, relationsOK := relationExt["relations"].([]any)
+	schemaRelations := make(map[string][]RelationFilter, len(relationsAny))
+	if relationsOK {
+		for _, rel := range relationsAny {
+			relMap, ok := rel.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := relMap["name"].(string)
+			filtersAny, _ := relMap["filters"].([]any)
+			var filters []RelationFilter
+			for _, filter := range filtersAny {
+				if fm, ok := filter.(map[string]any); ok {
+					filters = append(filters, RelationFilter{
+						Field:    stringify(fm["field"]),
+						Operator: stringify(fm["operator"]),
+						Value:    stringify(fm["value"]),
+					})
+				}
+			}
+			if name != "" {
+				schemaRelations[strings.ToLower(name)] = filters
+			}
+		}
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/test-users?include=profiles.bio__eq=Remote", nil)
+	listResp, err := app.Test(listReq, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, listResp.StatusCode)
+
+	var listResponse APIListResponse[TestUser]
+	require.NoError(t, json.NewDecoder(listResp.Body).Decode(&listResponse))
+	require.NotNil(t, listResponse.Meta)
+	require.NotEmpty(t, listResponse.Meta.Include)
+
+	for _, relation := range listResponse.Meta.Relations {
+		_, ok := includeSet[strings.ToLower(relation.Name)]
+		assert.Truef(t, ok, "relation %s missing from schema includes", relation.Name)
+
+		expectedFilters, hasSchemaFilters := schemaRelations[strings.ToLower(relation.Name)]
+		if hasSchemaFilters && len(expectedFilters) > 0 {
+			assert.Equal(t, expectedFilters, relation.Filters)
+		}
+	}
+}
+
+func stringify(value any) string {
+	if value == nil {
+		return ""
+	}
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return fmt.Sprint(value)
 }
 
 func printBody(t *testing.T, resp *http.Response) {
@@ -419,6 +565,52 @@ func TestController_ListUsers(t *testing.T) {
 	}
 }
 
+func TestController_ListUsers_FormatOptions(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	repo := newTestUserRepository(db)
+	expected := make(map[string]string)
+
+	for i := 1; i <= 3; i++ {
+		user := &TestUser{
+			ID:        uuid.New(),
+			Name:      fmt.Sprintf("Option %d", i),
+			Email:     fmt.Sprintf("option%d@example.com", i),
+			Password:  "secret",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if _, err := repo.Create(ctx, user); err != nil {
+			t.Fatalf("Failed to create user %d: %v", i, err)
+		}
+		expected[user.ID.String()] = user.Name
+	}
+
+	req := httptest.NewRequest("GET", "/test-users?format=options", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var options []optionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&options); err != nil {
+		t.Fatalf("Failed to decode options response: %v", err)
+	}
+
+	assert.Len(t, options, len(expected))
+	for _, opt := range options {
+		label, ok := expected[opt.Value]
+		assert.True(t, ok, "unexpected option value %s", opt.Value)
+		assert.Equal(t, label, opt.Label)
+	}
+}
+
 func TestController_Index_DelegatesToService(t *testing.T) {
 	var called bool
 
@@ -460,6 +652,56 @@ func TestController_Index_DelegatesToService(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.True(t, called, "expected service override to be invoked for index")
+}
+
+func TestController_CreateBatch_FormatOptions(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	now := time.Now().UTC()
+	payload := []map[string]any{
+		{
+			"id":         uuid.New().String(),
+			"name":       "Batch Option 1",
+			"email":      "batch-option-1@example.com",
+			"created_at": now.Format(time.RFC3339),
+			"updated_at": now.Format(time.RFC3339),
+		},
+		{
+			"id":         uuid.New().String(),
+			"name":       "Batch Option 2",
+			"email":      "batch-option-2@example.com",
+			"created_at": now.Format(time.RFC3339),
+			"updated_at": now.Format(time.RFC3339),
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/test-user/batch?format=options", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var options []optionResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&options))
+	assert.Len(t, options, len(payload))
+
+	expected := make(map[string]string, len(payload))
+	for _, item := range payload {
+		id := item["id"].(string)
+		name := item["name"].(string)
+		expected[id] = name
+	}
+
+	for _, opt := range options {
+		label, ok := expected[opt.Value]
+		assert.True(t, ok, "unexpected option value %s", opt.Value)
+		assert.Equal(t, label, opt.Label)
+	}
 }
 
 func TestController_UpdateUser(t *testing.T) {
