@@ -2,6 +2,14 @@
 
 # [unreleased]
 
+## <!-- 0 -->🚀 Features
+
+- Add web example regression tests to cover shared OpenAPI parameters and `format=options` pagination (unreleased)
+
+## <!-- 3 -->📚 Documentation
+
+- Document shared query components, pagination behaviour, and coordinated tagging guidance for go-router/go-crud releases (unreleased)
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update deps ([7d351b4](https://github.com/goliatone/go-crud/commit/7d351b44cafbf3b9490e0550abd8e5605cb497dd))  - (goliatone)
