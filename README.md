@@ -116,7 +116,7 @@ The package uses proper pluralization rules, handling common irregular cases cor
 
 ### Schema Endpoint Output
 
-Each controller exposes a `/resource/schema` endpoint that now returns a self-contained OpenAPI 3.0 document for that entity. The payload mirrors the format produced by `go-router`'s `MetadataAggregator`, including the controller's paths, tags, and component schema:
+Each controller exposes a `/resource/schema` endpoint that returns a self-contained OpenAPI 3.0 document for that entity. The payload mirrors the format produced by `go-router`'s `MetadataAggregator`, including the controller's paths, tags, and component schema:
 
 ```json
 {
@@ -145,6 +145,80 @@ Each controller exposes a `/resource/schema` endpoint that now returns a self-co
 ```
 
 You can feed this JSON directly into Swagger UI, Stoplight Elements, or any OpenAPI tooling to visualize or validate the resource contract. Relationship metadata is embedded automatically via the generated schema.
+
+### Schema Metadata Hints
+
+The generated OpenAPI includes vendor extensions that help downstream form builders choose sensible defaults:
+
+- **Display label** – mark the property that should appear in option lists with `crud:"label"` (or `crud:"label:alternate"` if the JSON name differs). The schema will include `x-formgen-label-field` with the resolved field name.
+- **Relation includes** – define Bun relations (e.g. `bun:"rel:has-many,join:id=user_id"`) so `x-formgen-relations` can expose valid include paths, fields, and filter hints.
+- **Shared parameters** – collection routes reuse `#/components/parameters/{Limit|Offset|Select|Include|Order}` so clients can pull defaults (limit `25`, offset `0`) straight from the spec.
+- **Pruning hooks** – register `crud.WithRelationFilter` (or use `router.RegisterRelationFilter`) to hide sensitive relations from both the schema extension and runtime responses.
+
+Example:
+
+```go
+type User struct {
+    bun.BaseModel `bun:"table:users"`
+
+    ID       uuid.UUID         `bun:"id,pk,notnull" json:"id"`
+    Name     string            `bun:"name,notnull" json:"name" crud:"label"`
+    Email    string            `bun:"email,notnull,unique" json:"email"`
+    Profiles []*UserProfile    `bun:"rel:has-many,join:id=user_id" json:"profiles,omitempty"`
+}
+```
+
+The corresponding schema fragment contains:
+
+```yaml
+components:
+  schemas:
+    user:
+      x-formgen-label-field: "name"
+      x-formgen-relations:
+        includes:
+          - profiles
+        tree:
+          name: user
+          children:
+            profiles:
+              name: profiles
+  parameters:
+    Limit:
+      description: Maximum number of records to return (default 25)
+```
+
+These hints eliminate duplicated configuration in consumers such as `go-formgen`.
+
+### Shared Query Parameters
+
+List endpoints in the generated OpenAPI document reference reusable query components built into `go-router`:
+
+- `#/components/parameters/Limit` – caps the result size (defaults to `25`).
+- `#/components/parameters/Offset` – skips records before pagination begins (defaults to `0`).
+- `#/components/parameters/Include` – comma-separated relations to join (e.g. `profiles,company`).
+- `#/components/parameters/Select` – comma-separated fields to project (e.g. `id,name,email`).
+- `#/components/parameters/Order` – comma-separated ordering with optional direction (e.g. `name asc,created_at desc`).
+
+Additional filter parameters follow the `{field}__{operator}` convention emitted by the spec (for example: `?email__ilike=@example.com`, `?age__gte=21`, `?status__or=active,pending`). These placeholders in the OpenAPI document are a reminder that **any** model field can be paired with the supported operators (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`) to build expressive queries.
+
+### Options Response Shortcut
+
+When a client appends `?format=options` to the list endpoint (e.g. `GET /users?format=options`), the controller returns a simplified payload:
+
+```json
+[
+  {"value": "f5c5…", "label": "Jane Doe"},
+  {"value": "23b9…", "label": "John Smith"}
+]
+```
+
+- The `value` comes from the repository handler’s `GetID` (or `GetIdentifierValue` fallback).
+- The `label` prefers the schema label field (`crud:"label"`), then falls back to the identifier or `value`.
+- Existing pagination parameters (`limit`, `offset`, `order`, etc.) still apply before the projection occurs—fetch a page, then the controller trims each record into `{value,label}`.
+- Batch create/update endpoints honour the same query parameter if callers need the refreshed options immediately after a mutation.
+
+Omit the query parameter to receive the default envelope (`{"data":[...],"$meta":{...}}`).
 
 ## Features
 

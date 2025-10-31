@@ -183,6 +183,14 @@ curl http://localhost:9090/api/user/schema | jq
 ```
 returns the generated paths, tags, and `components.schemas.User` definition that you can feed into Swagger or Stoplight tooling.
 
+Collection routes in that payload reference shared query components (`#/components/parameters/Limit`, `Offset`, `Include`, `Select`, `Order`) so clients can discover the defaults and accepted syntax. Filters use the `{field}__{operator}` pattern (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`), enabling requests such as:
+
+```
+curl "http://localhost:9090/api/users?limit=10&offset=20&order=name asc,created_at desc&include=profiles&email__ilike=@example.com"
+```
+
+Adding `format=options` to the same URL still honours the resolved page before returning the compact `{value,label}` array.
+
 ## Customization
 
 ### Changing the Port
