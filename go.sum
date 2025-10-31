@@ -55,6 +55,8 @@ github.com/goliatone/go-router v0.20.0 h1:JT3dH/rSvLVo1W7GiKYc0gi+51L2hTgZ57YU7J
 github.com/goliatone/go-router v0.20.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
 github.com/goliatone/go-router v0.21.0 h1:2jlKnSc31KX1A2elc+wP5/g7Y6PxaNOX+juH92hzpmk=
 github.com/goliatone/go-router v0.21.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
+github.com/goliatone/go-router v0.22.0 h1:BFiczX2etdVl78A/UJWzHg7jiDEkJ9CsG1oEogxFgy8=
+github.com/goliatone/go-router v0.22.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=
 github.com/goodsign/monday v1.0.2/go.mod h1:r4T4breXpoFwspQNM+u2sLxJb2zyTaxVGqUfTBjWOu8=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
