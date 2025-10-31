@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-repository-bun"
+	"github.com/goliatone/go-router"
 	"github.com/uptrace/bun"
 )
 
@@ -164,7 +165,8 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceO
 		if len(includeNodes) > 0 {
 			includePaths, relationInfos := collectIncludeDetails(includeNodes)
 			filters.Include = append(filters.Include, includePaths...)
-			filters.Relations = append(filters.Relations, relationInfos...)
+			descriptor := getRelationDescriptorForType(typeOf[T]())
+			filters.Relations = mergeRelationInfos(includePaths, relationInfos, descriptor)
 
 			rootKeys := sortedRelationKeys(includeNodes)
 			for _, key := range rootKeys {
@@ -519,6 +521,111 @@ func sortedRelationKeys(nodes map[string]*relationIncludeNode) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func mergeRelationInfos(includePaths []string, requestInfos []RelationInfo, descriptor *router.RelationDescriptor) []RelationInfo {
+	if descriptor == nil {
+		return cloneRelationInfos(requestInfos)
+	}
+
+	requestMap := make(map[string][]RelationFilter, len(requestInfos))
+	for _, info := range requestInfos {
+		if info.Name == "" {
+			continue
+		}
+		requestMap[strings.ToLower(info.Name)] = cloneRelationFilters(info.Filters)
+	}
+
+	descriptorFilterMap := make(map[string][]RelationFilter, len(descriptor.Relations))
+	for _, info := range descriptor.Relations {
+		if info.Name == "" {
+			continue
+		}
+		key := strings.ToLower(info.Name)
+		descriptorFilterMap[key] = convertRouterRelationFilters(info.Filters)
+	}
+
+	results := make([]RelationInfo, 0, len(includePaths))
+	for _, path := range includePaths {
+		if path == "" || !descriptorIncludes(descriptor, path) {
+			continue
+		}
+		key := strings.ToLower(path)
+		filters := requestMap[key]
+		if len(filters) == 0 {
+			filters = descriptorFilterMap[key]
+		}
+		if len(filters) == 0 {
+			continue
+		}
+		results = append(results, RelationInfo{
+			Name:    path,
+			Filters: cloneRelationFilters(filters),
+		})
+	}
+
+	// Preserve request-specific relations that might not have been part of includePaths (edge cases)
+	for _, info := range requestInfos {
+		if info.Name == "" || len(info.Filters) == 0 {
+			continue
+		}
+		if !descriptorIncludes(descriptor, info.Name) {
+			continue
+		}
+		found := false
+		for _, existing := range results {
+			if strings.EqualFold(existing.Name, info.Name) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			results = append(results, RelationInfo{
+				Name:    info.Name,
+				Filters: cloneRelationFilters(info.Filters),
+			})
+		}
+	}
+
+	return results
+}
+
+func convertRouterRelationFilters(filters []router.RelationFilter) []RelationFilter {
+	if len(filters) == 0 {
+		return nil
+	}
+	out := make([]RelationFilter, len(filters))
+	for i, filter := range filters {
+		out[i] = RelationFilter{
+			Field:    filter.Field,
+			Operator: filter.Operator,
+			Value:    filter.Value,
+		}
+	}
+	return out
+}
+
+func cloneRelationFilters(filters []RelationFilter) []RelationFilter {
+	if len(filters) == 0 {
+		return nil
+	}
+	out := make([]RelationFilter, len(filters))
+	copy(out, filters)
+	return out
+}
+
+func cloneRelationInfos(infos []RelationInfo) []RelationInfo {
+	if len(infos) == 0 {
+		return nil
+	}
+	out := make([]RelationInfo, len(infos))
+	for i, info := range infos {
+		out[i] = RelationInfo{
+			Name:    info.Name,
+			Filters: cloneRelationFilters(info.Filters),
+		}
+	}
+	return out
 }
 
 type queryTraceOptions struct {
