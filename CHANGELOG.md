@@ -2,10 +2,20 @@
 
 # [unreleased]
 
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([cab81f3](https://github.com/goliatone/go-crud/commit/cab81f33d69d007a14e26a0175d80a8cdab61a64))  - (goliatone)
+
+# [0.9.0](https://github.com/goliatone/go-crud/compare/v0.8.0...v0.9.0) - (2025-10-31)
+
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Use the proper router method ([d0ba164](https://github.com/goliatone/go-crud/commit/d0ba16430e3ec5d445219d43c072a38cdab2511c))  - (goliatone)
 - Test for example ([df88b2b](https://github.com/goliatone/go-crud/commit/df88b2bad57ba2ba83a3b7bd53bd90a57e7e425d))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.9.0 ([e303ab1](https://github.com/goliatone/go-crud/commit/e303ab1d53d6c34fdfcf4df7b1d2a870138613d6))  - (goliatone)
 
 # [0.8.0](https://github.com/goliatone/go-crud/compare/v0.7.1...v0.8.0) - (2025-10-31)
 
