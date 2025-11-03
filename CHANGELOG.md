@@ -2,6 +2,16 @@
 
 # [unreleased]
 
+## <!-- 1 -->🐛 Bug Fixes
+
+- Every related model should have matching component ([933640b](https://github.com/goliatone/go-crud/commit/933640b0a3da726410b3e87facf4d2cc1fd4e025))  - (goliatone)
+
+# [0.10.0](https://github.com/goliatone/go-crud/compare/v0.9.0...v0.10.0) - (2025-11-03)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.10.0 ([04021bd](https://github.com/goliatone/go-crud/commit/04021bda71f4c6c2d0af83b834d489d4043e115f))  - (goliatone)
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update deps ([cab81f3](https://github.com/goliatone/go-crud/commit/cab81f33d69d007a14e26a0175d80a8cdab61a64))  - (goliatone)
