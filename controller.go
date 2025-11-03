@@ -288,6 +288,25 @@ func (c *Controller[T]) Schema(ctx Context) error {
 	aggregator := router.NewMetadataAggregator().
 		WithRelationProvider(router.NewDefaultRelationProvider())
 	aggregator.AddProvider(c)
+
+	relatedTypes := collectRelationResourceTypes(c.resourceType)
+	if len(relatedTypes) > 0 {
+		added := map[string]struct{}{meta.Name: {}}
+		for _, typ := range relatedTypes {
+			if typ == nil {
+				continue
+			}
+			relatedMeta := router.GetResourceMetadata(typ)
+			if relatedMeta == nil || relatedMeta.Name == "" {
+				continue
+			}
+			if _, exists := added[relatedMeta.Name]; exists {
+				continue
+			}
+			aggregator.AddProvider(staticMetadataProvider{metadata: *relatedMeta})
+			added[relatedMeta.Name] = struct{}{}
+		}
+	}
 	aggregator.Compile()
 
 	doc := aggregator.GenerateOpenAPI()
