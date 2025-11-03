@@ -46,7 +46,7 @@ type Headquarters struct {
 	Publisher     *PublishingHouse `bun:"rel:belongs-to,join:publisher_id=id" json:"publisher,omitempty"`
 }
 
-// Author showcases belongs-to (PublishingHouse), has-one (Profile), and has-many (Books) relations.
+// Author showcases belongs-to (PublishingHouse), has-one (Profile), has-many (Books), and many-to-many (Tags) relations.
 type Author struct {
 	bun.BaseModel `bun:"table:authors,alias:a"`
 	ID            uuid.UUID        `bun:"id,pk,type:uuid" json:"id"`
@@ -59,6 +59,7 @@ type Author struct {
 	Publisher     *PublishingHouse `bun:"rel:belongs-to,join:publisher_id=id" json:"publisher,omitempty"`
 	Profile       *AuthorProfile   `bun:"rel:has-one,join:id=author_id" json:"profile,omitempty"`
 	Books         []Book           `bun:"rel:has-many,join:id=author_id" json:"books,omitempty"`
+	Tags          []Tag            `bun:"m2m:author_tags,join:Author=Tag" json:"tags,omitempty"`
 	CreatedAt     time.Time        `bun:"created_at,nullzero,default:current_timestamp" json:"created_at"`
 	UpdatedAt     time.Time        `bun:"updated_at,nullzero,default:current_timestamp" json:"updated_at"`
 }
@@ -112,6 +113,7 @@ type Tag struct {
 	Category      string    `bun:"category,notnull" json:"category"`
 	Description   string    `bun:"description" json:"description,omitempty"`
 	Books         []Book    `bun:"m2m:book_tags,join:Tag=Book" json:"books,omitempty"`
+	Authors       []Author  `bun:"m2m:author_tags,join:Tag=Author" json:"authors,omitempty"`
 	CreatedAt     time.Time `bun:"created_at,nullzero,default:current_timestamp" json:"created_at"`
 }
 
@@ -123,6 +125,16 @@ type BookTag struct {
 	LinkStrength  int       `bun:"link_strength,notnull" json:"link_strength"`
 	LinkedAt      time.Time `bun:"linked_at,nullzero,default:current_timestamp" json:"linked_at"`
 	Book          *Book     `bun:"rel:belongs-to,join:book_id=id" json:"book,omitempty"`
+	Tag           *Tag      `bun:"rel:belongs-to,join:tag_id=id" json:"tag,omitempty"`
+}
+
+// AuthorTag is the join table for Author to Tag many-to-many relationship.
+type AuthorTag struct {
+	bun.BaseModel `bun:"table:author_tags,alias:at"`
+	AuthorID      uuid.UUID `bun:"author_id,type:uuid,pk" json:"author_id"`
+	TagID         uuid.UUID `bun:"tag_id,type:uuid,pk" json:"tag_id"`
+	AssociatedAt  time.Time `bun:"associated_at,nullzero,default:current_timestamp" json:"associated_at"`
+	Author        *Author   `bun:"rel:belongs-to,join:author_id=id" json:"author,omitempty"`
 	Tag           *Tag      `bun:"rel:belongs-to,join:tag_id=id" json:"tag,omitempty"`
 }
 
@@ -214,6 +226,7 @@ func setupDatabase() *bun.DB {
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	// Register pivot tables so bun can resolve many-to-many relations.
 	db.RegisterModel((*BookTag)(nil))
+	db.RegisterModel((*AuthorTag)(nil))
 	return db
 }
 
@@ -366,6 +379,7 @@ func migrateSchema(db *bun.DB) error {
 		(*Chapter)(nil),
 		(*Tag)(nil),
 		(*BookTag)(nil),
+		(*AuthorTag)(nil),
 	}
 
 	for _, model := range models {
@@ -585,6 +599,16 @@ func seedDatabase(ctx context.Context, db *bun.DB, repos repositories) error {
 		{BookID: microburst.ID, TagID: techThriller.ID, LinkStrength: 8, LinkedAt: now},
 	}
 	if _, err := db.NewInsert().Model(&pivotRows).Exec(ctx); err != nil {
+		return err
+	}
+
+	authorTagRows := []AuthorTag{
+		{AuthorID: lina.ID, TagID: sciFi.ID, AssociatedAt: now},
+		{AuthorID: lina.ID, TagID: spaceOpera.ID, AssociatedAt: now},
+		{AuthorID: miles.ID, TagID: techThriller.ID, AssociatedAt: now},
+		{AuthorID: miles.ID, TagID: sciFi.ID, AssociatedAt: now},
+	}
+	if _, err := db.NewInsert().Model(&authorTagRows).Exec(ctx); err != nil {
 		return err
 	}
 
