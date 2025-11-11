@@ -64,6 +64,10 @@ func (ca *crudAdapter) UserContext() context.Context {
 	return ca.c.UserContext()
 }
 
+func (ca *crudAdapter) SetUserContext(ctx context.Context) {
+	ca.c.SetUserContext(ctx)
+}
+
 func (ca *crudAdapter) Params(key string, defaultValue ...string) string {
 	val := ca.c.Params(key)
 	if val == "" && len(defaultValue) > 0 {
@@ -102,6 +106,10 @@ func (ca *crudAdapter) QueryInt(key string, defaultValue ...int) int {
 
 func (ca *crudAdapter) Queries() map[string]string {
 	return ca.c.Queries()
+}
+
+func (ca *crudAdapter) Header(key string) string {
+	return ca.c.Get(key)
 }
 
 func (ca *crudAdapter) Status(status int) Response {
