@@ -96,6 +96,10 @@ func (ca *contextAdapter) UserContext() context.Context {
 	return ca.c.Context()
 }
 
+func (ca *contextAdapter) SetUserContext(ctx context.Context) {
+	ca.c.SetContext(ctx)
+}
+
 func (ca *contextAdapter) Params(key string, defaultValue ...string) string {
 	def := ""
 	if len(defaultValue) > 0 {
@@ -130,6 +134,10 @@ func (ca *contextAdapter) QueryInt(key string, defaultValue ...int) int {
 
 func (ca *contextAdapter) Queries() map[string]string {
 	return ca.c.Queries()
+}
+
+func (ca *contextAdapter) Header(key string) string {
+	return ca.c.Header(key)
 }
 
 // Response interface implementation
