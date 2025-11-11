@@ -154,6 +154,11 @@ The generated OpenAPI includes vendor extensions that help downstream form build
 - **Relation includes** – define Bun relations (e.g. `bun:"rel:has-many,join:id=user_id"`) so `x-formgen-relations` can expose valid include paths, fields, and filter hints.
 - **Shared parameters** – collection routes reuse `#/components/parameters/{Limit|Offset|Select|Include|Order}` so clients can pull defaults (limit `25`, offset `0`) straight from the spec.
 - **Pruning hooks** – register `crud.WithRelationFilter` (or use `router.RegisterRelationFilter`) to hide sensitive relations from both the schema extension and runtime responses.
+- **Admin extensions** – the same schema object also carries:
+  - `x-admin-scope` (from `WithAdminScopeMetadata`) summarizing the expected tenant/org level, required claims, or descriptive notes.
+  - `x-admin-actions` (populated automatically from `WithActions`) describing the custom endpoints, HTTP methods, and paths available.
+  - `x-admin-menu` (via `WithAdminMenuMetadata`) hinting how CMS navigation should categorize the resource (group, label, icon, order, custom path, hidden flag).
+  - `x-admin-row-filters` (via `WithRowFilterHints`) documenting guard/policy criteria so operators know why records are filtered.
 
 Example:
 
@@ -178,6 +183,48 @@ components:
       x-formgen-relations:
         includes:
           - profiles
+      x-admin-scope:
+        level: tenant
+        claims: ["users:write"]
+      x-admin-actions:
+        - name: Deactivate
+          slug: deactivate
+          method: POST
+          target: resource
+      x-admin-menu:
+        group: Directory
+        label: Users
+        order: 10
+      x-admin-row-filters:
+        - field: tenant_id
+          operator: "="
+          description: Matches actor tenant
+
+Expose these hints with:
+
+- `WithAdminScopeMetadata` – describe the default enforcement level/claims.
+- `WithAdminMenuMetadata` – provide menu grouping, ordering, or icons for go-cms/go-admin ingestion.
+- `WithRowFilterHints` – advertise guard/policy criteria (e.g., owner filters, tenant locking).
+- `WithActions` – declare the custom endpoints so they show up in both routing and `x-admin-actions`.
+
+### Schema Registry & Aggregation
+
+Every controller registers itself with the in-memory schema registry when routes are mounted. This gives admin services a single discovery point for building `/admin/schemas` without crawling each `/{resource}/schema` endpoint:
+
+```go
+entries := crud.ListSchemas() // snapshot of every registered controller
+
+if users, ok := crud.GetSchema("user"); ok {
+	log.Println(users.Document["openapi"])
+}
+
+crud.RegisterSchemaListener(func(entry crud.SchemaEntry) {
+	log.Printf("schema updated: %s at %s", entry.Resource, entry.UpdatedAt)
+	// e.g., push the document to go-cms
+})
+```
+
+Each `SchemaEntry` carries the compiled OpenAPI document (including all vendor extensions), so you can expose the aggregated payload directly or enrich it with service-specific metadata before returning it to go-admin/go-cms consumers.
         tree:
           name: user
           children:
@@ -198,6 +245,65 @@ List endpoints in the generated OpenAPI document reference reusable query compon
 - `#/components/parameters/Offset` – skips records before pagination begins (defaults to `0`).
 - `#/components/parameters/Include` – comma-separated relations to join (e.g. `profiles,company`).
 - `#/components/parameters/Select` – comma-separated fields to project (e.g. `id,name,email`).
+
+## Scope Guards & Request Metadata
+
+Controllers can opt into multi-tenant enforcement by registering a guard adapter via `crud.WithScopeGuard`. The adapter receives the incoming request, resolves the actor, and returns a `ScopeFilter` that injects `WHERE` clauses before the repository executes.
+
+```go
+controller := crud.NewController(userRepo,
+	crud.WithScopeGuard(userScopeGuard(scopeGuard)),
+)
+
+func userScopeGuard(g scope.Guard) crud.ScopeGuardFunc[*User] {
+	actionMap := map[crud.CrudOperation]types.PolicyAction{
+		crud.OpList: types.PolicyActionRead,
+		crud.OpRead: types.PolicyActionRead,
+		crud.OpCreate: types.PolicyActionCreate,
+		crud.OpUpdate: types.PolicyActionUpdate,
+		crud.OpDelete: types.PolicyActionDelete,
+	}
+
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		tenantID := strings.TrimSpace(ctx.Query("tenant_id"))
+		actor := crud.ActorContext{
+			ActorID:  ctx.Query("actor_id", "system"),
+			TenantID: tenantID,
+		}
+
+		requested := crud.ScopeFilter{}
+		if tenantID != "" {
+			requested.AddColumnFilter("tenant_id", "=", tenantID)
+		}
+
+		resolved, err := g.Enforce(
+			ctx.UserContext(),
+			toTypesActor(actor),
+			toTypesScope(requested),
+			actionMap[op],
+			uuid.Nil,
+		)
+		if err != nil {
+			return actor, crud.ScopeFilter{}, err
+		}
+
+		return actor, fromTypesScope(resolved), nil
+	}
+}
+```
+
+Helper functions (not shown) simply convert between `crud.ActorContext`/`crud.ScopeFilter` and the `types.ActorRef`/`types.ScopeFilter` structs used by `go-users`.
+
+`ActorContext` mirrors the payload emitted by `go-auth` middleware (ID, tenant/org IDs, resource roles, impersonation flags). `ScopeFilter` collects guard-enforced column filters, and helper methods like `AddColumnFilter` make it easy to append `tenant_id = ?` clauses without touching Bun primitives. Column filters are applied automatically to `Index`, `Show`, and the `Show` read performed before `Update`/`Delete`.
+
+Once the guard runs, go-crud stores the resolved metadata on the standard context so downstream services and repositories can reuse it:
+
+- `crud.ContextWithActor` / `crud.ActorFromContext`
+- `crud.ContextWithScope` / `crud.ScopeFromContext`
+- `crud.ContextWithRequestID` / `crud.RequestIDFromContext`
+- `crud.ContextWithCorrelationID` / `crud.CorrelationIDFromContext`
+
+Lifecycle hooks now receive the same information via `HookContext.Actor`, `HookContext.Scope`, `HookContext.RequestID`, and `HookContext.CorrelationID`, so emitters can log activity without reparsing headers. Request IDs are inferred automatically from `X-Request-ID`/`Request-ID` headers (or can be pre-populated by middleware using the helpers above).
 - `#/components/parameters/Order` – comma-separated ordering with optional direction (e.g. `name asc,created_at desc`).
 
 Additional filter parameters follow the `{field}__{operator}` convention emitted by the spec (for example: `?email__ilike=@example.com`, `?age__gte=21`, `?status__or=active,pending`). These placeholders in the OpenAPI document are a reminder that **any** model field can be paired with the supported operators (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`) to build expressive queries.
@@ -225,6 +331,9 @@ Omit the query parameter to receive the default envelope (`{"data":[...],"$meta"
 - **Service Layer Delegation** – plug domain logic between the controller and repository without rewriting handlers. Supply a full `Service[T]` or override selected operations with helpers like `WithServiceFuncs`.
 - **Lifecycle Hooks** – register before/after callbacks for single and batch create/update/delete operations to weave in auditing, validation, or side effects.
 - **Route/Operation Toggles** – enable/disable or remap individual HTTP verbs when registering routes (e.g., prefer PATCH over PUT, drop batch operations).
+- **Field Policies** – restrict/deny/mask columns per actor and append row-level filters after guard enforcement while emitting structured policy logs.
+- **Custom Actions** – mount guard-aware resource or collection endpoints (e.g., “Deactivate user”) without leaving the controller by using `WithActions`.
+- **Schema Registry** – aggregate every controller’s OpenAPI document via `ListSchemas`, `GetSchema`, or `RegisterSchemaListener` to power `/admin/schemas` endpoints.
 - **Advanced Query Builder** – field-mapped filtering with AND/OR operators, pagination, ordering, and nested relation includes.
 - **OpenAPI integration** – automatic schema and path generation, with metadata propagated from struct tags and route definitions.
 - **Batch Operations & Soft Deletes** – first-class support for bulk create/update/delete and Bun’s soft-delete conventions.
@@ -275,10 +384,20 @@ GET /users
     }
 }
 
-// Error response
+// Error response (problem+json via go-errors)
+HTTP/1.1 404 Not Found
+Content-Type: application/problem+json
+
 {
-    "success": false,
-    "error": "Record not found"
+    "error": {
+        "category": "not_found",
+        "code": 404,
+        "text_code": "NOT_FOUND",
+        "message": "Record not found",
+        "metadata": {
+            "operation": "read"
+        }
+    }
 }
 ```
 
@@ -338,6 +457,21 @@ func (h JSONAPIResponseHandler[T]) OnError(c *fiber.Ctx, err error, op CrudOpera
         },
     })
 }
+
+#### Error Encoders
+
+go-crud now emits [RFC‑7807](https://datatracker.ietf.org/doc/html/rfc7807) problem+json payloads by default using [github.com/goliatone/go-errors](https://github.com/goliatone/go-errors). This keeps error categories, codes, text codes, timestamps, and metadata consistent across all controllers.
+
+If you have existing clients that still expect the legacy `{success:false,error:string}` envelope, use the new `WithErrorEncoder` option to swap encoders without rewriting your response handler:
+
+```go
+controller := crud.NewController(repo,
+    crud.WithScopeGuard(demoScopeGuard()),
+    crud.WithErrorEncoder[*User](crud.LegacyJSONErrorEncoder()),
+)
+```
+
+You can also build encoders with `crud.ProblemJSONErrorEncoder(...)` to set custom mappers, stack-trace behavior, or status resolvers while keeping the go-errors schema.
 ```
 
 ### Delegating to a Service Layer
@@ -366,6 +500,46 @@ controller := crud.NewController(
 		},
 	}),
 )
+
+### Custom Actions
+
+Expose admin-only commands (approve, deactivate, sync, etc.) without forking controllers by registering custom actions. Handlers receive `ActionContext`, which embeds the router context plus actor/scope metadata resolved by your guard:
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithActions(crud.Action[*User]{
+		Name:        "Deactivate",
+		Target:      crud.ActionTargetResource, // or crud.ActionTargetCollection
+		Summary:     "Deactivate a user account",
+		Description: "Marks the account as inactive and emits notifications",
+		Handler: func(actx crud.ActionContext[*User]) error {
+			id := actx.Params("id")
+			if err := service.Deactivate(actx.UserContext(), id, actx.Actor); err != nil {
+				return err
+			}
+			return actx.Status(http.StatusAccepted).JSON(fiber.Map{"ok": true})
+		},
+	}),
+)
+```
+
+Record actions mount under `/{singular}/:id/actions/{slug}` while collection actions use `/{plural}/actions/{slug}`. Each action automatically appears in the generated OpenAPI (including the `x-admin-actions` vendor extension) so admin clients can discover the extra endpoints.
+
+// or wrap the default repository service with command adapters:
+controller := crud.NewController(
+	userRepo,
+	crud.WithCommandService(func(defaults crud.Service[*User]) crud.Service[*User] {
+		return crud.ComposeService(defaults, crud.ServiceFuncs[*User]{
+			Create: func(ctx crud.Context, user *User) (*User, error) {
+				if err := lifecycleCmd.Execute(ctx.UserContext(), user); err != nil {
+					return nil, err
+				}
+				return defaults.Show(ctx, user.ID.String(), nil)
+			},
+		})
+	}),
+)
 ```
 
 ### Lifecycle Hooks
@@ -387,6 +561,79 @@ controller := crud.NewController(
 	}),
 )
 ```
+
+Upgrading from legacy hooks that accepted `crud.Context`? Wrap them with `crud.HookFromContext` (or `crud.HookBatchFromContext`) so they keep compiling while gaining access to the enriched metadata:
+
+```go
+crud.WithLifecycleHooks(crud.LifecycleHooks[*User]{
+	BeforeCreate: crud.HookFromContext(func(ctx crud.Context, user *User) error {
+		user.CreatedBy = ctx.Query("actor_id", "system")
+		return nil
+	}),
+})
+```
+
+#### Activity & Notification Emitters
+
+Configure emitters once and call the helpers from your hooks to emit structured events that already include actor/scope/request metadata:
+
+```go
+auditEmitter := audit.NewEmitter(...)
+notificationEmitter := notifications.NewEmitter(...)
+
+controller := crud.NewController(
+	userRepo,
+	crud.WithActivityEmitter(auditEmitter),
+	crud.WithNotificationEmitter(notificationEmitter),
+	crud.WithLifecycleHooks(crud.LifecycleHooks[*User]{
+		AfterCreate: func(hctx crud.HookContext, user *User) error {
+			return crud.EmitActivity(hctx, crud.ActivityPhaseAfter, user,
+				crud.WithActivityEventMetaValue("command", "create_user"))
+		},
+		AfterUpdate: func(hctx crud.HookContext, user *User) error {
+			return crud.SendNotification(hctx, crud.ActivityPhaseAfter, user,
+				crud.WithNotificationChannel("email"),
+				crud.WithNotificationTemplate("user-updated"),
+				crud.WithNotificationRecipients("ops@example.com"))
+		},
+	}),
+)
+```
+
+`EmitActivity`/`SendNotification` no-op when their emitters aren’t configured, so shared hooks can run across services that opt out of auditing.
+
+#### Field Policies
+
+Controllers can enforce per-actor column visibility by wiring a `FieldPolicyProvider`. The provider receives the current operation, actor, scope, and resource metadata, then returns allow/deny lists, mask functions, and optional row filters:
+
+```go
+policy := func(req crud.FieldPolicyRequest[*User]) (crud.FieldPolicy, error) {
+	if req.Actor.Role == "support" {
+		filter := crud.ScopeFilter{}
+		filter.AddColumnFilter("tenant_id", "=", req.Actor.TenantID)
+
+		return crud.FieldPolicy{
+			Name:      "support:limited",
+			Allow:     []string{"id", "name", "email"},
+			Deny:      []string{"password", "ssn"},
+			Mask:      map[string]crud.FieldMaskFunc{"email": func(v any) any { return "hidden@example.com" }},
+			RowFilter: filter, // appended after guard criteria
+		}, nil
+	}
+	return crud.FieldPolicy{}, nil
+}
+
+controller := crud.NewController(
+	userRepo,
+	crud.WithFieldPolicyProvider(policy),
+)
+```
+
+Key behaviors:
+- `Allow`/`Deny` determine which JSON fields can be selected, filtered, or ordered. The query builder drops disallowed fields automatically.
+- `Mask` runs before the response is serialized so secrets can be obfuscated without mutating the record in storage.
+- `RowFilter` appends additional criteria (e.g., `owner_id = actor_id`) after guard-enforced tenant/org filters.
+- Every resolved policy is logged via `LogFieldPolicyDecision`, which attaches operation/resource/allow/deny/mask metadata to your logger implementation for auditing.
 
 ### Route/Operation Toggles
 
