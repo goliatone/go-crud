@@ -11,8 +11,15 @@ type HookMetadata struct {
 
 // HookContext bundles the request context with hook metadata.
 type HookContext struct {
-	Context  Context
-	Metadata HookMetadata
+	Context       Context
+	Metadata      HookMetadata
+	Actor         ActorContext
+	Scope         ScopeFilter
+	RequestID     string
+	CorrelationID string
+
+	activityEmitter     ActivityEmitter
+	notificationEmitter NotificationEmitter
 }
 
 // HookFunc represents a lifecycle hook for a single record.
@@ -37,4 +44,46 @@ type LifecycleHooks[T any] struct {
 	AfterDelete       HookFunc[T]
 	BeforeDeleteBatch HookBatchFunc[T]
 	AfterDeleteBatch  HookBatchFunc[T]
+}
+
+// HasActivityEmitter reports whether the controller configured an ActivityEmitter.
+func (h HookContext) HasActivityEmitter() bool {
+	return h.activityEmitter != nil
+}
+
+// ActivityEmitter returns the configured ActivityEmitter (if any).
+func (h HookContext) ActivityEmitter() ActivityEmitter {
+	return h.activityEmitter
+}
+
+// HasNotificationEmitter reports whether the controller configured a NotificationEmitter.
+func (h HookContext) HasNotificationEmitter() bool {
+	return h.notificationEmitter != nil
+}
+
+// NotificationEmitter returns the configured NotificationEmitter (if any).
+func (h HookContext) NotificationEmitter() NotificationEmitter {
+	return h.notificationEmitter
+}
+
+// HookFromContext adapts a legacy hook that only expected crud.Context into a
+// HookFunc that receives the enriched HookContext. Nil hooks return nil.
+func HookFromContext[T any](hook func(Context, T) error) HookFunc[T] {
+	if hook == nil {
+		return nil
+	}
+	return func(hctx HookContext, record T) error {
+		return hook(hctx.Context, record)
+	}
+}
+
+// HookBatchFromContext adapts a legacy batch hook (Context + []T) into the new
+// HookBatchFunc form that receives HookContext metadata.
+func HookBatchFromContext[T any](hook func(Context, []T) error) HookBatchFunc[T] {
+	if hook == nil {
+		return nil
+	}
+	return func(hctx HookContext, records []T) error {
+		return hook(hctx.Context, records)
+	}
 }
