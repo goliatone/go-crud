@@ -10,7 +10,19 @@ var _ router.MetadataProvider = (*Controller[any])(nil)
 func (c *Controller[T]) GetMetadata() router.ResourceMetadata {
 	metadata := router.GetResourceMetadata(c.resourceType)
 	if metadata == nil {
-		return router.ResourceMetadata{}
+		if len(c.actionRouteDefs) == 0 {
+			return router.ResourceMetadata{}
+		}
+		return router.ResourceMetadata{
+			Routes: append([]router.RouteDefinition{}, c.actionRouteDefs...),
+		}
 	}
-	return *metadata
+	copyMeta := *metadata
+	if len(copyMeta.Routes) > 0 {
+		copyMeta.Routes = append([]router.RouteDefinition{}, copyMeta.Routes...)
+	}
+	if len(c.actionRouteDefs) > 0 {
+		copyMeta.Routes = append(copyMeta.Routes, c.actionRouteDefs...)
+	}
+	return copyMeta
 }
