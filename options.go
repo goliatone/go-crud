@@ -126,6 +126,28 @@ func WithResponseHandler[T any](handler ResponseHandler[T]) Option[T] {
 	}
 }
 
+// WithErrorEncoder overrides the encoder used when controllers serialize errors.
+// When paired with the default response handler, this switches between the
+// problem+json encoder and the legacy {success:false,error:string} payloads.
+func WithErrorEncoder[T any](encoder ErrorEncoder) Option[T] {
+	return func(c *Controller[T]) {
+		if encoder == nil {
+			return
+		}
+		if c.resp == nil {
+			c.resp = NewDefaultResponseHandler[T]()
+		}
+		if aware, ok := c.resp.(errorEncoderAware); ok {
+			aware.setErrorEncoder(encoder)
+			return
+		}
+		c.resp = &errorEncoderResponseHandler[T]{
+			base:    c.resp,
+			encoder: encoder,
+		}
+	}
+}
+
 func WithLogger[T any](logger Logger) Option[T] {
 	return func(c *Controller[T]) {
 		c.logger = logger
@@ -150,6 +172,25 @@ func WithService[T any](service Service[T]) Option[T] {
 	}
 }
 
+// WithCommandService composes the default repository-backed service with the
+// provided command adapter factory. When the factory is nil the option is a no-op.
+func WithCommandService[T any](factory CommandServiceFactory[T]) Option[T] {
+	return func(c *Controller[T]) {
+		if factory == nil {
+			return
+		}
+		base := c.service
+		if base == nil {
+			base = NewRepositoryService(c.Repo)
+		}
+		if wrapped := factory(base); wrapped != nil {
+			c.service = wrapped
+			return
+		}
+		c.service = base
+	}
+}
+
 func WithServiceFuncs[T any](overrides ServiceFuncs[T]) Option[T] {
 	return func(c *Controller[T]) {
 		base := NewRepositoryService(c.Repo)
@@ -169,6 +210,51 @@ func WithLifecycleHooks[T any](hooks LifecycleHooks[T]) Option[T] {
 	}
 }
 
+func WithActivityEmitter[T any](emitter ActivityEmitter) Option[T] {
+	return func(c *Controller[T]) {
+		c.activityEmitter = emitter
+	}
+}
+
+func WithNotificationEmitter[T any](emitter NotificationEmitter) Option[T] {
+	return func(c *Controller[T]) {
+		c.notificationEmitter = emitter
+	}
+}
+
+func WithActions[T any](actions ...Action[T]) Option[T] {
+	return func(c *Controller[T]) {
+		if len(actions) == 0 {
+			return
+		}
+		c.actions = append(c.actions, actions...)
+	}
+}
+
+func WithAdminScopeMetadata[T any](meta AdminScopeMetadata) Option[T] {
+	return func(c *Controller[T]) {
+		c.adminScopeMetadata = meta
+	}
+}
+
+func WithAdminMenuMetadata[T any](meta AdminMenuMetadata) Option[T] {
+	return func(c *Controller[T]) {
+		c.adminMenuMetadata = meta
+	}
+}
+
+func WithRowFilterHints[T any](hints ...RowFilterHint) Option[T] {
+	return func(c *Controller[T]) {
+		c.rowFilterHints = cloneRowFilterHints(hints)
+	}
+}
+
+func WithScopeGuard[T any](guard ScopeGuardFunc[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.scopeGuard = guard
+	}
+}
+
 func WithRelationMetadataProvider[T any](provider router.RelationMetadataProvider) Option[T] {
 	return func(c *Controller[T]) {
 		c.relationProvider = provider
@@ -182,6 +268,12 @@ func WithRelationFilter[T any](filter router.RelationFilterFunc) Option[T] {
 		}
 		router.RegisterRelationFilter(filter)
 		invalidateRelationDescriptorCache()
+	}
+}
+
+func WithFieldPolicyProvider[T any](provider FieldPolicyProvider[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.fieldPolicyProvider = provider
 	}
 }
 
