@@ -43,6 +43,19 @@ func ComposeService[T any](defaults Service[T], funcs ServiceFuncs[T]) Service[T
 	}
 }
 
+// CommandServiceFactory builds a Service implementation that can wrap the
+// controller's default service (repository-backed) with command adapters.
+type CommandServiceFactory[T any] func(defaults Service[T]) Service[T]
+
+// CommandServiceFromFuncs returns a CommandServiceFactory that applies the given
+// overrides on top of the provided defaults. It is useful when command adapters
+// only need to intercept a subset of operations.
+func CommandServiceFromFuncs[T any](overrides ServiceFuncs[T]) CommandServiceFactory[T] {
+	return func(defaults Service[T]) Service[T] {
+		return ComposeService(defaults, overrides)
+	}
+}
+
 // NewRepositoryService returns a Service[T] that delegates to repository.Repository[T].
 func NewRepositoryService[T any](repo repository.Repository[T]) Service[T] {
 	return &repositoryService[T]{repo: repo}
