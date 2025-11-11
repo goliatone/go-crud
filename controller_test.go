@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -54,6 +55,28 @@ type TestUser struct {
 type optionResponse struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
+}
+
+type testActivityEmitter struct {
+	events []ActivityEvent
+	ctxs   []context.Context
+}
+
+func (e *testActivityEmitter) EmitActivity(ctx context.Context, event ActivityEvent) error {
+	e.ctxs = append(e.ctxs, ctx)
+	e.events = append(e.events, event)
+	return nil
+}
+
+type testNotificationEmitter struct {
+	events []NotificationEvent
+	ctxs   []context.Context
+}
+
+func (e *testNotificationEmitter) SendNotification(ctx context.Context, event NotificationEvent) error {
+	e.ctxs = append(e.ctxs, ctx)
+	e.events = append(e.events, event)
+	return nil
 }
 
 func newTestUserRepository(db *bun.DB) repository.Repository[*TestUser] {
@@ -165,6 +188,28 @@ func createSchema(ctx context.Context, db *bun.DB) error {
 		}
 	}
 	return nil
+}
+
+func insertTestUsers(t *testing.T, db *bun.DB, users ...*TestUser) {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now().UTC()
+	for _, user := range users {
+		if user.ID == uuid.Nil {
+			user.ID = uuid.New()
+		}
+		if user.CreatedAt.IsZero() {
+			user.CreatedAt = now
+		}
+		if user.UpdatedAt.IsZero() {
+			user.UpdatedAt = now
+		}
+		if user.Email == "" {
+			user.Email = fmt.Sprintf("user-%s@example.com", user.ID.String())
+		}
+		_, err := db.NewInsert().Model(user).Exec(ctx)
+		require.NoError(t, err)
+	}
 }
 
 func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
@@ -1882,4 +1927,390 @@ func Test_ParseFieldOperator_Custom(t *testing.T) {
 		})
 	}
 
+}
+
+func TestController_WithScopeGuardFiltersList(t *testing.T) {
+	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
+		scope := ScopeFilter{}
+		scope.AddColumnFilter("name", "=", "Alice Johnson")
+		return ActorContext{ActorID: "actor-list", TenantID: "tenant-alpha"}, scope, nil
+	}
+
+	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
+	defer db.Close()
+
+	insertTestUsers(t, db,
+		&TestUser{Name: "Alice Johnson", Email: "alice@example.com"},
+		&TestUser{Name: "Bob Smith", Email: "bob@example.com"},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/test-users", nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
+	data, ok := payload["data"].([]any)
+	require.True(t, ok, "expected data array in response")
+	require.Len(t, data, 1)
+	row, ok := data[0].(map[string]any)
+	require.True(t, ok, "expected map for row data")
+	assert.Equal(t, "Alice Johnson", row["name"])
+}
+
+func TestController_WithScopeGuardBlocksDeleteOutsideScope(t *testing.T) {
+	var (
+		alice = &TestUser{Name: "Alice Johnson", Email: "alice.scope@example.com"}
+		bob   = &TestUser{Name: "Bob Smith", Email: "bob.scope@example.com"}
+	)
+
+	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
+		scope := ScopeFilter{}
+		scope.AddColumnFilter("name", "=", alice.Name)
+		return ActorContext{ActorID: "actor-delete"}, scope, nil
+	}
+
+	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
+	defer db.Close()
+
+	insertTestUsers(t, db, alice, bob)
+
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", bob.ID), nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", alice.ID), nil)
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+}
+
+func TestController_HookContextIncludesGuardMetadata(t *testing.T) {
+	var captured HookContext
+
+	hooks := LifecycleHooks[*TestUser]{
+		BeforeCreate: func(hctx HookContext, record *TestUser) error {
+			captured = hctx
+			return nil
+		},
+	}
+
+	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
+		scope := ScopeFilter{}
+		scope.AddColumnFilter("name", "=", "Hooked User")
+		actor := ActorContext{
+			ActorID:        "actor-hooks",
+			TenantID:       "tenant-guard",
+			OrganizationID: "org-guard",
+		}
+		return actor, scope, nil
+	}
+
+	app, db := setupApp(t, WithLifecycleHooks(hooks), WithScopeGuard[*TestUser](guard))
+	defer db.Close()
+
+	payload := map[string]any{
+		"name":  "Hooked User",
+		"email": "hooked@example.com",
+		"age":   30,
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/test-user", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", "req-123")
+	req.Header.Set("X-Correlation-ID", "corr-456")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.NotNil(t, captured.Context)
+	assert.Equal(t, "actor-hooks", captured.Actor.ActorID)
+	assert.Equal(t, "tenant-guard", captured.Actor.TenantID)
+	assert.Equal(t, "org-guard", captured.Actor.OrganizationID)
+	require.Len(t, captured.Scope.ColumnFilters, 1)
+	assert.Equal(t, "name", captured.Scope.ColumnFilters[0].Column)
+	assert.Equal(t, []string{"Hooked User"}, captured.Scope.ColumnFilters[0].Values)
+	assert.Equal(t, "req-123", captured.RequestID)
+	assert.Equal(t, "corr-456", captured.CorrelationID)
+}
+
+func TestController_ScopeGuardErrorSurfaces(t *testing.T) {
+	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
+		return ActorContext{}, ScopeFilter{}, errors.New("not authorized")
+	}
+
+	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/test-users", nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
+	assert.Equal(t, "not authorized", payload["error"])
+}
+
+func TestController_WithCommandServiceOverridesCreate(t *testing.T) {
+	var commandCalled bool
+
+	commandFactory := func(defaults Service[*TestUser]) Service[*TestUser] {
+		return ComposeService(defaults, ServiceFuncs[*TestUser]{
+			Create: func(ctx Context, record *TestUser) (*TestUser, error) {
+				commandCalled = true
+				record.Name = "command:" + record.Name
+				return defaults.Create(ctx, record)
+			},
+		})
+	}
+
+	app, db := setupApp(t, WithCommandService(commandFactory))
+	defer db.Close()
+
+	body := `{"name":"original","email":"cmd@example.com","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.True(t, commandCalled, "command service should intercept create")
+
+	var created TestUser
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
+	assert.Equal(t, "command:original", created.Name)
+}
+
+func TestController_ActionResourceRouteExecutesHandler(t *testing.T) {
+	var invoked bool
+	var guardOps []CrudOperation
+
+	action := Action[*TestUser]{
+		Name:   "Deactivate",
+		Method: http.MethodPost,
+		Target: ActionTargetResource,
+		Handler: func(actx ActionContext[*TestUser]) error {
+			invoked = true
+			assert.Equal(t, CrudOperation("action:deactivate"), actx.Operation)
+			return actx.Status(http.StatusAccepted).JSON(fiber.Map{"ok": true})
+		},
+	}
+
+	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
+		guardOps = append(guardOps, op)
+		return ActorContext{ActorID: "actor-action"}, ScopeFilter{}, nil
+	}
+
+	app, db := setupApp(t,
+		WithActions(action),
+		WithScopeGuard[*TestUser](guard),
+	)
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/test-user/%s/actions/deactivate", uuid.New()), nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+	assert.True(t, invoked, "action handler should run")
+	assert.Equal(t, []CrudOperation{CrudOperation("action:deactivate")}, guardOps)
+}
+
+func TestController_ActionCollectionRouteExecutesHandler(t *testing.T) {
+	var invoked bool
+
+	action := Action[*TestUser]{
+		Name:   "SyncAll",
+		Method: http.MethodPost,
+		Target: ActionTargetCollection,
+		Handler: func(actx ActionContext[*TestUser]) error {
+			invoked = true
+			return actx.Status(http.StatusOK).JSON(fiber.Map{"synced": true})
+		},
+	}
+
+	app, db := setupApp(t, WithActions(action))
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/test-users/actions/sync-all", nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.True(t, invoked)
+}
+
+func TestEmitActivityHelperEmitsEvents(t *testing.T) {
+	emitter := &testActivityEmitter{}
+	hooks := LifecycleHooks[*TestUser]{
+		AfterCreate: func(hctx HookContext, user *TestUser) error {
+			return EmitActivity(hctx, ActivityPhaseAfter, user,
+				WithActivityEventMetaValue("action", "created"))
+		},
+	}
+
+	app, db := setupApp(t,
+		WithLifecycleHooks(hooks),
+		WithActivityEmitter[*TestUser](emitter),
+	)
+	defer db.Close()
+
+	body := `{"name":"Emit Activity","email":"emit-activity@example.com","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", "activity-req")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	require.Len(t, emitter.events, 1)
+	event := emitter.events[0]
+	assert.Equal(t, OpCreate, event.Operation)
+	assert.Equal(t, ActivityPhaseAfter, event.Phase)
+	assert.Equal(t, "activity-req", event.RequestID)
+	require.Len(t, event.Records, 1)
+	record, ok := event.Records[0].(*TestUser)
+	require.True(t, ok)
+	assert.Equal(t, "Emit Activity", record.Name)
+	assert.Equal(t, "created", event.Metadata["action"])
+}
+
+func TestSendNotificationHelperEmitsEvents(t *testing.T) {
+	emitter := &testNotificationEmitter{}
+	hooks := LifecycleHooks[*TestUser]{
+		AfterUpdate: func(hctx HookContext, user *TestUser) error {
+			return SendNotification(hctx, ActivityPhaseAfter, user,
+				WithNotificationChannel("email"),
+				WithNotificationTemplate("user-updated"),
+				WithNotificationRecipients("ops@example.com"),
+			)
+		},
+	}
+
+	app, db := setupApp(t,
+		WithLifecycleHooks(hooks),
+		WithNotificationEmitter[*TestUser](emitter),
+	)
+	defer db.Close()
+
+	user := &TestUser{Name: "Notify User", Email: "notify@example.com"}
+	insertTestUsers(t, db, user)
+
+	body := fmt.Sprintf(`{"name":"Notify Updated","email":"%s","password":"secret"}`, user.Email)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", user.ID), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	require.Len(t, emitter.events, 1)
+	event := emitter.events[0]
+	assert.Equal(t, OpUpdate, event.Operation)
+	assert.Equal(t, ActivityPhaseAfter, event.Phase)
+	assert.Equal(t, "email", event.Channel)
+	assert.Equal(t, "user-updated", event.Template)
+	require.Equal(t, []string{"ops@example.com"}, event.Recipients)
+	require.Len(t, event.Records, 1)
+	record, ok := event.Records[0].(*TestUser)
+	require.True(t, ok)
+	assert.Equal(t, "Notify Updated", record.Name)
+}
+
+func TestController_FieldPolicyRestrictsListFields(t *testing.T) {
+	provider := func(req FieldPolicyRequest[*TestUser]) (FieldPolicy, error) {
+		if req.Operation == OpList {
+			return FieldPolicy{
+				Name:  "list:name-only",
+				Allow: []string{"id", "name"},
+			}, nil
+		}
+		return FieldPolicy{}, nil
+	}
+
+	app, db := setupApp(t, WithFieldPolicyProvider(provider))
+	defer db.Close()
+
+	insertTestUsers(t, db, &TestUser{Name: "Policy User", Email: "policy@example.com"})
+
+	req := httptest.NewRequest(http.MethodGet, "/test-users?select=id,name,email", nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
+	data := payload["data"].([]any)
+	require.Len(t, data, 1)
+	row := data[0].(map[string]any)
+	assert.Equal(t, "Policy User", row["name"])
+	assert.Equal(t, "", row["email"], "email should be blank when denied by field policy")
+}
+
+func TestController_FieldPolicyRowFilterAppliesToUpdate(t *testing.T) {
+	filter := ScopeFilter{}
+	filter.AddColumnFilter("name", "=", "Allowed User")
+	provider := func(req FieldPolicyRequest[*TestUser]) (FieldPolicy, error) {
+		if req.Operation == OpUpdate {
+			return FieldPolicy{
+				Name:      "update:allowed-user",
+				RowFilter: filter,
+			}, nil
+		}
+		return FieldPolicy{}, nil
+	}
+
+	app, db := setupApp(t, WithFieldPolicyProvider(provider))
+	defer db.Close()
+
+	allowed := &TestUser{Name: "Allowed User", Email: "allowed@example.com"}
+	blocked := &TestUser{Name: "Blocked User", Email: "blocked@example.com"}
+	insertTestUsers(t, db, allowed, blocked)
+
+	body := `{"name":"Blocked Updated","email":"blocked@example.com"}`
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", blocked.ID), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "row filter should block update outside policy")
+}
+
+func TestController_FieldPolicyMasksShowFields(t *testing.T) {
+	provider := func(req FieldPolicyRequest[*TestUser]) (FieldPolicy, error) {
+		if req.Operation == OpRead {
+			mask := ScopeFilter{}
+			return FieldPolicy{
+				Name: "show:mask",
+				Deny: []string{"age"},
+				Mask: map[string]FieldMaskFunc{
+					"email": func(value any) any {
+						return "hidden@example.com"
+					},
+				},
+				RowFilter: mask,
+			}, nil
+		}
+		return FieldPolicy{}, nil
+	}
+
+	app, db := setupApp(t, WithFieldPolicyProvider(provider))
+	defer db.Close()
+
+	user := &TestUser{Name: "Mask User", Email: "mask@example.com", Age: 42}
+	insertTestUsers(t, db, user)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", user.ID), nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
+	data := payload["data"].(map[string]any)
+	assert.Equal(t, "hidden@example.com", data["email"])
+	assert.Equal(t, float64(0), data["age"])
 }
