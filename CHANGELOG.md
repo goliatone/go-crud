@@ -2,9 +2,39 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Ensure content type in response ([e920325](https://github.com/goliatone/go-crud/commit/e920325915a5c2d9c88e20cf49723c9834b54f3a))  - (goliatone)
+- Query criteria ([8df3466](https://github.com/goliatone/go-crud/commit/8df3466445c088904ed53927c6cd0bbd0f2bee05))  - (goliatone)
+- Support for error encoder, activity, crud ext ([6af2b8b](https://github.com/goliatone/go-crud/commit/6af2b8bb83d2aca04f896198a127735402078c8d))  - (goliatone)
+- Meta update ([d503039](https://github.com/goliatone/go-crud/commit/d5030398eaf25a38cbadf864955f089c21d36949))  - (goliatone)
+- Erorr encoder ([b6e7d6b](https://github.com/goliatone/go-crud/commit/b6e7d6bba4c03bf364dfa65d3d7a7f518a5d4fb5))  - (goliatone)
+- Schema registry ([bd239d0](https://github.com/goliatone/go-crud/commit/bd239d02a32315d02d34b38e8837d2a963a8a64d))  - (goliatone)
+- Extend hooks to have more role/auth info ([f429124](https://github.com/goliatone/go-crud/commit/f429124af497912e854e6df901b74941cc712f65))  - (goliatone)
+- Expose header ([858d3ea](https://github.com/goliatone/go-crud/commit/858d3ea24fc1c3e9be3d7130757c9a11a4fa7f39))  - (goliatone)
+- Updated controller to handle activity and scopes ([9231c65](https://github.com/goliatone/go-crud/commit/9231c6598b07264245e8c83d9292d400e4c93864))  - (goliatone)
+- Scope guard ([cef19e6](https://github.com/goliatone/go-crud/commit/cef19e66b516a2b8c4f9278c705199acb9f34aca))  - (goliatone)
+- Field policy ([9f66f0c](https://github.com/goliatone/go-crud/commit/9f66f0ccf6a9c9244473491fdecb04f469110b1e))  - (goliatone)
+- Action emitters ([bbe565e](https://github.com/goliatone/go-crud/commit/bbe565ee0eb7485a93bc5c85e1feb74cf9f65d68))  - (goliatone)
+- Admin metdata ([c8410af](https://github.com/goliatone/go-crud/commit/c8410af2dc7705017544109740251f18b27aa4bb))  - (goliatone)
+- Actions ([aa66d8a](https://github.com/goliatone/go-crud/commit/aa66d8ab3e813f32351173b96b422199cc86c430))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([007bffb](https://github.com/goliatone/go-crud/commit/007bffb0fdf071b56444ce4c4a210f6b7afb90e0))  - (goliatone)
+- Update tests ([3ba5965](https://github.com/goliatone/go-crud/commit/3ba596510c99da7695e72f9b2183b100019dcda4))  - (goliatone)
+- Update deps ([ebefcd1](https://github.com/goliatone/go-crud/commit/ebefcd16c93d8d1a27db6aae5352f4b9ec916463))  - (goliatone)
+- Update docs ([c47b78f](https://github.com/goliatone/go-crud/commit/c47b78fb5824c282c34d5690469f5eddce408ade))  - (goliatone)
+
+# [0.11.0](https://github.com/goliatone/go-crud/compare/v0.10.0...v0.11.0) - (2025-11-03)
+
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Every related model should have matching component ([933640b](https://github.com/goliatone/go-crud/commit/933640b0a3da726410b3e87facf4d2cc1fd4e025))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.11.0 ([3753ecd](https://github.com/goliatone/go-crud/commit/3753ecd700e7bf1200c68aafeea48a8af22aa9ae))  - (goliatone)
 
 # [0.10.0](https://github.com/goliatone/go-crud/compare/v0.9.0...v0.10.0) - (2025-11-03)
 
