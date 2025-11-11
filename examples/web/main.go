@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ type User struct {
 	ID            uuid.UUID  `bun:"id,pk,notnull" json:"id"`
 	Name          string     `bun:"name,notnull" json:"name"`
 	Email         string     `bun:"email,notnull,unique" json:"email"`
+	TenantID      string     `bun:"tenant_id,notnull" json:"tenant_id"`
 	Bio           string     `bun:"bio" json:"bio,omitempty"`
 	Active        bool       `bun:"active,notnull" json:"active"`
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at,omitempty"`
@@ -78,7 +80,9 @@ func main() {
 	app.WrappedRouter().Static("/static", "./views")
 
 	// Create CRUD controller
-	controller := crud.NewController(repo)
+	controller := crud.NewController(repo,
+		crud.WithScopeGuard(demoScopeGuard()),
+	)
 
 	// API routes with JSON responses
 	api := app.Router().Group("/api")
@@ -165,22 +169,25 @@ func seedDatabase(repo repository.Repository[*User]) {
 
 	users := []*User{
 		{
-			Name:   "Alice Johnson",
-			Email:  "alice.johnson@example.com",
-			Bio:    "Software engineer passionate about Go and distributed systems",
-			Active: true,
+			Name:     "Alice Johnson",
+			Email:    "alice.johnson@example.com",
+			TenantID: "tenant-alpha",
+			Bio:      "Software engineer passionate about Go and distributed systems",
+			Active:   true,
 		},
 		{
-			Name:   "Bob Smith",
-			Email:  "bob.smith@example.com",
-			Bio:    "DevOps specialist with expertise in cloud infrastructure",
-			Active: true,
+			Name:     "Bob Smith",
+			Email:    "bob.smith@example.com",
+			TenantID: "tenant-alpha",
+			Bio:      "DevOps specialist with expertise in cloud infrastructure",
+			Active:   true,
 		},
 		{
-			Name:   "Carol Williams",
-			Email:  "carol.williams@example.com",
-			Bio:    "Product manager focused on developer tools",
-			Active: true,
+			Name:     "Carol Williams",
+			Email:    "carol.williams@example.com",
+			TenantID: "tenant-beta",
+			Bio:      "Product manager focused on developer tools",
+			Active:   true,
 		},
 	}
 
@@ -192,6 +199,29 @@ func seedDatabase(repo repository.Repository[*User]) {
 	}
 
 	log.Println("Database seeded with sample data")
+}
+
+func demoScopeGuard() crud.ScopeGuardFunc[*User] {
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		tenantID := strings.TrimSpace(ctx.Query("tenant_id"))
+		if tenantID == "" {
+			tenantID = "tenant-alpha"
+		}
+		actorID := strings.TrimSpace(ctx.Query("actor_id"))
+		if actorID == "" {
+			actorID = "demo-admin"
+		}
+
+		actor := crud.ActorContext{
+			ActorID:  actorID,
+			TenantID: tenantID,
+		}
+
+		scope := crud.ScopeFilter{}
+		scope.AddColumnFilter("tenant_id", "=", tenantID)
+
+		return actor, scope, nil
+	}
 }
 
 // Front-end route handlers
