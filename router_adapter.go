@@ -3,6 +3,7 @@ package crud
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/goliatone/go-router"
 )
@@ -151,7 +152,17 @@ func (ca *contextAdapter) JSON(data any, ctype ...string) error {
 	if ca.status == 0 {
 		ca.status = http.StatusOK
 	}
-	return ca.c.JSON(ca.status, data)
+	var contentType string
+	if len(ctype) > 0 {
+		contentType = strings.TrimSpace(ctype[0])
+	}
+	if err := ca.c.JSON(ca.status, data); err != nil {
+		return err
+	}
+	if contentType != "" {
+		ca.c.SetHeader(router.HeaderContentType, contentType)
+	}
+	return nil
 }
 
 func (ca *contextAdapter) SendStatus(status int) error {
