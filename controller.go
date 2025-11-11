@@ -353,6 +353,7 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 	registerRoute(OpDelete, http.MethodDelete, showPath, c.Delete, deleteRoute)
 
 	c.registerActionRoutes(r, resolvedActions, applyMeta)
+	c.refreshSchemaRegistration()
 }
 
 func invokeRoute(r Router, method, path string, handler func(Context) error) RouterRouteInfo {
@@ -499,9 +500,57 @@ func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBat
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
-	meta := c.GetMetadata()
+	meta, doc := c.compileSchemaDocument()
 	if meta.Name == "" {
 		return ctx.SendStatus(http.StatusNotFound)
+	}
+	if len(doc) == 0 {
+		return ctx.SendStatus(http.StatusNoContent)
+	}
+	return ctx.JSON(doc)
+}
+
+func (c *Controller[T]) applyAdminExtensions(doc map[string]any, meta router.ResourceMetadata) {
+	if doc == nil {
+		return
+	}
+	components, ok := doc["components"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemas, ok := components["schemas"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemaName := meta.Name
+	if schemaName == "" {
+		schemaName = meta.Schema.Name
+	}
+	if schemaName == "" {
+		return
+	}
+	schema, ok := schemas[schemaName].(map[string]any)
+	if !ok {
+		return
+	}
+	if ext := c.adminScopeMetadata.toMap(); len(ext) > 0 {
+		schema["x-admin-scope"] = ext
+	}
+	if len(c.actionDescriptors) > 0 {
+		schema["x-admin-actions"] = c.actionDescriptors
+	}
+	if ext := c.adminMenuMetadata.toMap(); len(ext) > 0 {
+		schema["x-admin-menu"] = ext
+	}
+	if len(c.rowFilterHints) > 0 {
+		schema["x-admin-row-filters"] = cloneRowFilterHints(c.rowFilterHints)
+	}
+}
+
+func (c *Controller[T]) compileSchemaDocument() (router.ResourceMetadata, map[string]any) {
+	meta := c.GetMetadata()
+	if meta.Name == "" {
+		return router.ResourceMetadata{}, nil
 	}
 
 	aggregator := router.NewMetadataAggregator().
@@ -530,48 +579,19 @@ func (c *Controller[T]) Schema(ctx Context) error {
 
 	doc := aggregator.GenerateOpenAPI()
 	if len(doc) == 0 {
-		return ctx.SendStatus(http.StatusNoContent)
+		return meta, nil
 	}
 
 	c.applyAdminExtensions(doc, meta)
-	return ctx.JSON(doc)
+	return meta, doc
 }
 
-func (c *Controller[T]) applyAdminExtensions(doc map[string]any, meta router.ResourceMetadata) {
-	if doc == nil {
+func (c *Controller[T]) refreshSchemaRegistration() {
+	meta, doc := c.compileSchemaDocument()
+	if meta.Name == "" || len(doc) == 0 {
 		return
 	}
-	components, ok := doc["components"].(map[string]any)
-	if !ok {
-		return
-	}
-	schemas, ok := components["schemas"].(map[string]any)
-	if !ok {
-		return
-	}
-	schemaName := meta.Schema.Name
-	if schemaName == "" {
-		schemaName = meta.Name
-	}
-	if schemaName == "" {
-		return
-	}
-	schema, ok := schemas[schemaName].(map[string]any)
-	if !ok {
-		return
-	}
-	if ext := c.adminScopeMetadata.toMap(); len(ext) > 0 {
-		schema["x-admin-scope"] = ext
-	}
-	if len(c.actionDescriptors) > 0 {
-		schema["x-admin-actions"] = c.actionDescriptors
-	}
-	if ext := c.adminMenuMetadata.toMap(); len(ext) > 0 {
-		schema["x-admin-menu"] = ext
-	}
-	if len(c.rowFilterHints) > 0 {
-		schema["x-admin-row-filters"] = cloneRowFilterHints(c.rowFilterHints)
-	}
+	registerSchemaEntry(meta, doc)
 }
 
 // Show supports different query string parameters:
