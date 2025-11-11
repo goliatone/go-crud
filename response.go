@@ -54,33 +54,38 @@ type ResponseHandler[T any] interface {
 	OnList(ctx Context, data []T, op CrudOperation, filters *Filters) error
 }
 
-type DefaultResponseHandler[T any] struct{}
-
-func NewDefaultResponseHandler[T any]() ResponseHandler[T] {
-	return DefaultResponseHandler[T]{}
+type errorEncoderAware interface {
+	setErrorEncoder(ErrorEncoder)
 }
 
-func (h DefaultResponseHandler[T]) OnError(c Context, err error, op CrudOperation) error {
-	switch err.(type) {
-	case *NotFoundError:
-		return c.Status(http.StatusNotFound).JSON(map[string]any{
-			"success": false,
-			"error":   err.Error(),
-		})
-	case *ValidationError:
-		return c.Status(http.StatusBadRequest).JSON(map[string]any{
-			"success": false,
-			"error":   err.Error(),
-		})
-	default:
-		return c.Status(http.StatusInternalServerError).JSON(map[string]any{
-			"success": false,
-			"error":   err.Error(),
-		})
+type DefaultResponseHandler[T any] struct {
+	encoder ErrorEncoder
+}
+
+func NewDefaultResponseHandler[T any]() ResponseHandler[T] {
+	return &DefaultResponseHandler[T]{
+		encoder: ProblemJSONErrorEncoder(),
 	}
 }
 
-func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, filters ...*Filters) error {
+func (h *DefaultResponseHandler[T]) setErrorEncoder(encoder ErrorEncoder) {
+	if h == nil {
+		return
+	}
+	h.encoder = encoder
+}
+
+func (h *DefaultResponseHandler[T]) OnError(c Context, err error, op CrudOperation) error {
+	if h == nil {
+		return ProblemJSONErrorEncoder()(c, err, op)
+	}
+	if h.encoder == nil {
+		h.encoder = ProblemJSONErrorEncoder()
+	}
+	return h.encoder(c, err, op)
+}
+
+func (h *DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, filters ...*Filters) error {
 	if op == OpCreate {
 		return c.Status(http.StatusCreated).JSON(data)
 	}
@@ -97,14 +102,55 @@ func (h DefaultResponseHandler[T]) OnData(c Context, data T, op CrudOperation, f
 	})
 }
 
-func (h DefaultResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
+func (h *DefaultResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
 	return c.SendStatus(http.StatusNoContent)
 }
 
-func (h DefaultResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
+func (h *DefaultResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
 	return c.Status(http.StatusOK).JSON(map[string]any{
 		"$meta":   filters,
 		"data":    data,
 		"success": true,
 	})
+}
+
+type errorEncoderResponseHandler[T any] struct {
+	base    ResponseHandler[T]
+	encoder ErrorEncoder
+}
+
+func (h *errorEncoderResponseHandler[T]) setErrorEncoder(encoder ErrorEncoder) {
+	h.encoder = encoder
+}
+
+func (h *errorEncoderResponseHandler[T]) encoderFunc() ErrorEncoder {
+	if h.encoder != nil {
+		return h.encoder
+	}
+	return ProblemJSONErrorEncoder()
+}
+
+func (h *errorEncoderResponseHandler[T]) OnError(c Context, err error, op CrudOperation) error {
+	return h.encoderFunc()(c, err, op)
+}
+
+func (h *errorEncoderResponseHandler[T]) OnData(c Context, data T, op CrudOperation, filters ...*Filters) error {
+	if h.base != nil {
+		return h.base.OnData(c, data, op, filters...)
+	}
+	return NewDefaultResponseHandler[T]().OnData(c, data, op, filters...)
+}
+
+func (h *errorEncoderResponseHandler[T]) OnEmpty(c Context, op CrudOperation) error {
+	if h.base != nil {
+		return h.base.OnEmpty(c, op)
+	}
+	return NewDefaultResponseHandler[T]().OnEmpty(c, op)
+}
+
+func (h *errorEncoderResponseHandler[T]) OnList(c Context, data []T, op CrudOperation, filters *Filters) error {
+	if h.base != nil {
+		return h.base.OnList(c, data, op, filters)
+	}
+	return NewDefaultResponseHandler[T]().OnList(c, data, op, filters)
 }
