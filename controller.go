@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	mergo "dario.cat/mergo"
 	"github.com/ettle/strcase"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
@@ -51,15 +52,173 @@ type Controller[T any] struct {
 	queryLoggingEnabled bool
 	routeConfig         RouteConfig
 	hooks               LifecycleHooks[T]
+	activityEmitter     ActivityEmitter
+	notificationEmitter NotificationEmitter
+	fieldPolicyProvider FieldPolicyProvider[T]
+	actions             []Action[T]
+	actionDescriptors   []ActionDescriptor
+	actionRouteDefs     []router.RouteDefinition
+	adminScopeMetadata  AdminScopeMetadata
+	adminMenuMetadata   AdminMenuMetadata
+	rowFilterHints      []RowFilterHint
 	routeMethods        map[CrudOperation]string
 	routePaths          map[CrudOperation]string
 	routeNames          map[CrudOperation]string
 	relationProvider    router.RelationMetadataProvider
+	scopeGuard          ScopeGuardFunc[T]
 }
 
 type optionItem struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
+}
+
+type guardRequestContext struct {
+	actor         ActorContext
+	scope         ScopeFilter
+	requestID     string
+	correlationID string
+}
+
+func mergeRecordWithExisting[T any](record, existing T) (T, error) {
+	rv := reflect.ValueOf(record)
+	if !rv.IsValid() {
+		var zero T
+		return zero, fmt.Errorf("invalid record")
+	}
+
+	if rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			rv = reflect.New(rv.Type().Elem())
+			if rv.CanInterface() {
+				if converted, ok := rv.Interface().(T); ok {
+					record = converted
+				}
+			}
+		}
+		if err := mergo.Merge(record, existing); err != nil {
+			var zero T
+			return zero, err
+		}
+		return record, nil
+	}
+
+	ptr := reflect.New(rv.Type())
+	ptr.Elem().Set(rv)
+	if err := mergo.Merge(ptr.Interface(), existing); err != nil {
+		var zero T
+		return zero, err
+	}
+	merged, ok := ptr.Elem().Interface().(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("failed to merge record")
+	}
+	return merged, nil
+}
+
+func (c *Controller[T]) resolveGuardContext(ctx Context, op CrudOperation) (guardRequestContext, error) {
+	meta := guardRequestContext{}
+	if ctx != nil {
+		meta.actor = ActorFromContext(ctx.UserContext())
+		meta.scope = ScopeFromContext(ctx.UserContext())
+	}
+
+	if c.scopeGuard != nil {
+		actor, scope, err := c.scopeGuard(ctx, op)
+		if err != nil {
+			return guardRequestContext{}, err
+		}
+		if !actor.IsZero() {
+			meta.actor = actor.Clone()
+			attachActorToRequestContext(ctx, meta.actor)
+		}
+		meta.scope = scope.clone()
+		attachScopeToRequestContext(ctx, meta.scope)
+	} else {
+		if !meta.actor.IsZero() {
+			attachActorToRequestContext(ctx, meta.actor)
+		}
+		if meta.scope.HasFilters() || meta.scope.Bypass {
+			attachScopeToRequestContext(ctx, meta.scope)
+		}
+	}
+
+	meta.requestID = resolveRequestID(ctx)
+	meta.correlationID = resolveCorrelationID(ctx)
+	attachIdentifiersToRequestContext(ctx, meta.requestID, meta.correlationID)
+
+	// Refresh from context to capture any identifiers stored by upstream middleware.
+	if ctx != nil {
+		if meta.actor.IsZero() {
+			meta.actor = ActorFromContext(ctx.UserContext())
+		}
+		if !meta.scope.HasFilters() && !meta.scope.Bypass && len(meta.scope.Labels) == 0 && len(meta.scope.Raw) == 0 {
+			meta.scope = ScopeFromContext(ctx.UserContext())
+		}
+	}
+
+	return meta, nil
+}
+
+func (c *Controller[T]) applyScopeCriteria(criteria []repository.SelectCriteria, scope ScopeFilter) []repository.SelectCriteria {
+	additional := scope.selectCriteria()
+	if len(additional) == 0 {
+		return criteria
+	}
+	if len(criteria) == 0 {
+		return append([]repository.SelectCriteria{}, additional...)
+	}
+	return append(criteria, additional...)
+}
+
+func (c *Controller[T]) applyFieldPolicyCriteria(criteria []repository.SelectCriteria, decision resolvedFieldPolicy) []repository.SelectCriteria {
+	filters := decision.rowFilterCriteria().selectCriteria()
+	if len(filters) == 0 {
+		return criteria
+	}
+	if len(criteria) == 0 {
+		return append([]repository.SelectCriteria{}, filters...)
+	}
+	return append(criteria, filters...)
+}
+
+func (c *Controller[T]) resolveFieldPolicy(ctx Context, op CrudOperation, meta guardRequestContext) (resolvedFieldPolicy, error) {
+	if c.fieldPolicyProvider == nil {
+		return resolvedFieldPolicy{}, nil
+	}
+
+	request := FieldPolicyRequest[T]{
+		Context:     ctx,
+		Operation:   op,
+		Actor:       meta.actor.Clone(),
+		Scope:       meta.scope.clone(),
+		Resource:    c.resource,
+		ResourceTyp: c.resourceType,
+	}
+
+	policy, err := c.fieldPolicyProvider(request)
+	if err != nil {
+		return resolvedFieldPolicy{}, err
+	}
+
+	baseFields := getAllowedFields[T]()
+	return buildResolvedFieldPolicy[T](policy, baseFields, c.resource, op), nil
+}
+
+func (c *Controller[T]) policyQueryOptions(decision resolvedFieldPolicy) []QueryBuilderOption {
+	override := decision.allowedFieldOverride()
+	if len(override) == 0 {
+		return nil
+	}
+	return []QueryBuilderOption{WithAllowedFields(override)}
+}
+
+func (c *Controller[T]) logFieldPolicyDecision(decision resolvedFieldPolicy) {
+	if decision.isZero() {
+		return
+	}
+	LogFieldPolicyDecision(c.logger, decision.auditEntry())
 }
 
 // NewController creates a new Controller with functional options.
@@ -109,13 +268,14 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	c.resource = resource
 
-	metadata := router.GetResourceMetadata(c.resourceType)
+	resolvedActions := resolveActions(c.actions, resource, resources)
+	c.setResolvedActions(resolvedActions)
+
+	metadata := c.GetMetadata()
 	routeMeta := map[string]router.RouteDefinition{}
-	if metadata != nil {
-		for _, def := range metadata.Routes {
-			key := fmt.Sprintf("%s %s", string(def.Method), def.Path)
-			routeMeta[key] = def
-		}
+	for _, def := range metadata.Routes {
+		key := fmt.Sprintf("%s %s", string(def.Method), def.Path)
+		routeMeta[key] = def
 	}
 
 	applyMeta := func(method, path string, info RouterRouteInfo) {
@@ -191,6 +351,8 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	deleteRoute := fmt.Sprintf("%s:%s", resource, OpDelete)
 	registerRoute(OpDelete, http.MethodDelete, showPath, c.Delete, deleteRoute)
+
+	c.registerActionRoutes(r, resolvedActions, applyMeta)
 }
 
 func invokeRoute(r Router, method, path string, handler func(Context) error) RouterRouteInfo {
@@ -206,6 +368,57 @@ func invokeRoute(r Router, method, path string, handler func(Context) error) Rou
 	case http.MethodDelete:
 		return r.Delete(path, handler)
 	default:
+		return nil
+	}
+}
+
+func (c *Controller[T]) setResolvedActions(actions []resolvedAction[T]) {
+	if len(actions) == 0 {
+		c.actionDescriptors = nil
+		c.actionRouteDefs = nil
+		return
+	}
+	c.actionDescriptors = make([]ActionDescriptor, 0, len(actions))
+	c.actionRouteDefs = make([]router.RouteDefinition, 0, len(actions))
+	for _, action := range actions {
+		c.actionDescriptors = append(c.actionDescriptors, action.descriptor)
+		c.actionRouteDefs = append(c.actionRouteDefs, action.routeDef)
+	}
+}
+
+func (c *Controller[T]) registerActionRoutes(r Router, actions []resolvedAction[T], applyMeta func(method, path string, info RouterRouteInfo)) {
+	for _, action := range actions {
+		handler := c.buildActionHandler(action)
+		info := invokeRoute(r, action.method, action.path, handler)
+		if info == nil {
+			continue
+		}
+		named := info.Name(action.routeName)
+		if applyMeta != nil {
+			applyMeta(action.method, action.path, named)
+		}
+		c.recordRouteMetadata(action.operation, action.method, action.path, action.routeName)
+	}
+}
+
+func (c *Controller[T]) buildActionHandler(action resolvedAction[T]) func(Context) error {
+	return func(ctx Context) error {
+		meta, err := c.resolveGuardContext(ctx, action.operation)
+		if err != nil {
+			return c.resp.OnError(ctx, err, action.operation)
+		}
+		actx := ActionContext[T]{
+			Context:       ctx,
+			Actor:         meta.actor.Clone(),
+			Scope:         meta.scope.clone(),
+			RequestID:     meta.requestID,
+			CorrelationID: meta.correlationID,
+			Action:        action.descriptor,
+			Operation:     action.operation,
+		}
+		if err := action.handler(actx); err != nil {
+			return c.resp.OnError(ctx, err, action.operation)
+		}
 		return nil
 	}
 }
@@ -258,25 +471,31 @@ func (c *Controller[T]) hookMetadata(op CrudOperation) HookMetadata {
 	}
 }
 
-func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation) HookContext {
+func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation, meta guardRequestContext) HookContext {
 	return HookContext{
-		Context:  ctx,
-		Metadata: c.hookMetadata(op),
+		Context:             ctx,
+		Metadata:            c.hookMetadata(op),
+		Actor:               meta.actor.Clone(),
+		Scope:               meta.scope.clone(),
+		RequestID:           meta.requestID,
+		CorrelationID:       meta.correlationID,
+		activityEmitter:     c.activityEmitter,
+		notificationEmitter: c.notificationEmitter,
 	}
 }
 
-func (c *Controller[T]) runHook(ctx Context, op CrudOperation, hook HookFunc[T], record T) error {
+func (c *Controller[T]) runHook(ctx Context, op CrudOperation, hook HookFunc[T], record T, meta guardRequestContext) error {
 	if hook == nil || isNil(record) {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op), record)
+	return hook(c.newHookContext(ctx, op, meta), record)
 }
 
-func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBatchFunc[T], records []T) error {
+func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBatchFunc[T], records []T, meta guardRequestContext) error {
 	if hook == nil || len(records) == 0 {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op), records)
+	return hook(c.newHookContext(ctx, op, meta), records)
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
@@ -314,23 +533,76 @@ func (c *Controller[T]) Schema(ctx Context) error {
 		return ctx.SendStatus(http.StatusNoContent)
 	}
 
+	c.applyAdminExtensions(doc, meta)
 	return ctx.JSON(doc)
+}
+
+func (c *Controller[T]) applyAdminExtensions(doc map[string]any, meta router.ResourceMetadata) {
+	if doc == nil {
+		return
+	}
+	components, ok := doc["components"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemas, ok := components["schemas"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemaName := meta.Schema.Name
+	if schemaName == "" {
+		schemaName = meta.Name
+	}
+	if schemaName == "" {
+		return
+	}
+	schema, ok := schemas[schemaName].(map[string]any)
+	if !ok {
+		return
+	}
+	if ext := c.adminScopeMetadata.toMap(); len(ext) > 0 {
+		schema["x-admin-scope"] = ext
+	}
+	if len(c.actionDescriptors) > 0 {
+		schema["x-admin-actions"] = c.actionDescriptors
+	}
+	if ext := c.adminMenuMetadata.toMap(); len(ext) > 0 {
+		schema["x-admin-menu"] = ext
+	}
+	if len(c.rowFilterHints) > 0 {
+		schema["x-admin-row-filters"] = cloneRowFilterHints(c.rowFilterHints)
+	}
 }
 
 // Show supports different query string parameters:
 // GET /user?include=Company,Profile
 // GET /user?select=id,age,email
 func (c *Controller[T]) Show(ctx Context) error {
-	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled)
+	meta, err := c.resolveGuardContext(ctx, OpRead)
 	if err != nil {
-		return c.resp.OnError(ctx, err, OpList)
+		return c.resp.OnError(ctx, err, OpRead)
 	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpRead, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpRead)
+	}
+	c.logFieldPolicyDecision(policy)
+
+	queryOpts := c.policyQueryOptions(policy)
+	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpRead, c.logger, c.queryLoggingEnabled, queryOpts...)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpRead)
+	}
+	criteria = c.applyScopeCriteria(criteria, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 
 	id := ctx.Params("id")
 	record, err := c.service.Show(ctx, id, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
 	}
+	applyFieldPolicyToRecord(record, policy)
 	return c.resp.OnData(ctx, record, OpRead, filters)
 }
 
@@ -343,16 +615,32 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
 func (c *Controller[T]) Index(ctx Context) error {
-	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled)
+	meta, err := c.resolveGuardContext(ctx, OpList)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpList, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpList)
+	}
+	c.logFieldPolicyDecision(policy)
+
+	queryOpts := c.policyQueryOptions(policy)
+	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled, queryOpts...)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpList)
+	}
+	criteria = c.applyScopeCriteria(criteria, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+
 	records, count, err := c.service.Index(ctx, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
 
 	filters.Count = count
+	applyFieldPolicyToSlice(records, policy)
 
 	if shouldReturnOptions(ctx) {
 		options := c.buildOptionItems(records)
@@ -363,12 +651,23 @@ func (c *Controller[T]) Index(ctx Context) error {
 }
 
 func (c *Controller[T]) Create(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpCreate)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreate)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpCreate, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreate)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	record, err := c.deserializer(OpCreate, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
 	}
 
-	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record); err != nil {
+	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
@@ -377,19 +676,31 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
-	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord); err != nil {
+	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
+	applyFieldPolicyToRecord(createdRecord, policy)
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
 }
 
 func (c *Controller[T]) CreateBatch(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpCreateBatch)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpCreateBatch, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpCreateBatch)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	records, err := c.deserialiMany(OpCreateBatch, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records); err != nil {
+	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
@@ -398,9 +709,10 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords); err != nil {
+	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
+	applyFieldPolicyToSlice(createdRecords, policy)
 
 	if shouldReturnOptions(ctx) {
 		options := c.buildOptionItems(createdRecords)
@@ -414,6 +726,17 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 }
 
 func (c *Controller[T]) Update(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpUpdate)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdate)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpUpdate, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdate)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -426,8 +749,19 @@ func (c *Controller[T]) Update(ctx Context) error {
 	}
 
 	c.Repo.Handlers().SetID(record, id)
+	criteria := c.applyScopeCriteria(nil, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+	existingRecord, err := c.service.Show(ctx, idStr, criteria)
+	if err != nil {
+		return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdate)
+	}
 
-	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record); err != nil {
+	record, err = mergeRecordWithExisting(record, existingRecord)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdate)
+	}
+
+	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
@@ -436,19 +770,31 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
-	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord); err != nil {
+	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
+	applyFieldPolicyToRecord(updatedRecord, policy)
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
 }
 
 func (c *Controller[T]) UpdateBatch(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpUpdateBatch)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpUpdateBatch, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	records, err := c.deserialiMany(OpUpdateBatch, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records); err != nil {
+	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
@@ -457,9 +803,10 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords); err != nil {
+	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
+	applyFieldPolicyToSlice(updatedRecords, policy)
 
 	if shouldReturnOptions(ctx) {
 		options := c.buildOptionItems(updatedRecords)
@@ -473,13 +820,26 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 }
 
 func (c *Controller[T]) Delete(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpDelete)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpDelete)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpDelete, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpDelete)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	id := ctx.Params("id")
-	record, err := c.service.Show(ctx, id, nil)
+	criteria := c.applyScopeCriteria(nil, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+	record, err := c.service.Show(ctx, id, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record); err != nil {
+	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
@@ -488,7 +848,7 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record); err != nil {
+	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
@@ -496,12 +856,23 @@ func (c *Controller[T]) Delete(ctx Context) error {
 }
 
 func (c *Controller[T]) DeleteBatch(ctx Context) error {
+	meta, err := c.resolveGuardContext(ctx, OpDeleteBatch)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpDeleteBatch)
+	}
+
+	policy, err := c.resolveFieldPolicy(ctx, OpDeleteBatch, meta)
+	if err != nil {
+		return c.resp.OnError(ctx, err, OpDeleteBatch)
+	}
+	c.logFieldPolicyDecision(policy)
+
 	records, err := c.deserialiMany(OpDeleteBatch, ctx)
 	if err != nil {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records); err != nil {
+	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
@@ -510,7 +881,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records); err != nil {
+	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
@@ -640,4 +1011,110 @@ func isNil[T any](val T) bool {
 	default:
 		return false
 	}
+}
+
+func applyFieldPolicyToRecord[T any](record T, decision resolvedFieldPolicy) {
+	if decision.isZero() || isNil(record) {
+		return
+	}
+	applyFieldPolicyValue(reflect.ValueOf(record), decision)
+}
+
+func applyFieldPolicyToSlice[T any](records []T, decision resolvedFieldPolicy) {
+	if decision.isZero() || len(records) == 0 {
+		return
+	}
+	rv := reflect.ValueOf(records)
+	if rv.Kind() != reflect.Slice {
+		return
+	}
+	for i := 0; i < rv.Len(); i++ {
+		applyFieldPolicyValue(rv.Index(i), decision)
+	}
+}
+
+func applyFieldPolicyValue(val reflect.Value, decision resolvedFieldPolicy) {
+	if !val.IsValid() {
+		return
+	}
+	switch val.Kind() {
+	case reflect.Pointer:
+		if val.IsNil() {
+			return
+		}
+		applyFieldPolicyStruct(val.Elem(), decision)
+	case reflect.Struct:
+		applyFieldPolicyStruct(val, decision)
+	default:
+		if val.CanAddr() {
+			applyFieldPolicyValue(val.Addr(), decision)
+		}
+	}
+}
+
+func applyFieldPolicyStruct(val reflect.Value, decision resolvedFieldPolicy) {
+	if val.Kind() != reflect.Struct {
+		return
+	}
+	typ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() || field.Tag.Get(TAG_CRUD) == "-" {
+			continue
+		}
+		fieldName := jsonFieldName(field)
+		fieldValue := val.Field(i)
+		if !fieldValue.CanSet() && fieldValue.CanAddr() {
+			fieldValue = fieldValue.Addr()
+		}
+		if !decision.allowsField(fieldName) {
+			zeroReflectValue(fieldValue)
+			continue
+		}
+		if mask := decision.maskFor(fieldName); mask != nil {
+			applyMaskValue(fieldValue, mask)
+		}
+	}
+}
+
+func zeroReflectValue(val reflect.Value) {
+	if !val.IsValid() {
+		return
+	}
+	if val.Kind() == reflect.Pointer {
+		if val.IsNil() {
+			return
+		}
+		if val.Elem().CanSet() {
+			val.Elem().Set(reflect.Zero(val.Elem().Type()))
+		}
+		if val.CanSet() {
+			val.Set(reflect.Zero(val.Type()))
+		}
+		return
+	}
+	if val.CanSet() {
+		val.Set(reflect.Zero(val.Type()))
+	}
+}
+
+func applyMaskValue(val reflect.Value, mask FieldMaskFunc) {
+	if !val.IsValid() || !val.CanSet() || mask == nil {
+		return
+	}
+	current := val.Interface()
+	masked := mask(current)
+	if masked == nil {
+		val.Set(reflect.Zero(val.Type()))
+		return
+	}
+	maskedValue := reflect.ValueOf(masked)
+	if !maskedValue.Type().AssignableTo(val.Type()) {
+		if maskedValue.Type().ConvertibleTo(val.Type()) {
+			maskedValue = maskedValue.Convert(val.Type())
+		} else {
+			return
+		}
+	}
+	val.Set(maskedValue)
 }
