@@ -3,9 +3,11 @@ module github.com/goliatone/go-crud
 go 1.23.4
 
 require (
+	dario.cat/mergo v1.0.1
 	github.com/ettle/strcase v0.2.0
 	github.com/gofiber/fiber/v2 v2.52.6
-	github.com/goliatone/go-repository-bun v0.5.4
+	github.com/goliatone/go-errors v0.9.0
+	github.com/goliatone/go-repository-bun v0.9.0
 	github.com/goliatone/go-router v0.23.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
@@ -16,7 +18,6 @@ require (
 )
 
 require (
-	dario.cat/mergo v1.0.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
@@ -30,7 +31,6 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.13 // indirect
 	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
-	github.com/goliatone/go-errors v0.9.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect

@@ -22,4 +22,12 @@ modules:
       module: github.com/goliatone/go-crud
       repo: goliatone/go-crud
       release_artifact: ""
-      dependents: []
+      dependents:
+        - repo: goliatone/mh
+          clone_url: https://github.com/goliatone/mh
+          module: github.com/goliatone/mh
+          module_path: .
+        - repo: goliatone/timeslice
+          clone_url: https://github.com/goliatone/timeslice
+          module: github.com/goliatone/timeslice
+          module_path: .

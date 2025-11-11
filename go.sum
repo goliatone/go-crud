@@ -41,8 +41,8 @@ github.com/goliatone/go-composite-fs v0.0.1 h1:sX1mHuYwIRhiyhnezK5JN3B70DpHjlGAy
 github.com/goliatone/go-composite-fs v0.0.1/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-errors v0.9.0 h1:Jvx5aV+QgSx5ZK4zagOW5YyVCUcqEYZNVZU4V1oqUDQ=
 github.com/goliatone/go-errors v0.9.0/go.mod h1:FiZEC2z5a8SBdRyljC9wFt+IzqZDfrst2dPoqWARbr4=
-github.com/goliatone/go-repository-bun v0.5.4 h1:o5Vb+GuixDp76V4FRYX/GWDb9YfNdS4+4ZmhzV4zkKw=
-github.com/goliatone/go-repository-bun v0.5.4/go.mod h1:ZG2ZKOpbHhgi81rUtVgdtNCCApu49ihPhHpce4qjaOI=
+github.com/goliatone/go-repository-bun v0.9.0 h1:G0lxM2yWphFo3jsvvcyF5nnf3rB/5+3M7W2OJJVZ+r0=
+github.com/goliatone/go-repository-bun v0.9.0/go.mod h1:ZG2ZKOpbHhgi81rUtVgdtNCCApu49ihPhHpce4qjaOI=
 github.com/goliatone/go-router v0.23.0 h1:ydgVhqcDjUveDlULmVCQCzo+ECVTsam1OKerzBaKl0g=
 github.com/goliatone/go-router v0.23.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=
