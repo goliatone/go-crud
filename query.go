@@ -48,20 +48,47 @@ func (q *queryCriteria) compute() []repository.SelectCriteria {
 	return out
 }
 
-func BuildQueryCriteria[T any](ctx Context, op CrudOperation) ([]repository.SelectCriteria, *Filters, error) {
-	return buildQueryCriteria[T](ctx, op, nil)
+type QueryBuilderOption func(*queryBuilderConfig)
+
+type queryBuilderConfig struct {
+	trace         *queryTraceOptions
+	allowedFields map[string]string
 }
 
-func BuildQueryCriteriaWithLogger[T any](ctx Context, op CrudOperation, logger Logger, enableTrace bool) ([]repository.SelectCriteria, *Filters, error) {
-	var trace *queryTraceOptions
+func WithAllowedFields(fields map[string]string) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		if len(fields) == 0 {
+			return
+		}
+		cfg.allowedFields = fields
+	}
+}
+
+func BuildQueryCriteria[T any](ctx Context, op CrudOperation, opts ...QueryBuilderOption) ([]repository.SelectCriteria, *Filters, error) {
+	cfg := queryBuilderConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+	return buildQueryCriteria[T](ctx, op, cfg)
+}
+
+func BuildQueryCriteriaWithLogger[T any](ctx Context, op CrudOperation, logger Logger, enableTrace bool, opts ...QueryBuilderOption) ([]repository.SelectCriteria, *Filters, error) {
+	cfg := queryBuilderConfig{}
 	if logger != nil {
-		trace = &queryTraceOptions{
+		cfg.trace = &queryTraceOptions{
 			logger:  logger,
 			enabled: enableTrace,
 		}
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
 
-	return buildQueryCriteria[T](ctx, op, trace)
+	return buildQueryCriteria[T](ctx, op, cfg)
 }
 
 var DefaultLimit = 25
@@ -77,7 +104,7 @@ var DefaultOffset = 0
 // GET /users?include=Company,Profile
 // GET /users?include=Profile.status=outdated
 // TODO: Support /projects?include=Message&include=Company
-func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceOptions) ([]repository.SelectCriteria, *Filters, error) {
+func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderConfig) ([]repository.SelectCriteria, *Filters, error) {
 	// Parse known query parameters
 	limit := ctx.QueryInt("limit", DefaultLimit)
 	offset := ctx.QueryInt("offset", DefaultOffset)
@@ -100,7 +127,10 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceO
 
 	// For fields that are allowable.
 	// E.g. "name" => "name", "created_at" => "created_at", etc.
-	allowedFieldsMap := getAllowedFields[T]()
+	allowedFieldsMap := cfg.allowedFields
+	if len(allowedFieldsMap) == 0 {
+		allowedFieldsMap = getAllowedFields[T]()
+	}
 
 	// Handle SELECT fields
 	if selectFields != "" {
@@ -293,8 +323,8 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, trace *queryTraceO
 		return q
 	})
 
-	if trace != nil {
-		trace.debug(filters, queryParams)
+	if cfg.trace != nil {
+		cfg.trace.debug(filters, queryParams)
 	}
 
 	return criteria.compute(), filters, nil
