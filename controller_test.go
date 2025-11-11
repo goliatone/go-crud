@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
@@ -341,6 +341,108 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 	}
 }
 
+func TestController_SchemaIncludesAdminExtensions(t *testing.T) {
+	resetSchemaRegistry()
+
+	action := Action[*TestUser]{
+		Name:   "Deactivate",
+		Method: http.MethodPost,
+		Target: ActionTargetResource,
+		Handler: func(actx ActionContext[*TestUser]) error {
+			return actx.Status(http.StatusAccepted).JSON(fiber.Map{"ok": true})
+		},
+	}
+
+	scope := AdminScopeMetadata{
+		Level:       "tenant",
+		Description: "Requires tenant scope",
+		Claims:      []string{"users:write"},
+	}
+	menu := AdminMenuMetadata{
+		Group: "Directory",
+		Label: "Test Users",
+		Icon:  "user",
+		Order: 10,
+	}
+	rowFilters := []RowFilterHint{
+		{Field: "tenant_id", Operator: "=", Description: "Matches actor tenant"},
+	}
+
+	app, db := setupApp(t,
+		WithActions(action),
+		WithAdminScopeMetadata[*TestUser](scope),
+		WithAdminMenuMetadata[*TestUser](menu),
+		WithRowFilterHints[*TestUser](rowFilters...),
+	)
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var doc map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&doc))
+
+	components := doc["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+
+	var schema map[string]any
+	for _, value := range schemas {
+		entry, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, hasActions := entry["x-admin-actions"]; hasActions {
+			schema = entry
+			break
+		}
+	}
+	require.NotNil(t, schema, "expected schema with x-admin-actions")
+
+	scopeExt, ok := schema["x-admin-scope"].(map[string]any)
+	require.True(t, ok, "expected x-admin-scope extension")
+	assert.Equal(t, "tenant", scopeExt["level"])
+	assert.Contains(t, scopeExt["claims"], "users:write")
+
+	menuExt, ok := schema["x-admin-menu"].(map[string]any)
+	require.True(t, ok, "expected x-admin-menu extension")
+	assert.Equal(t, "Directory", menuExt["group"])
+	assert.Equal(t, float64(10), menuExt["order"])
+
+	rowExt, ok := schema["x-admin-row-filters"].([]any)
+	require.True(t, ok, "expected x-admin-row-filters extension")
+	require.Len(t, rowExt, 1)
+
+	actions, ok := schema["x-admin-actions"].([]any)
+	require.True(t, ok, "expected x-admin-actions array")
+	require.Len(t, actions, 1)
+	firstAction, ok := actions[0].(map[string]any)
+	require.True(t, ok, "action descriptor should be an object")
+	assert.Equal(t, "deactivate", firstAction["slug"])
+	assert.Equal(t, "/test-user/:id/actions/deactivate", firstAction["path"])
+}
+
+func TestSchemaRegistryStoresEntries(t *testing.T) {
+	resetSchemaRegistry()
+
+	app, db := setupApp(t)
+	defer db.Close()
+	_ = app
+
+	entries := ListSchemas()
+	require.NotEmpty(t, entries, "expected registry to contain schema entries")
+
+	found := false
+	for _, entry := range entries {
+		if entry.Resource == "test-user" {
+			found = true
+			assert.NotNil(t, entry.Document["openapi"])
+		}
+	}
+	assert.True(t, found, "expected test-user schema to be registered")
+}
+
 func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
@@ -469,14 +571,41 @@ func TestController_GetUser_NotFound(t *testing.T) {
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "application/problem+json")
 
-	var response APIResponse[TestUser]
+	var response goerrors.ErrorResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	assert.False(t, response.Success)
-	assert.NotEmpty(t, response.Error)
+	if assert.NotNil(t, response.Error) {
+		assert.Equal(t, goerrors.CategoryNotFound, response.Error.Category)
+		assert.Equal(t, http.StatusNotFound, response.Error.Code)
+		assert.Equal(t, "NOT_FOUND", response.Error.TextCode)
+		assert.NotEmpty(t, response.Error.Message)
+		if assert.NotNil(t, response.Error.Metadata) {
+			assert.Equal(t, string(OpRead), response.Error.Metadata["operation"])
+		}
+	}
+}
+
+func TestController_GetUser_NotFound_LegacyEncoder(t *testing.T) {
+	app, db := setupApp(t, WithErrorEncoder[*TestUser](LegacyJSONErrorEncoder()))
+	defer db.Close()
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.Contains(t, resp.Header.Get("Content-Type"), "application/json")
+
+	var legacy APIResponse[TestUser]
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&legacy))
+	assert.False(t, legacy.Success)
+	assert.NotEmpty(t, legacy.Error)
 }
 
 func TestController_CreateUser(t *testing.T) {
@@ -1286,13 +1415,14 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 				assert.ElementsMatch(t, tt.expectedNames, names)
 			} else {
-				var errorResponse APIResponse[any]
+				var errorResponse goerrors.ErrorResponse
 				if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err != nil {
 					t.Fatalf("Failed to decode error response: %v", err)
 				}
-				assert.False(t, errorResponse.Success)
-				assert.NotEmpty(t, errorResponse.Error)
-				t.Fatalf("Unexpected error response: %v", errorResponse.Error)
+				if assert.NotNil(t, errorResponse.Error) {
+					assert.NotEmpty(t, errorResponse.Error.Message)
+				}
+				t.Fatalf("Unexpected error response: %+v", errorResponse)
 			}
 		})
 	}
@@ -2039,8 +2169,11 @@ func TestController_HookContextIncludesGuardMetadata(t *testing.T) {
 }
 
 func TestController_ScopeGuardErrorSurfaces(t *testing.T) {
+	guardErr := goerrors.New("not authorized", goerrors.CategoryAuthz).
+		WithCode(http.StatusForbidden).
+		WithTextCode("FORBIDDEN")
 	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
-		return ActorContext{}, ScopeFilter{}, errors.New("not authorized")
+		return ActorContext{}, ScopeFilter{}, guardErr
 	}
 
 	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
@@ -2049,11 +2182,15 @@ func TestController_ScopeGuardErrorSurfaces(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test-users", nil)
 	resp, err := app.Test(req, -1)
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 
-	var payload map[string]any
+	var payload goerrors.ErrorResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
-	assert.Equal(t, "not authorized", payload["error"])
+	if assert.NotNil(t, payload.Error) {
+		assert.Equal(t, goerrors.CategoryAuthz, payload.Error.Category)
+		assert.Equal(t, http.StatusForbidden, payload.Error.Code)
+		assert.Equal(t, "not authorized", payload.Error.Message)
+	}
 }
 
 func TestController_WithCommandServiceOverridesCreate(t *testing.T) {

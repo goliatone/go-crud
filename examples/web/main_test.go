@@ -5,16 +5,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-crud"
+	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
 )
 
-func buildExampleTestServer(t *testing.T) (router.Server[*fiber.App], repository.Repository[*User]) {
+func buildExampleTestServer(t *testing.T, options ...crud.Option[*User]) (router.Server[*fiber.App], repository.Repository[*User]) {
 	t.Helper()
 
 	db := setupDatabase()
@@ -53,7 +55,7 @@ func buildExampleTestServer(t *testing.T) (router.Server[*fiber.App], repository
 	api := app.Router().Group("/api")
 	apiAdapter := crud.NewGoRouterAdapter(api)
 
-	controller := crud.NewController(repo)
+	controller := crud.NewController(repo, options...)
 	controller.RegisterRoutes(apiAdapter)
 
 	app.Init()
@@ -243,5 +245,59 @@ func TestWebExampleOptionsRespectsPagination(t *testing.T) {
 	}
 	if secondLabel != allOptions[1]["label"] {
 		t.Fatalf("expected second page label %q to match overall second option %q", secondLabel, allOptions[1]["label"])
+	}
+}
+
+func TestWebExampleProblemJSONErrorResponse(t *testing.T) {
+	app, _ := buildExampleTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/user/"+uuid.New().String(), nil)
+	resp, err := app.WrappedRouter().Test(req)
+	if err != nil {
+		t.Fatalf("failed to perform request: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unexpected status code: %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); got == "" || !strings.Contains(got, "application/problem+json") {
+		t.Fatalf("expected application/problem+json content type, got %q", got)
+	}
+
+	var problem goerrors.ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&problem); err != nil {
+		t.Fatalf("failed to decode problem response: %v", err)
+	}
+	if problem.Error == nil {
+		t.Fatalf("expected error payload in problem response")
+	}
+	if problem.Error.Category != goerrors.CategoryNotFound {
+		t.Fatalf("unexpected category: %s", problem.Error.Category)
+	}
+}
+
+func TestWebExampleLegacyErrorResponse(t *testing.T) {
+	app, _ := buildExampleTestServer(t, crud.WithErrorEncoder[*User](crud.LegacyJSONErrorEncoder()))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/user/"+uuid.New().String(), nil)
+	resp, err := app.WrappedRouter().Test(req)
+	if err != nil {
+		t.Fatalf("failed to perform request: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unexpected status code: %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); got == "" || !strings.Contains(got, "application/json") {
+		t.Fatalf("expected legacy application/json content type, got %q", got)
+	}
+
+	var legacy crud.APIResponse[*User]
+	if err := json.NewDecoder(resp.Body).Decode(&legacy); err != nil {
+		t.Fatalf("failed to decode legacy error response: %v", err)
+	}
+	if legacy.Success {
+		t.Fatalf("expected success=false in legacy response")
+	}
+	if legacy.Error == "" {
+		t.Fatalf("expected error message in legacy response")
 	}
 }
