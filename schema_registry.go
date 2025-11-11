@@ -1,0 +1,124 @@
+package crud
+
+import (
+	"encoding/json"
+	"sync"
+	"time"
+
+	"github.com/goliatone/go-router"
+)
+
+// SchemaEntry holds the cached OpenAPI document for a controller.
+type SchemaEntry struct {
+	Resource  string         `json:"resource"`
+	Plural    string         `json:"plural"`
+	Document  map[string]any `json:"document"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// SchemaListener receives notifications whenever a schema entry changes.
+type SchemaListener func(SchemaEntry)
+
+type schemaRegistry struct {
+	mu        sync.RWMutex
+	entries   map[string]SchemaEntry
+	listeners []SchemaListener
+}
+
+var globalSchemaRegistry = &schemaRegistry{
+	entries: make(map[string]SchemaEntry),
+}
+
+func registerSchemaEntry(meta router.ResourceMetadata, doc map[string]any) {
+	entry := SchemaEntry{
+		Resource:  meta.Name,
+		Plural:    meta.PluralName,
+		Document:  cloneSchemaDocument(doc),
+		UpdatedAt: time.Now().UTC(),
+	}
+	globalSchemaRegistry.upsert(entry)
+}
+
+func (sr *schemaRegistry) upsert(entry SchemaEntry) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.entries[entry.Resource] = entry.clone()
+	if len(sr.listeners) == 0 {
+		return
+	}
+	for _, listener := range sr.listeners {
+		listener(entry.clone())
+	}
+}
+
+func (sr *schemaRegistry) list() []SchemaEntry {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	out := make([]SchemaEntry, 0, len(sr.entries))
+	for _, entry := range sr.entries {
+		out = append(out, entry.clone())
+	}
+	return out
+}
+
+func (sr *schemaRegistry) get(resource string) (SchemaEntry, bool) {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	entry, ok := sr.entries[resource]
+	if !ok {
+		return SchemaEntry{}, false
+	}
+	return entry.clone(), true
+}
+
+func (sr *schemaRegistry) addListener(listener SchemaListener) {
+	if listener == nil {
+		return
+	}
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.listeners = append(sr.listeners, listener)
+}
+
+func (entry SchemaEntry) clone() SchemaEntry {
+	entry.Document = cloneSchemaDocument(entry.Document)
+	return entry
+}
+
+func cloneSchemaDocument(doc map[string]any) map[string]any {
+	if doc == nil {
+		return nil
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return nil
+	}
+	var clone map[string]any
+	if err := json.Unmarshal(raw, &clone); err != nil {
+		return nil
+	}
+	return clone
+}
+
+// ListSchemas returns all registered schema documents.
+func ListSchemas() []SchemaEntry {
+	return globalSchemaRegistry.list()
+}
+
+// GetSchema retrieves the schema for the given resource name.
+func GetSchema(resource string) (SchemaEntry, bool) {
+	return globalSchemaRegistry.get(resource)
+}
+
+// RegisterSchemaListener subscribes to schema updates.
+func RegisterSchemaListener(listener SchemaListener) {
+	globalSchemaRegistry.addListener(listener)
+}
+
+// resetSchemaRegistry clears the registry; used only in tests.
+func resetSchemaRegistry() {
+	globalSchemaRegistry.mu.Lock()
+	defer globalSchemaRegistry.mu.Unlock()
+	globalSchemaRegistry.entries = make(map[string]SchemaEntry)
+	globalSchemaRegistry.listeners = nil
+}
