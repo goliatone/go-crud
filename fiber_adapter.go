@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -122,8 +123,18 @@ func (ca *crudAdapter) JSON(data any, ctype ...string) error {
 	if ca.statusCode == 0 {
 		ca.statusCode = http.StatusOK
 	}
+	var contentType string
+	if len(ctype) > 0 {
+		contentType = strings.TrimSpace(ctype[0])
+	}
 	ca.c.Status(ca.statusCode)
-	return ca.c.JSON(data)
+	if err := ca.c.JSON(data); err != nil {
+		return err
+	}
+	if contentType != "" {
+		ca.c.Set(fiber.HeaderContentType, contentType)
+	}
+	return nil
 }
 
 func (ca *crudAdapter) SendStatus(status int) error {
