@@ -4,6 +4,22 @@
 
 ## <!-- 16 -->➕ Add
 
+- Activity adapter ([c73cfc5](https://github.com/goliatone/go-crud/commit/c73cfc5338210832c4e74053d1f8c69cb56a9258))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([8227df2](https://github.com/goliatone/go-crud/commit/8227df29b4c427968a0d127d37d0b96ecdbabfa2))  - (goliatone)
+- Update tests ([831161b](https://github.com/goliatone/go-crud/commit/831161be29ab30bdc60353760093bbf551a6dc15))  - (goliatone)
+- Update readme ([4de3694](https://github.com/goliatone/go-crud/commit/4de3694ab5b25e8ee3d3a0da67e4968507d522f1))  - (goliatone)
+
+# [0.12.0](https://github.com/goliatone/go-crud/compare/v0.11.0...v0.12.0) - (2025-11-11)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.12.0 ([dae0f9c](https://github.com/goliatone/go-crud/commit/dae0f9c1575c837a7514dd5157d683d8f1afaa09))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
 - Ensure content type in response ([e920325](https://github.com/goliatone/go-crud/commit/e920325915a5c2d9c88e20cf49723c9834b54f3a))  - (goliatone)
 - Query criteria ([8df3466](https://github.com/goliatone/go-crud/commit/8df3466445c088904ed53927c6cd0bbd0f2bee05))  - (goliatone)
 - Support for error encoder, activity, crud ext ([6af2b8b](https://github.com/goliatone/go-crud/commit/6af2b8bb83d2aca04f896198a127735402078c8d))  - (goliatone)
@@ -18,10 +34,6 @@
 - Action emitters ([bbe565e](https://github.com/goliatone/go-crud/commit/bbe565ee0eb7485a93bc5c85e1feb74cf9f65d68))  - (goliatone)
 - Admin metdata ([c8410af](https://github.com/goliatone/go-crud/commit/c8410af2dc7705017544109740251f18b27aa4bb))  - (goliatone)
 - Actions ([aa66d8a](https://github.com/goliatone/go-crud/commit/aa66d8ab3e813f32351173b96b422199cc86c430))  - (goliatone)
-
-## <!-- 2 -->⚠️ Breaking
-
-- Removed the legacy `ActivityEmitter`/`EmitActivity` helpers in favor of automatic CRUD activity emission via `WithActivityHooks` (default channel `crud`) and documented the go-users adapter + migration path.
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
