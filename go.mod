@@ -8,7 +8,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-errors v0.9.0
 	github.com/goliatone/go-repository-bun v0.9.0
-	github.com/goliatone/go-router v0.23.0
+	github.com/goliatone/go-router v0.25.0
+	github.com/goliatone/go-users v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/stretchr/testify v1.10.0
@@ -47,7 +48,7 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.52.0 // indirect
+	github.com/valyala/fasthttp v1.54.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
