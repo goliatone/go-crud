@@ -1,5 +1,11 @@
 package crud
 
+import (
+	"context"
+
+	"github.com/goliatone/go-crud/pkg/activity"
+)
+
 // HookMetadata carries operational attributes for lifecycle hooks.
 type HookMetadata struct {
 	Operation CrudOperation
@@ -18,8 +24,8 @@ type HookContext struct {
 	RequestID     string
 	CorrelationID string
 
-	activityEmitter     ActivityEmitter
-	notificationEmitter NotificationEmitter
+	activityEmitterHooks *activity.Emitter
+	notificationEmitter  NotificationEmitter
 }
 
 // HookFunc represents a lifecycle hook for a single record.
@@ -46,14 +52,9 @@ type LifecycleHooks[T any] struct {
 	AfterDeleteBatch  HookBatchFunc[T]
 }
 
-// HasActivityEmitter reports whether the controller configured an ActivityEmitter.
-func (h HookContext) HasActivityEmitter() bool {
-	return h.activityEmitter != nil
-}
-
-// ActivityEmitter returns the configured ActivityEmitter (if any).
-func (h HookContext) ActivityEmitter() ActivityEmitter {
-	return h.activityEmitter
+// ActivityHooks returns the v2 activity emitter constructed from pkg/activity.
+func (h HookContext) ActivityHooks() *activity.Emitter {
+	return h.activityEmitterHooks
 }
 
 // HasNotificationEmitter reports whether the controller configured a NotificationEmitter.
@@ -86,4 +87,16 @@ func HookBatchFromContext[T any](hook func(Context, []T) error) HookBatchFunc[T]
 	return func(hctx HookContext, records []T) error {
 		return hook(hctx.Context, records)
 	}
+}
+
+func hookUserContext(hctx HookContext) context.Context {
+	base := hctx.Context.UserContext()
+	if base == nil {
+		base = context.Background()
+	}
+	base = ContextWithActor(base, hctx.Actor)
+	base = ContextWithScope(base, hctx.Scope)
+	base = ContextWithRequestID(base, hctx.RequestID)
+	base = ContextWithCorrelationID(base, hctx.CorrelationID)
+	return base
 }
