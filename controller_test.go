@@ -26,6 +26,7 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/extra/bundebug"
 
+	"github.com/goliatone/go-crud/pkg/activity"
 	"github.com/goliatone/go-repository-bun"
 )
 
@@ -55,17 +56,6 @@ type TestUser struct {
 type optionResponse struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
-}
-
-type testActivityEmitter struct {
-	events []ActivityEvent
-	ctxs   []context.Context
-}
-
-func (e *testActivityEmitter) EmitActivity(ctx context.Context, event ActivityEvent) error {
-	e.ctxs = append(e.ctxs, ctx)
-	e.events = append(e.events, event)
-	return nil
 }
 
 type testNotificationEmitter struct {
@@ -2280,42 +2270,6 @@ func TestController_ActionCollectionRouteExecutesHandler(t *testing.T) {
 	assert.True(t, invoked)
 }
 
-func TestEmitActivityHelperEmitsEvents(t *testing.T) {
-	emitter := &testActivityEmitter{}
-	hooks := LifecycleHooks[*TestUser]{
-		AfterCreate: func(hctx HookContext, user *TestUser) error {
-			return EmitActivity(hctx, ActivityPhaseAfter, user,
-				WithActivityEventMetaValue("action", "created"))
-		},
-	}
-
-	app, db := setupApp(t,
-		WithLifecycleHooks(hooks),
-		WithActivityEmitter[*TestUser](emitter),
-	)
-	defer db.Close()
-
-	body := `{"name":"Emit Activity","email":"emit-activity@example.com","password":"secret"}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Request-ID", "activity-req")
-
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	require.Len(t, emitter.events, 1)
-	event := emitter.events[0]
-	assert.Equal(t, OpCreate, event.Operation)
-	assert.Equal(t, ActivityPhaseAfter, event.Phase)
-	assert.Equal(t, "activity-req", event.RequestID)
-	require.Len(t, event.Records, 1)
-	record, ok := event.Records[0].(*TestUser)
-	require.True(t, ok)
-	assert.Equal(t, "Emit Activity", record.Name)
-	assert.Equal(t, "created", event.Metadata["action"])
-}
-
 func TestSendNotificationHelperEmitsEvents(t *testing.T) {
 	emitter := &testNotificationEmitter{}
 	hooks := LifecycleHooks[*TestUser]{
@@ -2356,6 +2310,86 @@ func TestSendNotificationHelperEmitsEvents(t *testing.T) {
 	record, ok := event.Records[0].(*TestUser)
 	require.True(t, ok)
 	assert.Equal(t, "Notify Updated", record.Name)
+}
+
+func TestActivityHooksEmitterEmitsOnCreate(t *testing.T) {
+	capture := &activity.CaptureHook{}
+	app, db := setupApp(t,
+		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: true}),
+	)
+	defer db.Close()
+
+	body := `{"name":"Emit Activity","email":"emit-hooks@example.com","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", "activity-hooks-req")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	require.Len(t, capture.Events, 1)
+	event := capture.Events[0]
+	assert.Equal(t, "crud.test-user.create", event.Verb)
+	assert.Equal(t, "test-user", event.ObjectType)
+	assert.NotEmpty(t, event.ObjectID)
+	assert.Equal(t, "crud", event.Channel)
+	meta := event.Metadata
+	require.NotNil(t, meta)
+	assert.Equal(t, "test-user:create", meta["route_name"])
+	assert.Equal(t, "/test-user", meta["route_path"])
+	assert.Equal(t, http.MethodPost, meta["method"])
+	assert.Equal(t, "activity-hooks-req", meta["request_id"])
+	assert.Equal(t, 1, meta["batch_size"])
+	assert.Equal(t, 0, meta["batch_index"])
+	assert.NotContains(t, meta, "error")
+}
+
+func TestActivityHooksEmitterEmitsOnFailure(t *testing.T) {
+	capture := &activity.CaptureHook{}
+	app, db := setupApp(t,
+		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: true}),
+	)
+	defer db.Close()
+
+	req := httptest.NewRequest(http.MethodPut, "/test-user/not-a-uuid", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-ID", "activity-hooks-fail")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.NotEqual(t, http.StatusOK, resp.StatusCode)
+
+	require.Len(t, capture.Events, 1)
+	event := capture.Events[0]
+	assert.Equal(t, "crud.test-user.update.failed", event.Verb)
+	assert.Equal(t, "test-user", event.ObjectType)
+	assert.NotEmpty(t, event.ObjectID)
+	meta := event.Metadata
+	require.NotNil(t, meta)
+	assert.Equal(t, "test-user:update", meta["route_name"])
+	assert.Equal(t, "/test-user/:id", meta["route_path"])
+	assert.Equal(t, http.MethodPut, meta["method"])
+	assert.Equal(t, "activity-hooks-fail", meta["request_id"])
+	assert.Contains(t, meta, "error")
+}
+
+func TestActivityHooksEmitterDisabled(t *testing.T) {
+	capture := &activity.CaptureHook{}
+	app, db := setupApp(t,
+		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: false}),
+	)
+	defer db.Close()
+
+	body := `{"name":"Emit Activity","email":"emit-hooks-disabled@example.com","password":"secret"}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	require.Empty(t, capture.Events)
 }
 
 func TestController_FieldPolicyRestrictsListFields(t *testing.T) {
