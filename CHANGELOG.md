@@ -19,6 +19,10 @@
 - Admin metdata ([c8410af](https://github.com/goliatone/go-crud/commit/c8410af2dc7705017544109740251f18b27aa4bb))  - (goliatone)
 - Actions ([aa66d8a](https://github.com/goliatone/go-crud/commit/aa66d8ab3e813f32351173b96b422199cc86c430))  - (goliatone)
 
+## <!-- 2 -->⚠️ Breaking
+
+- Removed the legacy `ActivityEmitter`/`EmitActivity` helpers in favor of automatic CRUD activity emission via `WithActivityHooks` (default channel `crud`) and documented the go-users adapter + migration path.
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update examples ([007bffb](https://github.com/goliatone/go-crud/commit/007bffb0fdf071b56444ce4c4a210f6b7afb90e0))  - (goliatone)
