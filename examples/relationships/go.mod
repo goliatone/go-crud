@@ -5,10 +5,11 @@ go 1.23.4
 require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-crud v0.4.0
-	github.com/goliatone/go-repository-bun v0.5.4
+	github.com/goliatone/go-repository-bun v0.9.0
 	github.com/goliatone/go-router v0.23.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
+	github.com/stretchr/testify v1.10.0
 	github.com/uptrace/bun v1.2.14
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.14
 )
@@ -43,7 +44,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.52.0 // indirect
