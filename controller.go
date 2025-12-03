@@ -8,6 +8,7 @@ import (
 
 	mergo "dario.cat/mergo"
 	"github.com/ettle/strcase"
+	"github.com/goliatone/go-crud/pkg/activity"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
@@ -40,32 +41,32 @@ var operationDefaultMethods = map[CrudOperation]string{
 
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
-	Repo                repository.Repository[T]
-	deserializer        func(op CrudOperation, ctx Context) (T, error)
-	deserialiMany       func(op CrudOperation, ctx Context) ([]T, error)
-	resp                ResponseHandler[T]
-	service             Service[T]
-	resource            string
-	resourceType        reflect.Type
-	logger              Logger
-	fieldMapProvider    FieldMapProvider
-	queryLoggingEnabled bool
-	routeConfig         RouteConfig
-	hooks               LifecycleHooks[T]
-	activityEmitter     ActivityEmitter
-	notificationEmitter NotificationEmitter
-	fieldPolicyProvider FieldPolicyProvider[T]
-	actions             []Action[T]
-	actionDescriptors   []ActionDescriptor
-	actionRouteDefs     []router.RouteDefinition
-	adminScopeMetadata  AdminScopeMetadata
-	adminMenuMetadata   AdminMenuMetadata
-	rowFilterHints      []RowFilterHint
-	routeMethods        map[CrudOperation]string
-	routePaths          map[CrudOperation]string
-	routeNames          map[CrudOperation]string
-	relationProvider    router.RelationMetadataProvider
-	scopeGuard          ScopeGuardFunc[T]
+	Repo                 repository.Repository[T]
+	deserializer         func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany        func(op CrudOperation, ctx Context) ([]T, error)
+	resp                 ResponseHandler[T]
+	service              Service[T]
+	resource             string
+	resourceType         reflect.Type
+	logger               Logger
+	fieldMapProvider     FieldMapProvider
+	queryLoggingEnabled  bool
+	routeConfig          RouteConfig
+	hooks                LifecycleHooks[T]
+	activityEmitterHooks *activity.Emitter
+	notificationEmitter  NotificationEmitter
+	fieldPolicyProvider  FieldPolicyProvider[T]
+	actions              []Action[T]
+	actionDescriptors    []ActionDescriptor
+	actionRouteDefs      []router.RouteDefinition
+	adminScopeMetadata   AdminScopeMetadata
+	adminMenuMetadata    AdminMenuMetadata
+	rowFilterHints       []RowFilterHint
+	routeMethods         map[CrudOperation]string
+	routePaths           map[CrudOperation]string
+	routeNames           map[CrudOperation]string
+	relationProvider     router.RelationMetadataProvider
+	scopeGuard           ScopeGuardFunc[T]
 }
 
 type optionItem struct {
@@ -474,14 +475,14 @@ func (c *Controller[T]) hookMetadata(op CrudOperation) HookMetadata {
 
 func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation, meta guardRequestContext) HookContext {
 	return HookContext{
-		Context:             ctx,
-		Metadata:            c.hookMetadata(op),
-		Actor:               meta.actor.Clone(),
-		Scope:               meta.scope.clone(),
-		RequestID:           meta.requestID,
-		CorrelationID:       meta.correlationID,
-		activityEmitter:     c.activityEmitter,
-		notificationEmitter: c.notificationEmitter,
+		Context:              ctx,
+		Metadata:             c.hookMetadata(op),
+		Actor:                meta.actor.Clone(),
+		Scope:                meta.scope.clone(),
+		RequestID:            meta.requestID,
+		CorrelationID:        meta.correlationID,
+		activityEmitterHooks: c.activityEmitterHooks,
+		notificationEmitter:  c.notificationEmitter,
 	}
 }
 
@@ -684,21 +685,26 @@ func (c *Controller[T]) Create(ctx Context) error {
 
 	record, err := c.deserializer(OpCreate, ctx)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
 	}
 
 	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
+		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
 	createdRecord, err := c.service.Create(ctx, record)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
 	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
+		c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
+	c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, nil)
 	applyFieldPolicyToRecord(createdRecord, policy)
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
 }
@@ -717,21 +723,26 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 
 	records, err := c.deserialiMany(OpCreateBatch, ctx)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
+		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
 	createdRecords, err := c.service.CreateBatch(ctx, records)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
+		c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
+	c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, nil)
 	applyFieldPolicyToSlice(createdRecords, policy)
 
 	if shouldReturnOptions(ctx) {
@@ -760,11 +771,13 @@ func (c *Controller[T]) Update(ctx Context) error {
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, nil, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdate)
 	}
 
 	record, err := c.deserializer(OpUpdate, ctx)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdate)
 	}
 
@@ -773,26 +786,32 @@ func (c *Controller[T]) Update(ctx Context) error {
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 	existingRecord, err := c.service.Show(ctx, idStr, criteria)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdate)
 	}
 
 	record, err = mergeRecordWithExisting(record, existingRecord)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
 	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
 	updatedRecord, err := c.service.Update(ctx, record)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
 	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
+		c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
+	c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, nil)
 	applyFieldPolicyToRecord(updatedRecord, policy)
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
 }
@@ -811,21 +830,26 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 
 	records, err := c.deserialiMany(OpUpdateBatch, ctx)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
+		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
 	updatedRecords, err := c.service.UpdateBatch(ctx, records)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
+		c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
+	c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, nil)
 	applyFieldPolicyToSlice(updatedRecords, policy)
 
 	if shouldReturnOptions(ctx) {
@@ -856,21 +880,26 @@ func (c *Controller[T]) Delete(ctx Context) error {
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 	record, err := c.service.Show(ctx, id, criteria)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpDelete, meta, nil, err)
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
 	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
+		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
 	err = c.service.Delete(ctx, record)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
 	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
+		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
+	c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, nil)
 
 	return c.resp.OnEmpty(ctx, OpDelete)
 }
@@ -889,21 +918,26 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 
 	records, err := c.deserialiMany(OpDeleteBatch, ctx)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
+		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
 	err = c.service.DeleteBatch(ctx, records)
 	if err != nil {
+		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
 	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
+		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
+	c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, nil)
 
 	return c.resp.OnEmpty(ctx, OpDeleteBatch)
 }
@@ -1017,6 +1051,188 @@ func jsonFieldName(field reflect.StructField) string {
 		}
 	}
 	return strcase.ToSnake(field.Name)
+}
+
+func (c *Controller[T]) emitActivityEvents(ctx Context, op CrudOperation, meta guardRequestContext, records []T, err error) {
+	if c.activityEmitterHooks == nil || !c.activityEmitterHooks.Enabled() {
+		return
+	}
+
+	hctx := c.newHookContext(ctx, op, meta)
+	events := c.buildActivityEvents(hctx, op, records, err)
+	for _, evt := range events {
+		_ = c.activityEmitterHooks.Emit(hookUserContext(hctx), evt)
+	}
+}
+
+func (c *Controller[T]) buildActivityEvents(hctx HookContext, op CrudOperation, records []T, err error) []activity.Event {
+	isBatch := len(records) > 1 || op == OpCreateBatch || op == OpUpdateBatch || op == OpDeleteBatch
+	verb := activityVerb(c.resourceName(), op, isBatch, err != nil)
+	baseMeta := c.activityMetadata(hctx, err)
+
+	ids := make([]string, 0, len(records))
+	for _, record := range records {
+		if id := c.recordID(record); id != "" {
+			ids = append(ids, id)
+		}
+	}
+
+	if len(records) == 0 {
+		evt := activity.Event{
+			Verb:       verb,
+			ActorID:    hctx.Actor.ActorID,
+			UserID:     hctx.Actor.ActorID,
+			TenantID:   hctx.Actor.TenantID,
+			ObjectType: c.resourceName(),
+			ObjectID:   c.fallbackObjectID(hctx, ""),
+			Metadata:   cloneActivityMetadata(baseMeta, 0, 0, ids),
+		}
+		return []activity.Event{evt}
+	}
+
+	events := make([]activity.Event, 0, len(records))
+	for i, record := range records {
+		objectID := c.recordID(record)
+		if objectID == "" {
+			objectID = c.fallbackObjectID(hctx, objectID)
+		}
+
+		meta := cloneActivityMetadata(baseMeta, len(records), i, ids)
+		evt := activity.Event{
+			Verb:       verb,
+			ActorID:    hctx.Actor.ActorID,
+			UserID:     hctx.Actor.ActorID,
+			TenantID:   hctx.Actor.TenantID,
+			ObjectType: c.resourceName(),
+			ObjectID:   objectID,
+			Metadata:   meta,
+		}
+		events = append(events, evt)
+	}
+	return events
+}
+
+func (c *Controller[T]) activityMetadata(hctx HookContext, err error) map[string]any {
+	meta := map[string]any{
+		"route_name":      hctx.Metadata.RouteName,
+		"route_path":      hctx.Metadata.Path,
+		"method":          hctx.Metadata.Method,
+		"request_id":      hctx.RequestID,
+		"correlation_id":  hctx.CorrelationID,
+		"actor_subject":   hctx.Actor.Subject,
+		"actor_role":      hctx.Actor.Role,
+		"actor_tenant_id": hctx.Actor.TenantID,
+		"actor_org_id":    hctx.Actor.OrganizationID,
+	}
+	if len(hctx.Scope.Labels) > 0 {
+		meta["scope_labels"] = cloneLabels(hctx.Scope.Labels)
+	}
+	if len(hctx.Scope.Raw) > 0 {
+		meta["scope_raw"] = cloneAnyMap(hctx.Scope.Raw)
+	}
+	if err != nil {
+		meta["error"] = err.Error()
+	}
+	return meta
+}
+
+func activityVerb(resource string, op CrudOperation, batch bool, failed bool) string {
+	parts := []string{"crud", resource}
+	switch op {
+	case OpCreate, OpCreateBatch:
+		parts = append(parts, "create")
+	case OpUpdate, OpUpdateBatch:
+		parts = append(parts, "update")
+	case OpDelete, OpDeleteBatch:
+		parts = append(parts, "delete")
+	default:
+		parts = append(parts, string(op))
+	}
+	if batch {
+		parts[len(parts)-1] += ".batch"
+	}
+	if failed {
+		parts[len(parts)-1] += ".failed"
+	}
+	return strings.Join(parts, ".")
+}
+
+func (c *Controller[T]) recordID(record T) string {
+	if isNil(record) {
+		return ""
+	}
+	handlers := c.Repo.Handlers()
+	if handlers.GetID != nil {
+		if id := strings.TrimSpace(fmt.Sprint(handlers.GetID(record))); id != "" {
+			return id
+		}
+	}
+	if handlers.GetIdentifierValue != nil {
+		if id := strings.TrimSpace(handlers.GetIdentifierValue(record)); id != "" {
+			return id
+		}
+	}
+	if id, ok := jsonFieldAsString(record, "id"); ok {
+		return id
+	}
+	return ""
+}
+
+func (c *Controller[T]) resourceName() string {
+	if c.resource != "" {
+		return c.resource
+	}
+	if c.resourceType != nil {
+		return strings.ToLower(c.resourceType.Name())
+	}
+	return "resource"
+}
+
+func (c *Controller[T]) fallbackObjectID(hctx HookContext, current string) string {
+	if current != "" {
+		return current
+	}
+	if hctx.Metadata.Resource != "" {
+		return hctx.Metadata.Resource
+	}
+	if hctx.Metadata.RouteName != "" {
+		return hctx.Metadata.RouteName
+	}
+	return "unknown"
+}
+
+func cloneActivityMetadata(base map[string]any, batchSize int, batchIndex int, ids []string) map[string]any {
+	meta := cloneAnyMap(base)
+	if batchSize > 0 {
+		meta["batch_size"] = batchSize
+		meta["batch_index"] = batchIndex
+		if len(ids) > 0 {
+			meta["batch_ids"] = append([]string{}, ids...)
+		}
+	}
+	return meta
+}
+
+func cloneLabels(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 func isNil[T any](val T) bool {
