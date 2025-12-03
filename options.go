@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/goliatone/go-crud/pkg/activity"
 	"github.com/goliatone/go-router"
 )
 
@@ -210,9 +211,11 @@ func WithLifecycleHooks[T any](hooks LifecycleHooks[T]) Option[T] {
 	}
 }
 
-func WithActivityEmitter[T any](emitter ActivityEmitter) Option[T] {
+// WithActivityHooks configures the controller with the shared activity emitter
+// built from pkg/activity hooks and config. Defaults to no-op when hooks are empty.
+func WithActivityHooks[T any](hooks activity.Hooks, cfg activity.Config) Option[T] {
 	return func(c *Controller[T]) {
-		c.activityEmitter = emitter
+		c.activityEmitterHooks = activity.NewEmitter(hooks, cfg)
 	}
 }
 
