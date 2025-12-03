@@ -575,21 +575,48 @@ crud.WithLifecycleHooks(crud.LifecycleHooks[*User]{
 
 #### Activity & Notification Emitters
 
-Configure emitters once and call the helpers from your hooks to emit structured events that already include actor/scope/request metadata:
+Configure `crud.WithActivityHooks` to emit structured activity for every CRUD success/failure using the shared `pkg/activity` module. The controller handles emission automatically (including batch events and failures), defaulting the channel to `crud` unless you override it.
 
 ```go
-auditEmitter := audit.NewEmitter(...)
-notificationEmitter := notifications.NewEmitter(...)
+import (
+	"context"
+
+	crudactivity "github.com/goliatone/go-crud/pkg/activity"
+	crudusersink "github.com/goliatone/go-crud/pkg/activity/usersink"
+	usertypes "github.com/goliatone/go-users/pkg/types"
+)
+
+sink := &myUsersActivitySink{} // implements usertypes.ActivitySink
+hooks := crudactivity.Hooks{
+	crudusersink.Hook{Sink: sink}, // maps to go-users ActivityRecord
+	crudactivity.HookFunc(func(ctx context.Context, evt crudactivity.Event) error {
+		metrics.Count("crud", evt.Verb)
+		return nil
+	}),
+}
 
 controller := crud.NewController(
 	userRepo,
-	crud.WithActivityEmitter(auditEmitter),
-	crud.WithNotificationEmitter(notificationEmitter),
+	crud.WithActivityHooks(hooks, crudactivity.Config{
+		Enabled: true,
+		Channel: "crud", // optional; defaults to "crud"
+	}),
+)
+```
+
+Emitted events follow the `crud.<resource>.<op>` verb convention (append `.batch` for batch routes and `.failed` on errors) and include `route_name`, `route_path`, `method`, `request_id`, `correlation_id`, actor IDs/roles, scope labels/raw, and `error` on failures. Batch emissions carry `batch_size`, `batch_index`, and `batch_ids` when available. Timestamps default when missing, and the go-users adapter stores `definition_code`/`recipients` inside the `Data` map.
+
+Migration from legacy helpers:
+- `EmitActivity`, `ActivityEvent`, and `WithActivityEmitter` were removed; the controller now emits automatically when `WithActivityHooks` is configured.
+- Drop manual helper calls in lifecycle hooks. If you need to enrich or transform events, wrap that logic inside an `activity.Hook` before forwarding to sinks.
+
+Notifications still use `SendNotification` with `WithNotificationEmitter`:
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithNotificationEmitter[*User](emitter),
 	crud.WithLifecycleHooks(crud.LifecycleHooks[*User]{
-		AfterCreate: func(hctx crud.HookContext, user *User) error {
-			return crud.EmitActivity(hctx, crud.ActivityPhaseAfter, user,
-				crud.WithActivityEventMetaValue("command", "create_user"))
-		},
 		AfterUpdate: func(hctx crud.HookContext, user *User) error {
 			return crud.SendNotification(hctx, crud.ActivityPhaseAfter, user,
 				crud.WithNotificationChannel("email"),
@@ -600,7 +627,7 @@ controller := crud.NewController(
 )
 ```
 
-`EmitActivity`/`SendNotification` no-op when their emitters aren’t configured, so shared hooks can run across services that opt out of auditing.
+`SendNotification` no-ops when the emitter isn’t configured, so shared hooks can run across services that opt out of notifications.
 
 #### Field Policies
 
