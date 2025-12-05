@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Lightweight task runner for the relationships-gql example.
+# Usage: ./taskfile <task> [args]
+
+set -e
+[[ $* == *-debug* ]] && set -x
+
+PROJECT="relationships-gql"
+GOCACHE="${PWD}/.cache/go-build"
+export GOCACHE
+mkdir -p "${GOCACHE}"
+GOSUMDB=off
+export GOSUMDB
+GOPROXY=off
+export GOPROXY
+
+function lgr {
+  if command -v lgr >/dev/null 2>&1; then
+    command lgr "$@"
+  else
+    printf '%s\n' "$*"
+  fi
+}
+
+function graphqlgen {
+  lgr I "Generating GraphQL assets from metadata..."
+  go run ../../gql/cmd/graphqlgen \
+    --metadata-file ../../gql/examples/relationships/metadata.json \
+    --out ./graph \
+    --config ./gqlgen.yml \
+    "$@"
+}
+
+function gqlgen {
+  lgr I "Running gqlgen codegen..."
+  go run github.com/99designs/gqlgen generate --config ./gqlgen.yml
+}
+
+function clean {
+  lgr I "Removing generated files..."
+  rm -rf graph/generated graph/model/models_gen.go graph/resolvers/resolver_gen.go
+}
+
+function serve {
+  lgr I "Starting relationships-gql example..."
+  go run .
+}
+
+function help {
+  echo ""
+  echo "$0 <task> [...arguments]"
+  echo ""
+  echo "Project: ${PROJECT}"
+  echo ""
+  echo "Tasks:"
+  compgen -A function | grep -v '^_' | cat -n
+  echo ""
+}
+
+TIMEFORMAT="Task completed in %3lR"
+time "${@:-help}"
