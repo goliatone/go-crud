@@ -1,0 +1,19 @@
+[
+  {
+    "entity_name": "article",
+    "description": "Article schema",
+    "required": ["id", "title"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "title": { "type": "string" },
+      "published_at": { "type": "string", "format": "date-time" }
+    }
+  },
+  {
+    "entity_name": "comment",
+    "properties": {
+      "id": { "type": "string" },
+      "body": { "type": "string", "nullable": true }
+    }
+  }
+]
