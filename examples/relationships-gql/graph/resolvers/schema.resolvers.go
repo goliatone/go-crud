@@ -7,43 +7,10 @@ package resolvers
 
 import (
 	"context"
-	"time"
 
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
 )
-
-func asUUID(id string) model.UUID { return model.UUID(id) }
-
-func asTime(t *time.Time) *model.Time {
-	if t == nil {
-		return nil
-	}
-	val := model.Time(*t)
-	return &val
-}
-
-func setUUID(dst *string, data model.UUID) {
-	*dst = string(data)
-}
-
-func setUUIDPtr(dst **string, data *model.UUID) {
-	if data == nil {
-		*dst = nil
-		return
-	}
-	val := string(*data)
-	*dst = &val
-}
-
-func setTimePtr(dst **time.Time, data *model.Time) {
-	if data == nil {
-		*dst = nil
-		return
-	}
-	val := time.Time(*data)
-	*dst = &val
-}
 
 // ID is the resolver for the id field.
 func (r *authorResolver) ID(ctx context.Context, obj *model.Author) (model.UUID, error) {

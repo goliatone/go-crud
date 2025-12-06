@@ -15,6 +15,7 @@ resolver:
   layout: follow-schema
   dir: graph/resolvers
   package: resolvers
+  filename: graph/resolvers/resolver_custom.go
 
 models:
   UUID:

@@ -4,11 +4,9 @@ package resolvers
 
 import (
 	"context"
-	"fmt"
 	"reflect"
-	"strings"
+	"time"
 
-	"github.com/ettle/strcase"
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 
@@ -35,83 +33,7 @@ func (r *Resolver) guard(ctx context.Context, entity, action string) error {
 }
 
 func buildCriteria(p *model.PaginationInput, order []*model.OrderByInput, filters []*model.FilterInput) []repository.SelectCriteria {
-	criteria := make([]repository.SelectCriteria, 0, 1+len(order)+len(filters))
-
-	if p != nil {
-		limit := 100
-		offset := 0
-		if p.Limit != nil {
-			limit = *p.Limit
-		}
-		if p.Offset != nil {
-			offset = *p.Offset
-		}
-		criteria = append(criteria, repository.SelectPaginate(limit, offset))
-	}
-
-	for _, ord := range order {
-		if ord == nil || strings.TrimSpace(ord.Field) == "" {
-			continue
-		}
-		field := strcase.ToSnake(strings.TrimSpace(ord.Field))
-		dir := "ASC"
-		if ord.Direction != nil && *ord.Direction == model.OrderDirectionDESC {
-			dir = "DESC"
-		}
-		criteria = append(criteria, repository.OrderBy(fmt.Sprintf("%s %s", field, dir)))
-	}
-
-	for _, f := range filters {
-		if f == nil || strings.TrimSpace(f.Field) == "" {
-			continue
-		}
-		field := strcase.ToSnake(strings.TrimSpace(f.Field))
-		switch f.Operator {
-		case model.FilterOperatorEQ:
-			criteria = append(criteria, repository.SelectBy(field, "=", f.Value))
-		case model.FilterOperatorNE:
-			criteria = append(criteria, repository.SelectBy(field, "<>", f.Value))
-		case model.FilterOperatorGT:
-			criteria = append(criteria, repository.SelectBy(field, ">", f.Value))
-		case model.FilterOperatorLT:
-			criteria = append(criteria, repository.SelectBy(field, "<", f.Value))
-		case model.FilterOperatorGTE:
-			criteria = append(criteria, repository.SelectBy(field, ">=", f.Value))
-		case model.FilterOperatorLTE:
-			criteria = append(criteria, repository.SelectBy(field, "<=", f.Value))
-		case model.FilterOperatorILIKE:
-			val := strings.TrimSpace(f.Value)
-			if !strings.Contains(val, "%") {
-				val = "%" + val + "%"
-			}
-			criteria = append(criteria, repository.SelectILike(field, val))
-		case model.FilterOperatorLIKE:
-			val := strings.TrimSpace(f.Value)
-			if !strings.Contains(val, "%") {
-				val = "%" + val + "%"
-			}
-			criteria = append(criteria, repository.SelectBy(field, "LIKE", val))
-		case model.FilterOperatorIN:
-			values := splitCSV(f.Value)
-			criteria = append(criteria, repository.SelectColumnIn(field, values))
-		case model.FilterOperatorNOT_IN:
-			values := splitCSV(f.Value)
-			criteria = append(criteria, repository.SelectColumnNotIn(field, values))
-		}
-	}
-
-	return criteria
-}
-
-func splitCSV(raw string) []string {
-	parts := strings.Split(raw, ",")
-	values := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			values = append(values, trimmed)
-		}
-	}
-	return values
+	return nil
 }
 
 func applyInput[T any, I any](dst *T, src I) {
@@ -146,6 +68,38 @@ func setID[T any](dst *T, id string) {
 			return
 		}
 	}
+}
+
+func asUUID(id string) model.UUID { return model.UUID(id) }
+
+func asTime(t *time.Time) *model.Time {
+	if t == nil {
+		return nil
+	}
+	val := model.Time(*t)
+	return &val
+}
+
+func setUUID(dst *string, data model.UUID) {
+	*dst = string(data)
+}
+
+func setUUIDPtr(dst **string, data *model.UUID) {
+	if data == nil {
+		*dst = nil
+		return
+	}
+	val := string(*data)
+	*dst = &val
+}
+
+func setTimePtr(dst **time.Time, data *model.Time) {
+	if data == nil {
+		*dst = nil
+		return
+	}
+	val := time.Time(*data)
+	*dst = &val
 }
 
 func (r *Resolver) AuthorService() crud.Service[model.Author] {
@@ -199,12 +153,10 @@ func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.Upda
 	if err := r.guard(ctx, "Author", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.Author
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.AuthorService().Update(r.crudContext(ctx), record)
+	record, err := r.AuthorService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -274,12 +226,10 @@ func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input mod
 	if err := r.guard(ctx, "AuthorProfile", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorProfileService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.AuthorProfile
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.AuthorProfileService().Update(r.crudContext(ctx), record)
+	record, err := r.AuthorProfileService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -349,12 +299,10 @@ func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.Update
 	if err := r.guard(ctx, "Book", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.BookService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.Book
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.BookService().Update(r.crudContext(ctx), record)
+	record, err := r.BookService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -424,12 +372,10 @@ func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.Upd
 	if err := r.guard(ctx, "Chapter", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.ChapterService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.Chapter
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.ChapterService().Update(r.crudContext(ctx), record)
+	record, err := r.ChapterService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -499,12 +445,10 @@ func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input mode
 	if err := r.guard(ctx, "Headquarters", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.HeadquartersService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.Headquarters
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.HeadquartersService().Update(r.crudContext(ctx), record)
+	record, err := r.HeadquartersService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -574,12 +518,10 @@ func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input m
 	if err := r.guard(ctx, "PublishingHouse", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.PublishingHouseService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.PublishingHouse
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.PublishingHouseService().Update(r.crudContext(ctx), record)
+	record, err := r.PublishingHouseService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -649,12 +591,10 @@ func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateT
 	if err := r.guard(ctx, "Tag", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.TagService().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
-		return nil, err
-	}
+	var record model.Tag
+	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.TagService().Update(r.crudContext(ctx), record)
+	record, err := r.TagService().Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}

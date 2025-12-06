@@ -48,6 +48,9 @@ func main() {
 		})
 	})
 
+	// Ensure the adapter router is initialized even if we only use the wrapped Fiber app.
+	_ = app.Router()
+
 	fiberApp := app.WrappedRouter()
 	fiberApp.Post("/graphql", adaptor.HTTPHandler(srv))
 	fiberApp.Get("/playground", adaptor.HTTPHandler(playground.Handler("GraphQL playground", "/graphql")))
