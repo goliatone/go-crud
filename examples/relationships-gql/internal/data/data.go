@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	persistence "github.com/goliatone/go-persistence-bun"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -141,19 +142,55 @@ type Repositories struct {
 	Tags           repository.Repository[*Tag]
 }
 
-func SetupDatabase() (*bun.DB, error) {
-	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+type persistenceConfig struct {
+	debug bool
+}
+
+func (p persistenceConfig) GetDebug() bool                { return p.debug }
+func (p persistenceConfig) GetDriver() string             { return "sqlite3" }
+func (p persistenceConfig) GetServer() string             { return "file::memory:?cache=shared" }
+func (p persistenceConfig) GetPingTimeout() time.Duration { return 5 * time.Second }
+func (p persistenceConfig) GetOtelIdentifier() string     { return "relationships-gql" }
+
+func registerModels() {
+	persistence.RegisterModel(
+		(*PublishingHouse)(nil),
+		(*Headquarters)(nil),
+		(*Author)(nil),
+		(*AuthorProfile)(nil),
+		(*Book)(nil),
+		(*Chapter)(nil),
+		(*Tag)(nil),
+	)
+	persistence.RegisterMany2ManyModel(
+		(*BookTag)(nil),
+		(*AuthorTag)(nil),
+	)
+}
+
+// SetupDatabase boots an in-memory SQLite database using go-persistence-bun
+// and returns the configured client.
+func SetupDatabase(ctx context.Context) (*persistence.Client, error) {
+	registerModels()
+
+	sqlDB, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
 	}
-	sqldb.SetMaxOpenConns(1)
-	sqldb.SetMaxIdleConns(1)
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	db.RegisterModel((*BookTag)(nil))
-	db.RegisterModel((*AuthorTag)(nil))
+	client, err := persistence.New(persistenceConfig{}, sqlDB, sqlitedialect.New())
+	if err != nil {
+		return nil, err
+	}
 
-	return db, nil
+	// Run any registered migrations (none for this example, but keeps parity with other apps).
+	if err := client.Migrate(ctx); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func RegisterRepositories(db *bun.DB) Repositories {

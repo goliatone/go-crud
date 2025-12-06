@@ -22,11 +22,13 @@ import (
 func main() {
 	ctx := context.Background()
 
-	db, err := data.SetupDatabase()
+	client, err := data.SetupDatabase(ctx)
 	if err != nil {
 		log.Fatalf("failed to setup database: %v", err)
 	}
-	defer db.Close()
+	defer client.Close()
+
+	db := client.DB()
 
 	repos := data.RegisterRepositories(db)
 	if err := data.MigrateSchema(ctx, db); err != nil {
