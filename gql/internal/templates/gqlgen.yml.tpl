@@ -15,6 +15,7 @@ resolver:
   layout: follow-schema
   dir: {{ ResolverPackage }}
   package: resolvers
+  filename: {{ ResolverPackage }}/resolver_custom.go
 
 models:{% if Scalars %}{% for scalar in Scalars %}
   {{ scalar.Name }}:
