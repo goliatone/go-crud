@@ -5,6 +5,7 @@ package resolvers
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
@@ -67,6 +68,38 @@ func setID[T any](dst *T, id string) {
 			return
 		}
 	}
+}
+
+func asUUID(id string) model.UUID { return model.UUID(id) }
+
+func asTime(t *time.Time) *model.Time {
+	if t == nil {
+		return nil
+	}
+	val := model.Time(*t)
+	return &val
+}
+
+func setUUID(dst *string, data model.UUID) {
+	*dst = string(data)
+}
+
+func setUUIDPtr(dst **string, data *model.UUID) {
+	if data == nil {
+		*dst = nil
+		return
+	}
+	val := string(*data)
+	*dst = &val
+}
+
+func setTimePtr(dst **time.Time, data *model.Time) {
+	if data == nil {
+		*dst = nil
+		return
+	}
+	val := time.Time(*data)
+	*dst = &val
 }
 
 func (r *Resolver) PostService() crud.Service[model.Post] {
