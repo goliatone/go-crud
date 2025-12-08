@@ -1,5 +1,5 @@
-//go:build ignore
-// +build ignore
+//go:build gqlgen_snapshot
+// +build gqlgen_snapshot
 
 package resolvers
 

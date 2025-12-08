@@ -5,7 +5,7 @@ package resolvers
 
 import (
 	"github.com/goliatone/go-crud"
-	"graph/model"
+	"github.com/goliatone/go-crud/gql/examples/minimal/output/model"
 )
 
 // Custom resolver stubs. Safe to edit.
@@ -13,6 +13,6 @@ import (
 type Resolver struct {
 	ScopeGuard     ScopeGuardFunc
 	ContextFactory ContextFactory
-	PostService    crud.Service[model.Post]
-	UserService    crud.Service[model.User]
+	PostSvc        crud.Service[model.Post]
+	UserSvc        crud.Service[model.User]
 }
