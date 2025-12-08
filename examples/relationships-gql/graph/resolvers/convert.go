@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
-	"github.com/goliatone/go-crud/examples/relationships-gql/internal/data"
 	"github.com/google/uuid"
 )
 
@@ -38,7 +38,7 @@ func timeValue(t *time.Time) time.Time {
 	return *t
 }
 
-func toModelPublishingHouse(src *data.PublishingHouse, withRelations bool) *model.PublishingHouse {
+func toModelPublishingHouse(src *relationships.PublishingHouse, withRelations bool) *model.PublishingHouse {
 	if src == nil {
 		return nil
 	}
@@ -51,14 +51,14 @@ func toModelPublishingHouse(src *data.PublishingHouse, withRelations bool) *mode
 		UpdatedAt:     timePtr(src.UpdatedAt),
 	}
 	if withRelations {
-		dst.Headquarters = toModelHeadquarters(src.Headquarters, false)
-		dst.Authors = toModelAuthorSlice(src.Authors, false)
-		dst.Books = toModelBookSlice(src.Books, false)
+	dst.Headquarters = toModelHeadquarters(src.Headquarters, false)
+	dst.Authors = toModelAuthorSlice(src.Authors, false)
+	dst.Books = toModelBookSlice(src.Books, false)
 	}
 	return dst
 }
 
-func toModelHeadquarters(src *data.Headquarters, withRelations bool) *model.Headquarters {
+func toModelHeadquarters(src *relationships.Headquarters, withRelations bool) *model.Headquarters {
 	if src == nil {
 		return nil
 	}
@@ -77,7 +77,7 @@ func toModelHeadquarters(src *data.Headquarters, withRelations bool) *model.Head
 	return dst
 }
 
-func toModelAuthor(src *data.Author, withRelations bool) *model.Author {
+func toModelAuthor(src *relationships.Author, withRelations bool) *model.Author {
 	if src == nil {
 		return nil
 	}
@@ -101,7 +101,7 @@ func toModelAuthor(src *data.Author, withRelations bool) *model.Author {
 	return dst
 }
 
-func toModelAuthorProfile(src *data.AuthorProfile, withRelations bool) *model.AuthorProfile {
+func toModelAuthorProfile(src *relationships.AuthorProfile, withRelations bool) *model.AuthorProfile {
 	if src == nil {
 		return nil
 	}
@@ -118,7 +118,7 @@ func toModelAuthorProfile(src *data.AuthorProfile, withRelations bool) *model.Au
 	return dst
 }
 
-func toModelBook(src *data.Book, withRelations bool) *model.Book {
+func toModelBook(src *relationships.Book, withRelations bool) *model.Book {
 	if src == nil {
 		return nil
 	}
@@ -143,7 +143,7 @@ func toModelBook(src *data.Book, withRelations bool) *model.Book {
 	return dst
 }
 
-func toModelChapter(src *data.Chapter, withRelations bool) *model.Chapter {
+func toModelChapter(src *relationships.Chapter, withRelations bool) *model.Chapter {
 	if src == nil {
 		return nil
 	}
@@ -160,7 +160,7 @@ func toModelChapter(src *data.Chapter, withRelations bool) *model.Chapter {
 	return dst
 }
 
-func toModelTag(src *data.Tag, withRelations bool) *model.Tag {
+func toModelTag(src *relationships.Tag, withRelations bool) *model.Tag {
 	if src == nil {
 		return nil
 	}
@@ -178,7 +178,7 @@ func toModelTag(src *data.Tag, withRelations bool) *model.Tag {
 	return dst
 }
 
-func toModelPublishingHouseSlice(src []data.PublishingHouse, withRelations bool) []*model.PublishingHouse {
+func toModelPublishingHouseSlice(src []relationships.PublishingHouse, withRelations bool) []*model.PublishingHouse {
 	result := make([]*model.PublishingHouse, 0, len(src))
 	for i := range src {
 		if item := toModelPublishingHouse(&src[i], withRelations); item != nil {
@@ -188,7 +188,7 @@ func toModelPublishingHouseSlice(src []data.PublishingHouse, withRelations bool)
 	return result
 }
 
-func toModelHeadquartersSlice(src []data.Headquarters, withRelations bool) []*model.Headquarters {
+func toModelHeadquartersSlice(src []relationships.Headquarters, withRelations bool) []*model.Headquarters {
 	result := make([]*model.Headquarters, 0, len(src))
 	for i := range src {
 		if item := toModelHeadquarters(&src[i], withRelations); item != nil {
@@ -198,7 +198,7 @@ func toModelHeadquartersSlice(src []data.Headquarters, withRelations bool) []*mo
 	return result
 }
 
-func toModelAuthorSlice(src []data.Author, withRelations bool) []*model.Author {
+func toModelAuthorSlice(src []relationships.Author, withRelations bool) []*model.Author {
 	result := make([]*model.Author, 0, len(src))
 	for i := range src {
 		if item := toModelAuthor(&src[i], withRelations); item != nil {
@@ -208,7 +208,7 @@ func toModelAuthorSlice(src []data.Author, withRelations bool) []*model.Author {
 	return result
 }
 
-func toModelAuthorProfileSlice(src []data.AuthorProfile, withRelations bool) []*model.AuthorProfile {
+func toModelAuthorProfileSlice(src []relationships.AuthorProfile, withRelations bool) []*model.AuthorProfile {
 	result := make([]*model.AuthorProfile, 0, len(src))
 	for i := range src {
 		if item := toModelAuthorProfile(&src[i], withRelations); item != nil {
@@ -218,7 +218,7 @@ func toModelAuthorProfileSlice(src []data.AuthorProfile, withRelations bool) []*
 	return result
 }
 
-func toModelBookSlice(src []data.Book, withRelations bool) []*model.Book {
+func toModelBookSlice(src []relationships.Book, withRelations bool) []*model.Book {
 	result := make([]*model.Book, 0, len(src))
 	for i := range src {
 		if item := toModelBook(&src[i], withRelations); item != nil {
@@ -228,7 +228,7 @@ func toModelBookSlice(src []data.Book, withRelations bool) []*model.Book {
 	return result
 }
 
-func toModelChapterSlice(src []data.Chapter, withRelations bool) []*model.Chapter {
+func toModelChapterSlice(src []relationships.Chapter, withRelations bool) []*model.Chapter {
 	result := make([]*model.Chapter, 0, len(src))
 	for i := range src {
 		if item := toModelChapter(&src[i], withRelations); item != nil {
@@ -238,7 +238,7 @@ func toModelChapterSlice(src []data.Chapter, withRelations bool) []*model.Chapte
 	return result
 }
 
-func toModelTagSlice(src []data.Tag, withRelations bool) []*model.Tag {
+func toModelTagSlice(src []relationships.Tag, withRelations bool) []*model.Tag {
 	result := make([]*model.Tag, 0, len(src))
 	for i := range src {
 		if item := toModelTag(&src[i], withRelations); item != nil {
@@ -248,7 +248,7 @@ func toModelTagSlice(src []data.Tag, withRelations bool) []*model.Tag {
 	return result
 }
 
-func publishingHouseModels(src []*data.PublishingHouse, withRelations bool) []model.PublishingHouse {
+func publishingHouseModels(src []*relationships.PublishingHouse, withRelations bool) []model.PublishingHouse {
 	items := make([]model.PublishingHouse, 0, len(src))
 	for _, record := range src {
 		if item := toModelPublishingHouse(record, withRelations); item != nil {
@@ -258,7 +258,7 @@ func publishingHouseModels(src []*data.PublishingHouse, withRelations bool) []mo
 	return items
 }
 
-func headquartersModels(src []*data.Headquarters, withRelations bool) []model.Headquarters {
+func headquartersModels(src []*relationships.Headquarters, withRelations bool) []model.Headquarters {
 	items := make([]model.Headquarters, 0, len(src))
 	for _, record := range src {
 		if item := toModelHeadquarters(record, withRelations); item != nil {
@@ -268,7 +268,7 @@ func headquartersModels(src []*data.Headquarters, withRelations bool) []model.He
 	return items
 }
 
-func authorModels(src []*data.Author, withRelations bool) []model.Author {
+func authorModels(src []*relationships.Author, withRelations bool) []model.Author {
 	items := make([]model.Author, 0, len(src))
 	for _, record := range src {
 		if item := toModelAuthor(record, withRelations); item != nil {
@@ -278,7 +278,7 @@ func authorModels(src []*data.Author, withRelations bool) []model.Author {
 	return items
 }
 
-func authorProfileModels(src []*data.AuthorProfile, withRelations bool) []model.AuthorProfile {
+func authorProfileModels(src []*relationships.AuthorProfile, withRelations bool) []model.AuthorProfile {
 	items := make([]model.AuthorProfile, 0, len(src))
 	for _, record := range src {
 		if item := toModelAuthorProfile(record, withRelations); item != nil {
@@ -288,7 +288,7 @@ func authorProfileModels(src []*data.AuthorProfile, withRelations bool) []model.
 	return items
 }
 
-func bookModels(src []*data.Book, withRelations bool) []model.Book {
+func bookModels(src []*relationships.Book, withRelations bool) []model.Book {
 	items := make([]model.Book, 0, len(src))
 	for _, record := range src {
 		if item := toModelBook(record, withRelations); item != nil {
@@ -298,7 +298,7 @@ func bookModels(src []*data.Book, withRelations bool) []model.Book {
 	return items
 }
 
-func chapterModels(src []*data.Chapter, withRelations bool) []model.Chapter {
+func chapterModels(src []*relationships.Chapter, withRelations bool) []model.Chapter {
 	items := make([]model.Chapter, 0, len(src))
 	for _, record := range src {
 		if item := toModelChapter(record, withRelations); item != nil {
@@ -308,7 +308,7 @@ func chapterModels(src []*data.Chapter, withRelations bool) []model.Chapter {
 	return items
 }
 
-func tagModels(src []*data.Tag, withRelations bool) []model.Tag {
+func tagModels(src []*relationships.Tag, withRelations bool) []model.Tag {
 	items := make([]model.Tag, 0, len(src))
 	for _, record := range src {
 		if item := toModelTag(record, withRelations); item != nil {
@@ -318,12 +318,12 @@ func tagModels(src []*data.Tag, withRelations bool) []model.Tag {
 	return items
 }
 
-func publishingHouseFromModel(src model.PublishingHouse) (*data.PublishingHouse, error) {
+func publishingHouseFromModel(src model.PublishingHouse) (*relationships.PublishingHouse, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
 	}
-	return &data.PublishingHouse{
+	return &relationships.PublishingHouse{
 		ID:            id,
 		Name:          src.Name,
 		ImprintPrefix: src.ImprintPrefix,
@@ -333,7 +333,7 @@ func publishingHouseFromModel(src model.PublishingHouse) (*data.PublishingHouse,
 	}, nil
 }
 
-func headquartersFromModel(src model.Headquarters) (*data.Headquarters, error) {
+func headquartersFromModel(src model.Headquarters) (*relationships.Headquarters, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
@@ -342,7 +342,7 @@ func headquartersFromModel(src model.Headquarters) (*data.Headquarters, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &data.Headquarters{
+	return &relationships.Headquarters{
 		ID:           id,
 		PublisherID:  publisherID,
 		AddressLine1: src.AddressLine1,
@@ -353,7 +353,7 @@ func headquartersFromModel(src model.Headquarters) (*data.Headquarters, error) {
 	}, nil
 }
 
-func authorFromModel(src model.Author) (*data.Author, error) {
+func authorFromModel(src model.Author) (*relationships.Author, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
@@ -362,7 +362,7 @@ func authorFromModel(src model.Author) (*data.Author, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &data.Author{
+	return &relationships.Author{
 		ID:          id,
 		PublisherID: publisherID,
 		FullName:    src.FullName,
@@ -375,7 +375,7 @@ func authorFromModel(src model.Author) (*data.Author, error) {
 	}, nil
 }
 
-func authorProfileFromModel(src model.AuthorProfile) (*data.AuthorProfile, error) {
+func authorProfileFromModel(src model.AuthorProfile) (*relationships.AuthorProfile, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
@@ -384,7 +384,7 @@ func authorProfileFromModel(src model.AuthorProfile) (*data.AuthorProfile, error
 	if err != nil {
 		return nil, err
 	}
-	return &data.AuthorProfile{
+	return &relationships.AuthorProfile{
 		ID:            id,
 		AuthorID:      authorID,
 		Biography:     src.Biography,
@@ -393,7 +393,7 @@ func authorProfileFromModel(src model.AuthorProfile) (*data.AuthorProfile, error
 	}, nil
 }
 
-func bookFromModel(src model.Book) (*data.Book, error) {
+func bookFromModel(src model.Book) (*relationships.Book, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
@@ -406,7 +406,7 @@ func bookFromModel(src model.Book) (*data.Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &data.Book{
+	return &relationships.Book{
 		ID:            id,
 		PublisherID:   publisherID,
 		AuthorID:      authorID,
@@ -420,7 +420,7 @@ func bookFromModel(src model.Book) (*data.Book, error) {
 	}, nil
 }
 
-func chapterFromModel(src model.Chapter) (*data.Chapter, error) {
+func chapterFromModel(src model.Chapter) (*relationships.Chapter, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
@@ -429,7 +429,7 @@ func chapterFromModel(src model.Chapter) (*data.Chapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &data.Chapter{
+	return &relationships.Chapter{
 		ID:           id,
 		BookID:       bookID,
 		Title:        src.Title,
@@ -438,12 +438,12 @@ func chapterFromModel(src model.Chapter) (*data.Chapter, error) {
 	}, nil
 }
 
-func tagFromModel(src model.Tag) (*data.Tag, error) {
+func tagFromModel(src model.Tag) (*relationships.Tag, error) {
 	id, err := uuidFromString(src.Id)
 	if err != nil {
 		return nil, err
 	}
-	return &data.Tag{
+	return &relationships.Tag{
 		ID:          id,
 		Name:        src.Name,
 		Category:    src.Category,
