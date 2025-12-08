@@ -110,11 +110,11 @@ func Generate(ctx context.Context, opts Options) (Result, error) {
 	w := writer.New(writerOpts...)
 
 	ctxData := templates.BuildContext(doc, templates.ContextOptions{
-		ConfigPath:    configPath,
-		OutDir:        outDir,
-		PolicyHook:    opts.PolicyHook,
+		ConfigPath:     configPath,
+		OutDir:         outDir,
+		PolicyHook:     opts.PolicyHook,
 		EmitDataloader: opts.EmitDataloader,
-		Overlay:       ol,
+		Overlay:        ol,
 	})
 
 	writeSteps := []struct {
