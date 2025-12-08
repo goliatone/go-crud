@@ -15,9 +15,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/goliatone/go-router"
 
+	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/resolvers"
-	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 )
 
 func main() {
