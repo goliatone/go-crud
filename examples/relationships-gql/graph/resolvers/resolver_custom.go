@@ -2,8 +2,8 @@ package resolvers
 
 import (
 	"github.com/goliatone/go-crud"
+	"github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
-	"github.com/goliatone/go-crud/examples/relationships-gql/internal/data"
 )
 
 // Custom resolver stubs. Safe to edit.
@@ -21,7 +21,7 @@ type Resolver struct {
 }
 
 // NewResolver wires CRUD services backed by the shared repositories.
-func NewResolver(repos data.Repositories) *Resolver {
+func NewResolver(repos relationships.Repositories) *Resolver {
 	svc := newServices(repos)
 	return &Resolver{
 		ContextFactory:     NewCRUDContext,
