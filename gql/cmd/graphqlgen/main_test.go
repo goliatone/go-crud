@@ -98,6 +98,62 @@ func TestCLI_SchemaPackage(t *testing.T) {
 	require.NoError(t, os.Chdir(cwd))
 }
 
+func TestCLI_SchemaPackage_Relationships(t *testing.T) {
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+
+	temp := t.TempDir()
+	outDir := filepath.Join(temp, "graph")
+	configPath := filepath.Join(temp, "gqlgen.yml")
+
+	require.NoError(t, os.Chdir(repoRoot))
+	defer func() { _ = os.Chdir(cwd) }()
+
+	var buf bytes.Buffer
+	err = run(context.Background(), []string{
+		"--schema-package", "github.com/goliatone/go-crud/examples/relationships-gql/registrar",
+		"--out", outDir,
+		"--config", configPath,
+	}, &buf)
+	require.NoError(t, err)
+
+	checkPaths := []string{
+		filepath.Join(outDir, "schema.graphql"),
+		filepath.Join(outDir, "model", "models_gen.go"),
+		filepath.Join(outDir, "resolvers", "resolver_gen.go"),
+		configPath,
+	}
+	for _, p := range checkPaths {
+		assertFileExists(t, p)
+	}
+
+	schema := readFile(t, filepath.Join(outDir, "schema.graphql"))
+	require.Contains(t, schema, "PublishingHouseConnection", "should emit schema from registrar models")
+
+	modTimes := map[string]time.Time{}
+	contents := map[string]string{}
+	for _, p := range checkPaths {
+		modTimes[p] = fileModTime(t, p)
+		contents[p] = readFile(t, p)
+	}
+
+	var second bytes.Buffer
+	err = run(context.Background(), []string{
+		"--schema-package", "github.com/goliatone/go-crud/examples/relationships-gql/registrar",
+		"--out", outDir,
+		"--config", configPath,
+	}, &second)
+	require.NoError(t, err)
+
+	for _, p := range checkPaths {
+		require.Equal(t, contents[p], readFile(t, p))
+		require.True(t, modTimes[p].Equal(fileModTime(t, p)), "modtime should remain unchanged for %s", p)
+	}
+	require.Contains(t, second.String(), "skipped_same", "expect diff-aware writer skip on rerun")
+}
+
 func assertFileExists(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Stat(path); err != nil {
