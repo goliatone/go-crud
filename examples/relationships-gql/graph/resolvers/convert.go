@@ -51,9 +51,9 @@ func toModelPublishingHouse(src *relationships.PublishingHouse, withRelations bo
 		UpdatedAt:     timePtr(src.UpdatedAt),
 	}
 	if withRelations {
-	dst.Headquarters = toModelHeadquarters(src.Headquarters, false)
-	dst.Authors = toModelAuthorSlice(src.Authors, false)
-	dst.Books = toModelBookSlice(src.Books, false)
+		dst.Headquarters = toModelHeadquarters(src.Headquarters, false)
+		dst.Authors = toModelAuthorSlice(src.Authors, false)
+		dst.Books = toModelBookSlice(src.Books, false)
 	}
 	return dst
 }
