@@ -35,11 +35,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer func() {
-		if client == nil || client.DB() == nil {
+		if client == nil {
 			return
 		}
-		if err := client.Close(); err != nil {
-			log.Printf("database close error: %v", err)
+		if db := client.DB(); db != nil {
+			_ = db.Close()
 		}
 	}()
 
