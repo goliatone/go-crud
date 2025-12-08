@@ -6,8 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
+
+	"golang.org/x/mod/modfile"
 
 	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-router"
@@ -37,6 +42,21 @@ func FromReader(r io.Reader) ([]router.SchemaMetadata, error) {
 // FromRegistry loads schema metadata from the in-memory schema registry.
 func FromRegistry() ([]router.SchemaMetadata, error) {
 	return FromSchemaEntries(crud.ListSchemas())
+}
+
+// FromSchemaPackage imports the given package (for side effects) and then reads schemas from the registry.
+func FromSchemaPackage(pkg string) ([]router.SchemaMetadata, error) {
+	importPath, modDir, err := resolveSchemaPackage(pkg)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := runSchemaLoader(importPath, modDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return FromSchemaEntries(entries)
 }
 
 // FromSchemaEntries converts schema registry entries into SchemaMetadata instances.
@@ -394,4 +414,117 @@ func applyRequiredFlags(schema router.SchemaMetadata) router.SchemaMetadata {
 	}
 	schema.Properties = props
 	return schema
+}
+
+func resolveSchemaPackage(pkg string) (string, string, error) {
+	pkg = strings.TrimSpace(pkg)
+	if pkg == "" {
+		return "", "", fmt.Errorf("schema-package is empty")
+	}
+
+	wd, _ := os.Getwd()
+	modPath, modDir := findModuleInfo(wd)
+
+	if strings.HasPrefix(pkg, ".") || strings.HasPrefix(pkg, "/") {
+		if modPath == "" || modDir == "" {
+			return "", "", fmt.Errorf("resolve schema-package %q: unable to locate go.mod from %s", pkg, wd)
+		}
+
+		cleaned := filepath.ToSlash(pkg)
+		if strings.HasPrefix(cleaned, "./") {
+			cleaned = strings.TrimPrefix(cleaned, "./")
+		} else if filepath.IsAbs(pkg) {
+			rel, err := filepath.Rel(modDir, pkg)
+			if err != nil {
+				return "", "", fmt.Errorf("resolve schema-package %q: %w", pkg, err)
+			}
+			cleaned = filepath.ToSlash(rel)
+		}
+
+		return path.Join(modPath, cleaned), modDir, nil
+	}
+
+	return pkg, modDir, nil
+}
+
+func runSchemaLoader(importPath, modDir string) ([]crud.SchemaEntry, error) {
+	tmpDir, err := os.MkdirTemp("", "graphqlgen-schema-*")
+	if err != nil {
+		return nil, fmt.Errorf("create schema loader: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mainFile := filepath.Join(tmpDir, "main.go")
+	source := fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/goliatone/go-crud"
+	_ "%s"
+)
+
+func main() {
+	entries := crud.ListSchemas()
+	if len(entries) == 0 {
+		fmt.Fprintln(os.Stderr, "no schemas registered")
+		os.Exit(1)
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(entries); err != nil {
+		fmt.Fprintf(os.Stderr, "encode schemas: %%v", err)
+		os.Exit(1)
+	}
+}
+`, importPath)
+
+	if err := os.WriteFile(mainFile, []byte(source), 0o644); err != nil {
+		return nil, fmt.Errorf("write schema loader: %w", err)
+	}
+
+	cmd := exec.Command("go", "run", mainFile)
+	if modDir != "" {
+		cmd.Dir = modDir
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			err = fmt.Errorf("%w: %s", err, msg)
+		}
+		return nil, fmt.Errorf("import schema-package %s: %w", importPath, err)
+	}
+
+	var entries []crud.SchemaEntry
+	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
+		return nil, fmt.Errorf("decode schema entries from %s: %w", importPath, err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("schema-package %s did not register any schemas", importPath)
+	}
+
+	return entries, nil
+}
+
+func findModuleInfo(startDir string) (string, string) {
+	dir := filepath.Clean(startDir)
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil {
+			if mf, perr := modfile.Parse("go.mod", data, nil); perr == nil && mf.Module != nil {
+				return mf.Module.Mod.Path, dir
+			}
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", ""
+		}
+		dir = parent
+	}
 }

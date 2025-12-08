@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -31,11 +32,11 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	configDir := filepath.Dir(opts.ConfigPath)
 	ctx.SchemaPath = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "schema.graphql")))
 	modPath := findModulePath(configDir)
-	modelRel := toSlash(filepath.Clean(filepath.Join(opts.OutDir, "model")))
+	modelRel := toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "model")))
 	if modPath != "" {
 		ctx.ModelPackage = path.Join(modPath, modelRel)
 	} else {
-		ctx.ModelPackage = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "model")))
+		ctx.ModelPackage = modelRel
 	}
 	ctx.ResolverPackage = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "resolvers")))
 	ctx.DataloaderPackage = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "dataloader")))
@@ -53,9 +54,11 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 
 	ctx.Entities = append([]formatter.Entity{}, ctx.Entities...)
 	ctx.Entities = append(ctx.Entities, buildPageInfo())
+	ctx.Entities = append(ctx.Entities, buildConnections(doc.Entities)...)
 	sortEntities(ctx.Entities)
 
 	ctx.ModelStructs, ctx.ModelEnums, ctx.ModelImports = buildModels(ctx)
+	ctx.Criteria = buildCriteriaConfig(doc)
 
 	return ctx
 }
@@ -139,8 +142,7 @@ func buildDefaultOverlay(doc formatter.Document) overlay.Overlay {
 			},
 			overlay.Operation{
 				Name:       "list" + entity.Name,
-				ReturnType: entity.Name,
-				List:       true,
+				ReturnType: entity.Name + "Connection",
 				Required:   true,
 				Args: []overlay.Argument{
 					{Name: "pagination", Type: "PaginationInput", Required: false},
@@ -195,16 +197,49 @@ func buildPageInfo() formatter.Entity {
 			{Name: "total", OriginalName: "total", Type: "Int", Required: true},
 			{Name: "hasNextPage", OriginalName: "hasNextPage", Type: "Boolean", Required: true},
 			{Name: "hasPreviousPage", OriginalName: "hasPreviousPage", Type: "Boolean", Required: true},
+			{Name: "startCursor", OriginalName: "startCursor", Type: "String"},
+			{Name: "endCursor", OriginalName: "endCursor", Type: "String"},
 		},
 	}
+}
+
+func buildConnections(entities []formatter.Entity) []formatter.Entity {
+	result := make([]formatter.Entity, 0, len(entities)*2)
+	for _, entity := range entities {
+		edgeName := entity.Name + "Edge"
+		connName := entity.Name + "Connection"
+
+		edge := formatter.Entity{
+			Name:        edgeName,
+			RawName:     edgeName,
+			Description: "Edge wrapper for " + entity.Name,
+			Fields: []formatter.Field{
+				{Name: "cursor", OriginalName: "cursor", Type: "String", Required: true},
+				{Name: "node", OriginalName: "node", Type: entity.Name, Required: true},
+			},
+		}
+
+		conn := formatter.Entity{
+			Name:        connName,
+			RawName:     connName,
+			Description: entity.Name + " connection",
+			Fields: []formatter.Field{
+				{Name: "edges", OriginalName: "edges", Type: edgeName, IsList: true, Required: true},
+				{Name: "pageInfo", OriginalName: "pageInfo", Type: "PageInfo", Required: true},
+			},
+		}
+
+		result = append(result, edge, conn)
+	}
+	return result
 }
 
 func buildEntityInputs(entity formatter.Entity) (overlay.Input, overlay.Input) {
 	var createFields, updateFields []overlay.InputField
 
 	for _, f := range entity.Fields {
-		// Skip identifiers and relation fields; inputs should only expose scalars/FKs.
-		if strings.EqualFold(f.OriginalName, "id") || f.ReadOnly || f.Relation != nil {
+		// Skip identifiers, relation fields, and mutation-omitted fields; inputs should only expose scalars/FKs.
+		if strings.EqualFold(f.OriginalName, "id") || f.ReadOnly || f.OmitFromMutations || f.Relation != nil {
 			continue
 		}
 		createFields = append(createFields, overlay.InputField{
@@ -517,6 +552,59 @@ func sanitizeInputs(list []overlay.Input) []overlay.Input {
 		out = append(out, in)
 	}
 	return out
+}
+
+func buildCriteriaConfig(doc formatter.Document) map[string][]CriteriaField {
+	entityByName := make(map[string]formatter.Entity, len(doc.Entities))
+	entityByRaw := make(map[string]formatter.Entity, len(doc.Entities))
+	for _, e := range doc.Entities {
+		entityByName[e.Name] = e
+		entityByRaw[strings.ToLower(e.RawName)] = e
+	}
+
+	config := make(map[string][]CriteriaField, len(doc.Entities))
+	for _, e := range doc.Entities {
+		fields := collectCriteriaFields(e, entityByName, entityByRaw)
+		if len(fields) == 0 {
+			continue
+		}
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].Field < fields[j].Field
+		})
+		config[e.Name] = fields
+	}
+	return config
+}
+
+func collectCriteriaFields(entity formatter.Entity, byName, byRaw map[string]formatter.Entity) []CriteriaField {
+	result := make([]CriteriaField, 0, len(entity.Fields))
+	for _, f := range entity.Fields {
+		if f.Relation != nil {
+			target, ok := byName[f.Relation.Type]
+			if !ok {
+				target, ok = byRaw[strings.ToLower(f.Relation.RelatedSchema)]
+			}
+			if !ok {
+				continue
+			}
+			for _, tf := range target.Fields {
+				if tf.Relation != nil {
+					continue
+				}
+				result = append(result, CriteriaField{
+					Field:    fmt.Sprintf("%s.%s", f.Name, tf.Name),
+					Column:   fmt.Sprintf("%s.%s", f.OriginalName, tf.OriginalName),
+					Relation: strcase.ToPascal(f.Name),
+				})
+			}
+			continue
+		}
+		result = append(result, CriteriaField{
+			Field:  f.Name,
+			Column: f.OriginalName,
+		})
+	}
+	return result
 }
 
 func sanitizeOperations(list []overlay.Operation) []overlay.Operation {

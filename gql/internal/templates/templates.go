@@ -71,6 +71,7 @@ type Context struct {
 	ModelStructs      []ModelStruct
 	ModelEnums        []ModelEnum
 	ModelImports      []string
+	Criteria          map[string][]CriteriaField
 }
 
 type TemplateScalar struct {
@@ -140,6 +141,13 @@ type ModelField struct {
 type ModelEnum struct {
 	Name   string
 	Values []string
+}
+
+// CriteriaField captures mapping between GraphQL field paths and database columns.
+type CriteriaField struct {
+	Field    string
+	Column   string
+	Relation string
 }
 
 // NewContext builds a default context from a formatted document.

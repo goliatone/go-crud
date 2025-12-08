@@ -177,11 +177,16 @@ func loadSchemas(metadataFile, schemaPackage string) ([]router.SchemaMetadata, e
 		return schemas, nil
 	}
 
+	if schemaPackage != "" {
+		schemas, err := metadata.FromSchemaPackage(schemaPackage)
+		if err != nil {
+			return nil, fmt.Errorf("load metadata from schema-package %s: %w", schemaPackage, err)
+		}
+		return schemas, nil
+	}
+
 	schemas, err := metadata.FromRegistry()
 	if err != nil {
-		if schemaPackage != "" {
-			return nil, fmt.Errorf("load metadata from registry (expected package %s to register schemas): %w", schemaPackage, err)
-		}
 		return nil, fmt.Errorf("load metadata from registry: %w", err)
 	}
 	return schemas, nil

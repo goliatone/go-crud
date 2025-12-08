@@ -78,6 +78,8 @@ type PageInfo {
   total: Int!
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
 }
 
 """Post resource"""
@@ -88,15 +90,39 @@ type Post {
   title: String!
 }
 
+"""Post connection"""
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Post"""
+type PostEdge {
+  cursor: String!
+  node: Post!
+}
+
 type User {
   id: UUID!
 }
 
+"""User connection"""
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for User"""
+type UserEdge {
+  cursor: String!
+  node: User!
+}
+
 type Query {
   getPost(id: UUID!): Post!
-  listPost(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Post!]!
+  listPost(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): PostConnection!
   getUser(id: UUID!): User!
-  listUser(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [User!]!
+  listUser(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): UserConnection!
 }
 
 type Mutation {

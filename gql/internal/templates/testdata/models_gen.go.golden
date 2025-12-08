@@ -39,9 +39,11 @@ const (
 )
 
 type PageInfo struct {
-	Total           int  `json:"total,omitempty"`
-	HasNextPage     bool `json:"hasNextPage,omitempty"`
-	HasPreviousPage bool `json:"hasPreviousPage,omitempty"`
+	Total           int    `json:"total,omitempty"`
+	HasNextPage     bool   `json:"hasNextPage,omitempty"`
+	HasPreviousPage bool   `json:"hasPreviousPage,omitempty"`
+	StartCursor     string `json:"startCursor,omitempty"`
+	EndCursor       string `json:"endCursor,omitempty"`
 }
 
 // Post resource
@@ -51,8 +53,32 @@ type Post struct {
 	Title  string `json:"title,omitempty"`
 }
 
+// Post connection
+type PostConnection struct {
+	Edges    []*PostEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo   `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Post
+type PostEdge struct {
+	Cursor string `json:"cursor,omitempty"`
+	Node   *Post  `json:"node,omitempty"`
+}
+
 type User struct {
 	Id string `json:"id,omitempty"`
+}
+
+// User connection
+type UserConnection struct {
+	Edges    []*UserEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo   `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for User
+type UserEdge struct {
+	Cursor string `json:"cursor,omitempty"`
+	Node   *User  `json:"node,omitempty"`
 }
 
 // Input type for pagination parameters
