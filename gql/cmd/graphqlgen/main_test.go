@@ -102,18 +102,17 @@ func TestCLI_SchemaPackage_Relationships(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 
-	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
-
 	temp := t.TempDir()
 	outDir := filepath.Join(temp, "graph")
 	configPath := filepath.Join(temp, "gqlgen.yml")
 
-	require.NoError(t, os.Chdir(repoRoot))
+	exampleDir := filepath.Join(filepath.Dir(filepath.Dir(filepath.Dir(cwd))), "examples", "relationships-gql")
+	require.NoError(t, os.Chdir(exampleDir))
 	defer func() { _ = os.Chdir(cwd) }()
 
 	var buf bytes.Buffer
 	err = run(context.Background(), []string{
-		"--schema-package", "github.com/goliatone/go-crud/examples/relationships-gql/registrar",
+		"--schema-package", "./registrar",
 		"--out", outDir,
 		"--config", configPath,
 	}, &buf)
