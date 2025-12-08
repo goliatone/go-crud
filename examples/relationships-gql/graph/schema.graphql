@@ -61,7 +61,6 @@ input CreateAuthorInput {
   active: Boolean!
   email: String!
   fullName: String!
-  publisherId: UUID!
   createdAt: Time
   hiredAt: Time
   penName: String
@@ -73,7 +72,6 @@ input UpdateAuthorInput {
   active: Boolean
   email: String
   fullName: String
-  publisherId: UUID
   createdAt: Time
   hiredAt: Time
   penName: String
@@ -82,7 +80,6 @@ input UpdateAuthorInput {
 
 """Create payload for AuthorProfile"""
 input CreateAuthorProfileInput {
-  authorId: UUID!
   biography: String
   favoriteGenre: String
   writingStyle: String
@@ -90,7 +87,6 @@ input CreateAuthorProfileInput {
 
 """Update payload for AuthorProfile"""
 input UpdateAuthorProfileInput {
-  authorId: UUID
   biography: String
   favoriteGenre: String
   writingStyle: String
@@ -98,9 +94,7 @@ input UpdateAuthorProfileInput {
 
 """Create payload for Book"""
 input CreateBookInput {
-  authorId: UUID!
   isbn: String!
-  publisherId: UUID!
   status: String!
   title: String!
   createdAt: Time
@@ -111,9 +105,7 @@ input CreateBookInput {
 
 """Update payload for Book"""
 input UpdateBookInput {
-  authorId: UUID
   isbn: String
-  publisherId: UUID
   status: String
   title: String
   createdAt: Time
@@ -124,7 +116,6 @@ input UpdateBookInput {
 
 """Create payload for Chapter"""
 input CreateChapterInput {
-  bookId: UUID!
   chapterIndex: Int!
   title: String!
   wordCount: Int!
@@ -132,7 +123,6 @@ input CreateChapterInput {
 
 """Update payload for Chapter"""
 input UpdateChapterInput {
-  bookId: UUID
   chapterIndex: Int
   title: String
   wordCount: Int
@@ -143,7 +133,6 @@ input CreateHeadquartersInput {
   addressLine1: String!
   city: String!
   country: String!
-  publisherId: UUID!
   addressLine2: String
   openedAt: Time
 }
@@ -153,7 +142,6 @@ input UpdateHeadquartersInput {
   addressLine1: String
   city: String
   country: String
-  publisherId: UUID
   addressLine2: String
   openedAt: Time
 }
@@ -192,9 +180,9 @@ input UpdateTagInput {
   description: String
 }
 
-"""Author with profile, books, and tags"""
+"""Schema for Author"""
 type Author {
-  id: UUID!
+  id: [Book!]!
   createdAt: Time
   updatedAt: Time
   active: Boolean!
@@ -205,7 +193,7 @@ type Author {
   penName: String
   profile: AuthorProfile
   publisher: PublishingHouse
-  publisherId: UUID!
+  publisherId: PublishingHouse!
   tags: [Tag]
 }
 
@@ -221,11 +209,11 @@ type AuthorEdge {
   node: Author!
 }
 
-"""Author profile details"""
+"""Schema for AuthorProfile"""
 type AuthorProfile {
   id: UUID!
   author: Author
-  authorId: UUID!
+  authorId: Author!
   biography: String
   favoriteGenre: String
   writingStyle: String
@@ -243,18 +231,18 @@ type AuthorProfileEdge {
   node: AuthorProfile!
 }
 
-"""Book with author, publisher, chapters, and tags"""
+"""Schema for Book"""
 type Book {
-  id: UUID!
+  id: [Chapter!]!
   createdAt: Time
   updatedAt: Time
   author: Author
-  authorId: UUID!
+  authorId: Author!
   chapters: [Chapter]
   isbn: String!
   lastReprintAt: Time
   publisher: PublishingHouse
-  publisherId: UUID!
+  publisherId: PublishingHouse!
   releaseDate: Time
   status: String!
   tags: [Tag]
@@ -273,11 +261,11 @@ type BookEdge {
   node: Book!
 }
 
-"""Chapter belonging to a book"""
+"""Schema for Chapter"""
 type Chapter {
   id: UUID!
   book: Book
-  bookId: UUID!
+  bookId: Book!
   chapterIndex: Int!
   title: String!
   wordCount: Int!
@@ -295,7 +283,7 @@ type ChapterEdge {
   node: Chapter!
 }
 
-"""Headquarters belongs to a publishing house"""
+"""Schema for Headquarters"""
 type Headquarters {
   id: UUID!
   addressLine1: String!
@@ -304,7 +292,7 @@ type Headquarters {
   country: String!
   openedAt: Time
   publisher: PublishingHouse
-  publisherId: UUID!
+  publisherId: PublishingHouse!
 }
 
 """Headquarters connection"""
@@ -327,9 +315,9 @@ type PageInfo {
   endCursor: String
 }
 
-"""Publishing house with catalog and authors"""
+"""Schema for PublishingHouse"""
 type PublishingHouse {
-  id: UUID!
+  id: [Book!]!
   createdAt: Time
   updatedAt: Time
   authors: [Author]
@@ -352,7 +340,7 @@ type PublishingHouseEdge {
   node: PublishingHouse!
 }
 
-"""Tag used for books and authors"""
+"""Schema for Tag"""
 type Tag {
   id: UUID!
   createdAt: Time
