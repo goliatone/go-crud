@@ -74,6 +74,30 @@ func TestCLI_Smoke(t *testing.T) {
 	require.Contains(t, output2, "skipped_exists", "expected custom stub to be skipped when already present")
 }
 
+func TestCLI_SchemaPackage(t *testing.T) {
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	outDir := filepath.Join(t.TempDir(), "graph")
+	configPath := filepath.Join(filepath.Dir(outDir), "gqlgen.yml")
+
+	var output bytes.Buffer
+	err = run(context.Background(), []string{
+		"--schema-package", "github.com/goliatone/go-crud/gql/testdata/registrar",
+		"--out", outDir,
+		"--config", configPath,
+	}, &output)
+	require.NoError(t, err, "cli should load schemas from schema-package")
+
+	assertFileExists(t, filepath.Join(outDir, "schema.graphql"))
+
+	schema := readFile(t, filepath.Join(outDir, "schema.graphql"))
+	require.Contains(t, schema, "RegistryDemoConnection", "schema should include Relay connection types")
+	require.Contains(t, output.String(), "schema.graphql")
+
+	require.NoError(t, os.Chdir(cwd))
+}
+
 func assertFileExists(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Stat(path); err != nil {
