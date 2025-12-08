@@ -232,6 +232,14 @@ func propertyFromOpenAPI(name string, raw map[string]any) (router.PropertyInfo, 
 
 	rel := relationFromExtension(raw)
 	if rel != nil {
+		// Ignore relationship hints on scalar fields (e.g., foreign key columns);
+		// only treat object/array properties as navigation relations.
+		if prop.Type != "object" && prop.Items == nil {
+			rel = nil
+		}
+		if rel == nil {
+			return prop, nil
+		}
 		if rel.RelatedSchema == "" && prop.RelatedSchema != "" {
 			rel.RelatedSchema = prop.RelatedSchema
 		}
