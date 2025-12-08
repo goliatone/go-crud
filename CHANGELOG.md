@@ -5,6 +5,7 @@
 ## <!-- 16 -->➕ Add
 
 - Activity adapter ([c73cfc5](https://github.com/goliatone/go-crud/commit/c73cfc5338210832c4e74053d1f8c69cb56a9258))  - (goliatone)
+- GraphQL generator submodule (CRUD-first gqlgen scaffolding, no DB introspection)  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
