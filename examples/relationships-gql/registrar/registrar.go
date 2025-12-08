@@ -22,11 +22,6 @@ func init() {
 	if db == nil {
 		log.Fatal("registrar: database is nil")
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			log.Printf("registrar: close error: %v", err)
-		}
-	}()
 
 	repos := relationships.RegisterRepositories(db)
 	gqlregistrar.RegisterControllers(
