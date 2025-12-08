@@ -8,101 +8,102 @@ exec:
   package: generated
 
 model:
-  filename: graph/model/models_gen.go
+  filename: graph/model/gqlgen_gen.go
   package: model
 
 resolver:
   layout: follow-schema
   dir: graph/resolvers
   package: resolvers
+  filename: graph/resolvers/resolver_custom.go
 
 models:
   UUID:
-    model: graph/model/UUID
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UUID
 
   Time:
-    model: graph/model/Time
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Time
 
   JSON:
-    model: graph/model/JSON
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.JSON
 
   Author:
-    model: graph/model/Author
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Author
 
   AuthorProfile:
-    model: graph/model/AuthorProfile
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.AuthorProfile
 
   Book:
-    model: graph/model/Book
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Book
 
   Chapter:
-    model: graph/model/Chapter
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Chapter
 
   Headquarters:
-    model: graph/model/Headquarters
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Headquarters
 
   PageInfo:
-    model: graph/model/PageInfo
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.PageInfo
 
   PublishingHouse:
-    model: graph/model/PublishingHouse
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.PublishingHouse
 
   Tag:
-    model: graph/model/Tag
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.Tag
 
   PaginationInput:
-    model: graph/model/PaginationInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.PaginationInput
 
   OrderByInput:
-    model: graph/model/OrderByInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.OrderByInput
 
   FilterInput:
-    model: graph/model/FilterInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.FilterInput
 
   CreateAuthorInput:
-    model: graph/model/CreateAuthorInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateAuthorInput
 
   UpdateAuthorInput:
-    model: graph/model/UpdateAuthorInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateAuthorInput
 
   CreateAuthorProfileInput:
-    model: graph/model/CreateAuthorProfileInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateAuthorProfileInput
 
   UpdateAuthorProfileInput:
-    model: graph/model/UpdateAuthorProfileInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateAuthorProfileInput
 
   CreateBookInput:
-    model: graph/model/CreateBookInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateBookInput
 
   UpdateBookInput:
-    model: graph/model/UpdateBookInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateBookInput
 
   CreateChapterInput:
-    model: graph/model/CreateChapterInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateChapterInput
 
   UpdateChapterInput:
-    model: graph/model/UpdateChapterInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateChapterInput
 
   CreateHeadquartersInput:
-    model: graph/model/CreateHeadquartersInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateHeadquartersInput
 
   UpdateHeadquartersInput:
-    model: graph/model/UpdateHeadquartersInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateHeadquartersInput
 
   CreatePublishingHouseInput:
-    model: graph/model/CreatePublishingHouseInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreatePublishingHouseInput
 
   UpdatePublishingHouseInput:
-    model: graph/model/UpdatePublishingHouseInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdatePublishingHouseInput
 
   CreateTagInput:
-    model: graph/model/CreateTagInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.CreateTagInput
 
   UpdateTagInput:
-    model: graph/model/UpdateTagInput
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.UpdateTagInput
 
   OrderDirection:
-    model: graph/model/OrderDirection
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.OrderDirection
 
   FilterOperator:
-    model: graph/model/FilterOperator
+    model: github.com/goliatone/go-crud/gql/examples/relationships/output/graph/model.FilterOperator
