@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
-	"github.com/goliatone/go-crud/examples/relationships-gql/internal/data"
 )
 
 func TestApplyInputPointerPatch(t *testing.T) {
@@ -74,15 +74,15 @@ func setupResolver(t *testing.T) (*Resolver, context.Context, func()) {
 	t.Helper()
 
 	ctx := context.Background()
-	client, err := data.SetupDatabase(ctx)
+	client, err := relationships.SetupDatabase(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
 	db := client.DB()
-	require.NoError(t, data.MigrateSchema(ctx, db))
-	require.NoError(t, data.SeedDatabase(ctx, client))
+	require.NoError(t, relationships.MigrateSchema(ctx, db))
+	require.NoError(t, relationships.SeedDatabase(ctx, client))
 
-	resolver := NewResolver(data.RegisterRepositories(db))
+	resolver := NewResolver(relationships.RegisterRepositories(db))
 
 	return resolver, ctx, func() {
 		if client == nil || client.DB() == nil {
