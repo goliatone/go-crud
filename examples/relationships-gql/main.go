@@ -34,7 +34,7 @@ func main() {
 	if err := data.MigrateSchema(ctx, db); err != nil {
 		log.Fatalf("failed to migrate schema: %v", err)
 	}
-	if err := data.SeedDatabase(ctx, db, repos); err != nil {
+	if err := data.SeedDatabase(ctx, client); err != nil {
 		log.Fatalf("failed to seed database: %v", err)
 	}
 
