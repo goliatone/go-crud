@@ -65,9 +65,9 @@ function lgr {
 }
 
 function graphqlgen {
-  lgr I "Generating GraphQL assets from metadata..."
+  lgr I "Generating GraphQL assets from live models via registrar..."
   env -u GOROOT "${GO_BIN}" run ../../gql/cmd/graphqlgen \
-    --metadata-file ../../gql/examples/relationships/metadata.json \
+    --schema-package ./registrar \
     --out ./graph \
     --config ./gqlgen.yml \
     "$@"
@@ -83,6 +83,16 @@ function build {
   gqlgen "$@"
 }
 
+function metadata {
+  lgr I "Emitting registry metadata snapshot..."
+  env -u GOROOT "${GO_BIN}" run ./cmd/metadata --out ../../gql/examples/relationships/metadata.json
+}
+
+function gen {
+  lgr I "Running go generate (graphqlgen via model.go)..."
+  env -u GOROOT "${GO_BIN}" generate ./...
+}
+
 function clean {
   lgr I "Removing generated files..."
   rm -rf graph/generated graph/model/models_gen.go graph/resolvers/resolver_gen.go
@@ -92,7 +102,7 @@ function clean {
 
 function serve {
   lgr I "Starting relationships-gql example..."
-  env -u GOROOT "${GO_BIN}" run .
+  env -u GOROOT "${GO_BIN}" run ./cmd/server
 }
 
 function dev:serve {
