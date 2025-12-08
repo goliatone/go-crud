@@ -5,9 +5,11 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 ## Running
 
 ```
-./taskfile graphqlgen   # regenerate schema + gqlgen.yml from metadata
+./taskfile graphqlgen   # regenerate schema + gqlgen.yml from live models via registrar
 ./taskfile gqlgen       # run gqlgen to refresh generated code
 ./taskfile serve        # starts the server on :9091
+./taskfile gen          # go generate (uses the registrar + live models)
+./taskfile metadata     # optional: emit metadata.json snapshot for fixtures/docs
 ```
 
 GraphQL endpoint: `http://localhost:9091/graphql`  
@@ -64,28 +66,37 @@ Fetch a single author with relations:
 
 ```graphql
 query {
-  getAuthor(id: "06ef3339-bd72-333e-9c28-352b9c2cc612") {
-    id
-    fullName
-    profile { biography favoriteGenre }
-    publisher { name }
-    books { title status }
+  listAuthor(filter: [{ field: "full_name", operator: EQ, value: "Lina Ortiz" }]) {
+    edges {
+      node {
+        id
+        fullName
+        profile { biography favoriteGenre }
+        publisher { name }
+        books { title status }
+        tags { name }
+      }
+    }
   }
 }
 ```
 
-Fetch a book with relations:
+Fetch a book with relations (filter by title so you don’t need to know the ID):
 
 ```graphql
 query {
-  getBook(id: "b3b97f32-4153-3d91-aeaa-8d472c56ba48") {
-    id
-    title
-    status
-    author { id fullName }
-    publisher { id name }
-    chapters { id chapterIndex title wordCount }
-    tags { id name category }
+  listBook(filter: [{ field: "title", operator: EQ, value: "Contact Shadows" }]) {
+    edges {
+      node {
+        id
+        title
+        status
+        author { id fullName }
+        publisher { id name }
+        chapters { id chapterIndex title wordCount }
+        tags { id name category }
+      }
+    }
   }
 }
 ```
@@ -94,13 +105,17 @@ Fetch authors by tag filter:
 
 ```graphql
 query {
-  listAuthor(filter: [{ field: "tags.name", operator: EQ, value: "Science Fiction" }]) {
+  listAuthor(
+    filter: [
+      { field: "tags.name", operator: EQ, value: "Science Fiction" }
+    ]
+  ) {
     pageInfo { total hasNextPage hasPreviousPage }
     edges {
       node {
         id
         fullName
-        tags { name }
+        tags { name category }
       }
     }
   }
@@ -118,4 +133,8 @@ mutation {
 }
 ```
 
-Regeneration inputs live in `gql/examples/relationships/metadata.json`; outputs are written to `graph/`.
+## Regenerating after model changes
+- Source of truth for models is `model.go`. Add new models/fields/relations there and keep the registrar wiring in `registrar/` in sync.
+- Run `./taskfile gen` (or `go generate ./...`) to refresh `graph/schema.graphql`, `gqlgen.yml`, and resolver/model scaffolding from the in-memory registry (no metadata.json required).
+- Then run `./taskfile gqlgen` to regenerate gqlgen outputs before serving.
+- If you need a metadata.json snapshot for fixtures/docs, run `./taskfile metadata` (not used by the generator path).
