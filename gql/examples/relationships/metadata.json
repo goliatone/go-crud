@@ -1,0 +1,238 @@
+[
+  {
+    "entity_name": "publishing-house",
+    "description": "Publishing house with catalog and authors",
+    "required": ["id", "name"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "name": { "type": "string" },
+      "imprint_prefix": { "type": "string" },
+      "established_at": { "type": "string", "format": "date-time", "nullable": true },
+      "created_at": { "type": "string", "format": "date-time", "nullable": true },
+      "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+      "headquarters": { "type": "object", "nullable": true },
+      "authors": { "type": "array", "items": { "type": "object" }, "nullable": true },
+      "books": { "type": "array", "items": { "type": "object" }, "nullable": true }
+    },
+    "relationships": {
+      "headquarters": {
+        "relation_type": "has-one",
+        "related_schema": "headquarters",
+        "cardinality": "one",
+        "source_field": "id",
+        "foreign_key": "publisher_id"
+      },
+      "authors": {
+        "relation_type": "has-many",
+        "related_schema": "author",
+        "cardinality": "many",
+        "source_field": "id",
+        "foreign_key": "publisher_id",
+        "is_slice": true
+      },
+      "books": {
+        "relation_type": "has-many",
+        "related_schema": "book",
+        "cardinality": "many",
+        "source_field": "id",
+        "foreign_key": "publisher_id",
+        "is_slice": true
+      }
+    }
+  },
+  {
+    "entity_name": "headquarters",
+    "description": "Headquarters belongs to a publishing house",
+    "required": ["id", "publisher_id", "address_line1", "city", "country"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "publisher_id": { "type": "string", "format": "uuid" },
+      "address_line1": { "type": "string" },
+      "address_line2": { "type": "string", "nullable": true },
+      "city": { "type": "string" },
+      "country": { "type": "string" },
+      "opened_at": { "type": "string", "format": "date-time", "nullable": true },
+      "publisher": { "type": "object", "nullable": true }
+    },
+    "relationships": {
+      "publisher": {
+        "relation_type": "belongs-to",
+        "related_schema": "publishing-house",
+        "cardinality": "one",
+        "foreign_key": "publisher_id"
+      }
+    }
+  },
+  {
+    "entity_name": "author",
+    "description": "Author with profile, books, and tags",
+    "required": ["id", "publisher_id", "full_name", "email", "active"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "publisher_id": { "type": "string", "format": "uuid" },
+      "full_name": { "type": "string" },
+      "pen_name": { "type": "string", "nullable": true },
+      "email": { "type": "string" },
+      "active": { "type": "boolean" },
+      "hired_at": { "type": "string", "format": "date-time", "nullable": true },
+      "created_at": { "type": "string", "format": "date-time", "nullable": true },
+      "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+      "publisher": { "type": "object", "nullable": true },
+      "profile": { "type": "object", "nullable": true },
+      "books": { "type": "array", "items": { "type": "object" }, "nullable": true },
+      "tags": { "type": "array", "items": { "type": "object" }, "nullable": true }
+    },
+    "relationships": {
+      "publisher": {
+        "relation_type": "belongs-to",
+        "related_schema": "publishing-house",
+        "cardinality": "one",
+        "foreign_key": "publisher_id"
+      },
+      "profile": {
+        "relation_type": "has-one",
+        "related_schema": "author-profile",
+        "cardinality": "one",
+        "source_field": "id",
+        "foreign_key": "author_id"
+      },
+      "books": {
+        "relation_type": "has-many",
+        "related_schema": "book",
+        "cardinality": "many",
+        "source_field": "id",
+        "foreign_key": "author_id",
+        "is_slice": true
+      },
+      "tags": {
+        "relation_type": "many-to-many",
+        "related_schema": "tag",
+        "cardinality": "many",
+        "pivot_table": "author_tags",
+        "is_slice": true
+      }
+    }
+  },
+  {
+    "entity_name": "author-profile",
+    "description": "Author profile details",
+    "required": ["id", "author_id"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "author_id": { "type": "string", "format": "uuid" },
+      "biography": { "type": "string", "nullable": true },
+      "writing_style": { "type": "string", "nullable": true },
+      "favorite_genre": { "type": "string", "nullable": true },
+      "author": { "type": "object", "nullable": true }
+    },
+    "relationships": {
+      "author": {
+        "relation_type": "belongs-to",
+        "related_schema": "author",
+        "cardinality": "one",
+        "foreign_key": "author_id"
+      }
+    }
+  },
+  {
+    "entity_name": "book",
+    "description": "Book with author, publisher, chapters, and tags",
+    "required": ["id", "publisher_id", "author_id", "title", "isbn", "status"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "publisher_id": { "type": "string", "format": "uuid" },
+      "author_id": { "type": "string", "format": "uuid" },
+      "title": { "type": "string" },
+      "isbn": { "type": "string" },
+      "status": { "type": "string" },
+      "release_date": { "type": "string", "format": "date-time", "nullable": true },
+      "last_reprint_at": { "type": "string", "format": "date-time", "nullable": true },
+      "created_at": { "type": "string", "format": "date-time", "nullable": true },
+      "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+      "publisher": { "type": "object", "nullable": true },
+      "author": { "type": "object", "nullable": true },
+      "chapters": { "type": "array", "items": { "type": "object" }, "nullable": true },
+      "tags": { "type": "array", "items": { "type": "object" }, "nullable": true }
+    },
+    "relationships": {
+      "publisher": {
+        "relation_type": "belongs-to",
+        "related_schema": "publishing-house",
+        "cardinality": "one",
+        "foreign_key": "publisher_id"
+      },
+      "author": {
+        "relation_type": "belongs-to",
+        "related_schema": "author",
+        "cardinality": "one",
+        "foreign_key": "author_id"
+      },
+      "chapters": {
+        "relation_type": "has-many",
+        "related_schema": "chapter",
+        "cardinality": "many",
+        "source_field": "id",
+        "foreign_key": "book_id",
+        "is_slice": true
+      },
+      "tags": {
+        "relation_type": "many-to-many",
+        "related_schema": "tag",
+        "cardinality": "many",
+        "pivot_table": "book_tags",
+        "is_slice": true
+      }
+    }
+  },
+  {
+    "entity_name": "chapter",
+    "description": "Chapter belonging to a book",
+    "required": ["id", "book_id", "title", "word_count", "chapter_index"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "book_id": { "type": "string", "format": "uuid" },
+      "title": { "type": "string" },
+      "word_count": { "type": "integer" },
+      "chapter_index": { "type": "integer" },
+      "book": { "type": "object", "nullable": true }
+    },
+    "relationships": {
+      "book": {
+        "relation_type": "belongs-to",
+        "related_schema": "book",
+        "cardinality": "one",
+        "foreign_key": "book_id"
+      }
+    }
+  },
+  {
+    "entity_name": "tag",
+    "description": "Tag used for books and authors",
+    "required": ["id", "name", "category"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "name": { "type": "string" },
+      "category": { "type": "string" },
+      "description": { "type": "string", "nullable": true },
+      "created_at": { "type": "string", "format": "date-time", "nullable": true },
+      "books": { "type": "array", "items": { "type": "object" }, "nullable": true },
+      "authors": { "type": "array", "items": { "type": "object" }, "nullable": true }
+    },
+    "relationships": {
+      "books": {
+        "relation_type": "many-to-many",
+        "related_schema": "book",
+        "cardinality": "many",
+        "pivot_table": "book_tags",
+        "is_slice": true
+      },
+      "authors": {
+        "relation_type": "many-to-many",
+        "related_schema": "author",
+        "cardinality": "many",
+        "pivot_table": "author_tags",
+        "is_slice": true
+      }
+    }
+  }
+]
