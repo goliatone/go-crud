@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"time"
 
 	persistence "github.com/goliatone/go-persistence-bun"
@@ -142,6 +143,9 @@ type Repositories struct {
 	Tags           repository.Repository[*Tag]
 }
 
+//go:embed fixtures/*.yaml
+var fixturesFS embed.FS
+
 type persistenceConfig struct {
 	debug bool
 }
@@ -189,6 +193,8 @@ func SetupDatabase(ctx context.Context) (*persistence.Client, error) {
 	if err := client.Migrate(ctx); err != nil {
 		return nil, err
 	}
+
+	client.RegisterFixtures(fixturesFS).AddOptions(persistence.WithTrucateTables())
 
 	return client, nil
 }
@@ -353,225 +359,6 @@ func MigrateSchema(ctx context.Context, db *bun.DB) error {
 	return nil
 }
 
-func SeedDatabase(ctx context.Context, db *bun.DB, repos Repositories) error {
-	now := time.Now().UTC()
-
-	aurora, err := repos.Publishers.Create(ctx, &PublishingHouse{
-		Name:          "Aurora Press",
-		EstablishedAt: time.Date(1998, 3, 14, 0, 0, 0, 0, time.UTC),
-		ImprintPrefix: "AUR",
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	})
-	if err != nil {
-		return err
-	}
-
-	nimbus, err := repos.Publishers.Create(ctx, &PublishingHouse{
-		Name:          "Nimbus Editorial",
-		EstablishedAt: time.Date(2005, 7, 2, 0, 0, 0, 0, time.UTC),
-		ImprintPrefix: "NIM",
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	})
-	if err != nil {
-		return err
-	}
-
-	if _, err := repos.Headquarters.Create(ctx, &Headquarters{
-		PublisherID:  aurora.ID,
-		AddressLine1: "101 Skyline Ave",
-		City:         "Seattle",
-		Country:      "USA",
-		OpenedAt:     now.AddDate(-10, 0, 0),
-	}); err != nil {
-		return err
-	}
-
-	if _, err := repos.Headquarters.Create(ctx, &Headquarters{
-		PublisherID:  nimbus.ID,
-		AddressLine1: "18 Harbour Road",
-		City:         "Dublin",
-		Country:      "Ireland",
-		OpenedAt:     now.AddDate(-6, 0, 0),
-	}); err != nil {
-		return err
-	}
-
-	lina, err := repos.Authors.Create(ctx, &Author{
-		PublisherID: aurora.ID,
-		FullName:    "Lina Ortiz",
-		PenName:     "L. Aurora",
-		Email:       "lina.ortiz@example.com",
-		Active:      true,
-		HiredAt:     now.AddDate(-7, 0, 0),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	miles, err := repos.Authors.Create(ctx, &Author{
-		PublisherID: aurora.ID,
-		FullName:    "Miles Dorsey",
-		PenName:     "M. Gale",
-		Email:       "miles.dorsey@example.com",
-		Active:      true,
-		HiredAt:     now.AddDate(-4, -3, 0),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	if _, err := repos.Authors.Create(ctx, &Author{
-		PublisherID: nimbus.ID,
-		FullName:    "Esha Kapur",
-		PenName:     "E. K. Shore",
-		Email:       "esha.kapur@example.com",
-		Active:      false,
-		HiredAt:     now.AddDate(-3, 0, 0),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}); err != nil {
-		return err
-	}
-
-	if _, err := repos.AuthorProfiles.Create(ctx, &AuthorProfile{
-		AuthorID:      lina.ID,
-		Biography:     "Award-winning sci-fi author exploring cosmic diplomacy and fractured futures.",
-		WritingStyle:  "Cinematic prose with grounded scientific detail",
-		FavoriteGenre: "Space Opera",
-	}); err != nil {
-		return err
-	}
-
-	if _, err := repos.AuthorProfiles.Create(ctx, &AuthorProfile{
-		AuthorID:      miles.ID,
-		Biography:     "Former weather scientist crafting thrillers about climate-engineered cities.",
-		WritingStyle:  "Fast-paced investigative narratives",
-		FavoriteGenre: "Speculative Thriller",
-	}); err != nil {
-		return err
-	}
-
-	contactShadows, err := repos.Books.Create(ctx, &Book{
-		PublisherID: aurora.ID,
-		AuthorID:    lina.ID,
-		Title:       "Contact Shadows",
-		ISBN:        "978-1-4028-9462-1",
-		Status:      "in_print",
-		ReleaseDate: time.Date(2021, 5, 4, 0, 0, 0, 0, time.UTC),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	exoArchive, err := repos.Books.Create(ctx, &Book{
-		PublisherID: aurora.ID,
-		AuthorID:    lina.ID,
-		Title:       "The Exo-Archive Accord",
-		ISBN:        "978-1-4028-9463-8",
-		Status:      "editing",
-		ReleaseDate: time.Date(2025, 2, 11, 0, 0, 0, 0, time.UTC),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	microburst, err := repos.Books.Create(ctx, &Book{
-		PublisherID: aurora.ID,
-		AuthorID:    miles.ID,
-		Title:       "Microburst Protocol",
-		ISBN:        "978-1-4028-9464-5",
-		Status:      "in_print",
-		ReleaseDate: time.Date(2022, 9, 22, 0, 0, 0, 0, time.UTC),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	chapters := []*Chapter{
-		{
-			BookID:       contactShadows.ID,
-			Title:        "Signal Twelve",
-			WordCount:    6400,
-			ChapterIndex: 1,
-		},
-		{
-			BookID:       contactShadows.ID,
-			Title:        "Embassy in Orbit",
-			WordCount:    7200,
-			ChapterIndex: 2,
-		},
-		{
-			BookID:       microburst.ID,
-			Title:        "Doppler Alarm",
-			WordCount:    5800,
-			ChapterIndex: 1,
-		},
-	}
-	if _, err := repos.Chapters.CreateMany(ctx, chapters); err != nil {
-		return err
-	}
-
-	sciFi, err := repos.Tags.Create(ctx, &Tag{
-		Name:        "Science Fiction",
-		Category:    "genre",
-		Description: "Stories grounded in speculative science and technology.",
-		CreatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	spaceOpera, err := repos.Tags.Create(ctx, &Tag{
-		Name:        "Space Opera",
-		Category:    "genre",
-		Description: "Large-scale galactic adventures with political intrigue.",
-		CreatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	techThriller, err := repos.Tags.Create(ctx, &Tag{
-		Name:        "Tech Thriller",
-		Category:    "genre",
-		Description: "High-stakes suspense fueled by emerging technology.",
-		CreatedAt:   now,
-	})
-	if err != nil {
-		return err
-	}
-
-	pivotRows := []BookTag{
-		{BookID: contactShadows.ID, TagID: sciFi.ID, LinkStrength: 9, LinkedAt: now},
-		{BookID: contactShadows.ID, TagID: spaceOpera.ID, LinkStrength: 8, LinkedAt: now},
-		{BookID: exoArchive.ID, TagID: sciFi.ID, LinkStrength: 10, LinkedAt: now},
-		{BookID: microburst.ID, TagID: techThriller.ID, LinkedAt: now, LinkStrength: 8},
-	}
-	if _, err := db.NewInsert().Model(&pivotRows).Exec(ctx); err != nil {
-		return err
-	}
-
-	authorTagRows := []AuthorTag{
-		{AuthorID: lina.ID, TagID: sciFi.ID, AssociatedAt: now},
-		{AuthorID: lina.ID, TagID: spaceOpera.ID, AssociatedAt: now},
-		{AuthorID: miles.ID, TagID: techThriller.ID, AssociatedAt: now},
-		{AuthorID: miles.ID, TagID: sciFi.ID, AssociatedAt: now},
-	}
-	if _, err := db.NewInsert().Model(&authorTagRows).Exec(ctx); err != nil {
-		return err
-	}
-
-	return nil
+func SeedDatabase(ctx context.Context, client *persistence.Client) error {
+	return client.Seed(ctx)
 }
