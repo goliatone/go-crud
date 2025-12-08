@@ -30,17 +30,47 @@ models:
   Author:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.Author
 
+  AuthorConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.AuthorConnection
+
+  AuthorEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.AuthorEdge
+
   AuthorProfile:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.AuthorProfile
+
+  AuthorProfileConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.AuthorProfileConnection
+
+  AuthorProfileEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.AuthorProfileEdge
 
   Book:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.Book
 
+  BookConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.BookConnection
+
+  BookEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.BookEdge
+
   Chapter:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.Chapter
 
+  ChapterConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.ChapterConnection
+
+  ChapterEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.ChapterEdge
+
   Headquarters:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.Headquarters
+
+  HeadquartersConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.HeadquartersConnection
+
+  HeadquartersEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.HeadquartersEdge
 
   PageInfo:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.PageInfo
@@ -48,8 +78,20 @@ models:
   PublishingHouse:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.PublishingHouse
 
+  PublishingHouseConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.PublishingHouseConnection
+
+  PublishingHouseEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.PublishingHouseEdge
+
   Tag:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.Tag
+
+  TagConnection:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.TagConnection
+
+  TagEdge:
+    model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.TagEdge
 
   PaginationInput:
     model: github.com/goliatone/go-crud/examples/relationships-gql/graph/model.PaginationInput

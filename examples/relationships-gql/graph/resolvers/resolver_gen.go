@@ -4,6 +4,7 @@ package resolvers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"strings"
@@ -330,6 +331,56 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 	return criteria
 }
 
+func paginationBounds(p *model.PaginationInput, returned int) (limit int, offset int) {
+	if p != nil {
+		if p.Limit != nil && *p.Limit > 0 {
+			limit = *p.Limit
+		}
+		if p.Offset != nil && *p.Offset > 0 {
+			offset = *p.Offset
+		}
+	}
+	if limit <= 0 {
+		limit = returned
+	}
+	return limit, offset
+}
+
+func buildPageInfoMeta(offset, count, limit, total int) *model.PageInfo {
+	if limit < 0 {
+		limit = 0
+	}
+	if count < 0 {
+		count = 0
+	}
+
+	hasNext := offset+count < total
+	if limit > 0 {
+		hasNext = offset+limit < total
+	}
+
+	var startCursor, endCursor string
+	if count > 0 {
+		startCursor = encodeCursor(offset)
+		endCursor = encodeCursor(offset + count - 1)
+	}
+
+	return &model.PageInfo{
+		Total:           total,
+		HasNextPage:     hasNext,
+		HasPreviousPage: offset > 0,
+		StartCursor:     startCursor,
+		EndCursor:       endCursor,
+	}
+}
+
+func encodeCursor(offset int) string {
+	if offset < 0 {
+		offset = 0
+	}
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("cursor:%d", offset)))
+}
+
 func normalizeDirection(dir *model.OrderDirection) string {
 	if dir == nil {
 		return "ASC"
@@ -511,20 +562,31 @@ func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, err
 	return &record, nil
 }
 
-func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Author, error) {
+func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error) {
 	if err := r.guard(ctx, "Author", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Author", pagination, orderBy, filter)
-	records, _, err := r.AuthorService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.AuthorService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.Author, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.AuthorEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.AuthorEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.AuthorConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInput) (*model.Author, error) {
@@ -587,20 +649,31 @@ func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.Auth
 	return &record, nil
 }
 
-func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.AuthorProfile, error) {
+func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error) {
 	if err := r.guard(ctx, "AuthorProfile", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("AuthorProfile", pagination, orderBy, filter)
-	records, _, err := r.AuthorProfileService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.AuthorProfileService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.AuthorProfile, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.AuthorProfileEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.AuthorProfileEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.AuthorProfileConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAuthorProfileInput) (*model.AuthorProfile, error) {
@@ -663,20 +736,31 @@ func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) 
 	return &record, nil
 }
 
-func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Book, error) {
+func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error) {
 	if err := r.guard(ctx, "Book", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Book", pagination, orderBy, filter)
-	records, _, err := r.BookService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.BookService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.Book, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.BookEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.BookEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.BookConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) (*model.Book, error) {
@@ -739,20 +823,31 @@ func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, e
 	return &record, nil
 }
 
-func (r *Resolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Chapter, error) {
+func (r *Resolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error) {
 	if err := r.guard(ctx, "Chapter", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Chapter", pagination, orderBy, filter)
-	records, _, err := r.ChapterService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.ChapterService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.Chapter, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.ChapterEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.ChapterEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.ChapterConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterInput) (*model.Chapter, error) {
@@ -815,20 +910,31 @@ func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headq
 	return &record, nil
 }
 
-func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Headquarters, error) {
+func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error) {
 	if err := r.guard(ctx, "Headquarters", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Headquarters", pagination, orderBy, filter)
-	records, _, err := r.HeadquartersService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.HeadquartersService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.Headquarters, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.HeadquartersEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.HeadquartersEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.HeadquartersConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHeadquartersInput) (*model.Headquarters, error) {
@@ -891,20 +997,31 @@ func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.Pu
 	return &record, nil
 }
 
-func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.PublishingHouse, error) {
+func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error) {
 	if err := r.guard(ctx, "PublishingHouse", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("PublishingHouse", pagination, orderBy, filter)
-	records, _, err := r.PublishingHouseService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.PublishingHouseService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.PublishingHouse, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.PublishingHouseEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.PublishingHouseEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.PublishingHouseConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.CreatePublishingHouseInput) (*model.PublishingHouse, error) {
@@ -967,20 +1084,31 @@ func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
 	return &record, nil
 }
 
-func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Tag, error) {
+func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error) {
 	if err := r.guard(ctx, "Tag", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Tag", pagination, orderBy, filter)
-	records, _, err := r.TagService().Index(r.crudContext(ctx), criteria)
+	records, total, err := r.TagService().Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
+	limit, offset := paginationBounds(pagination, len(records))
 	result := make([]*model.Tag, 0, len(records))
 	for i := range records {
 		result = append(result, &records[i])
 	}
-	return result, nil
+	edges := make([]*model.TagEdge, 0, len(result))
+	for i := range result {
+		edges = append(edges, &model.TagEdge{
+			Cursor: encodeCursor(offset + i),
+			Node:   result[i],
+		})
+	}
+	return &model.TagConnection{
+		Edges:    edges,
+		PageInfo: buildPageInfoMeta(offset, len(result), limit, total),
+	}, nil
 }
 
 func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {

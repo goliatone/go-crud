@@ -238,7 +238,7 @@ func (r *queryResolver) GetAuthor(ctx context.Context, id model.UUID) (*model.Au
 }
 
 // ListAuthor is the resolver for the listAuthor field.
-func (r *queryResolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Author, error) {
+func (r *queryResolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error) {
 	return r.Resolver.ListAuthor(ctx, pagination, orderBy, filter)
 }
 
@@ -248,7 +248,7 @@ func (r *queryResolver) GetAuthorProfile(ctx context.Context, id model.UUID) (*m
 }
 
 // ListAuthorProfile is the resolver for the listAuthorProfile field.
-func (r *queryResolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.AuthorProfile, error) {
+func (r *queryResolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error) {
 	return r.Resolver.ListAuthorProfile(ctx, pagination, orderBy, filter)
 }
 
@@ -258,7 +258,7 @@ func (r *queryResolver) GetBook(ctx context.Context, id model.UUID) (*model.Book
 }
 
 // ListBook is the resolver for the listBook field.
-func (r *queryResolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Book, error) {
+func (r *queryResolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error) {
 	return r.Resolver.ListBook(ctx, pagination, orderBy, filter)
 }
 
@@ -268,7 +268,7 @@ func (r *queryResolver) GetChapter(ctx context.Context, id model.UUID) (*model.C
 }
 
 // ListChapter is the resolver for the listChapter field.
-func (r *queryResolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Chapter, error) {
+func (r *queryResolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error) {
 	return r.Resolver.ListChapter(ctx, pagination, orderBy, filter)
 }
 
@@ -278,7 +278,7 @@ func (r *queryResolver) GetHeadquarters(ctx context.Context, id model.UUID) (*mo
 }
 
 // ListHeadquarters is the resolver for the listHeadquarters field.
-func (r *queryResolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Headquarters, error) {
+func (r *queryResolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error) {
 	return r.Resolver.ListHeadquarters(ctx, pagination, orderBy, filter)
 }
 
@@ -288,7 +288,7 @@ func (r *queryResolver) GetPublishingHouse(ctx context.Context, id model.UUID) (
 }
 
 // ListPublishingHouse is the resolver for the listPublishingHouse field.
-func (r *queryResolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.PublishingHouse, error) {
+func (r *queryResolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error) {
 	return r.Resolver.ListPublishingHouse(ctx, pagination, orderBy, filter)
 }
 
@@ -298,7 +298,7 @@ func (r *queryResolver) GetTag(ctx context.Context, id model.UUID) (*model.Tag, 
 }
 
 // ListTag is the resolver for the listTag field.
-func (r *queryResolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Tag, error) {
+func (r *queryResolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error) {
 	return r.Resolver.ListTag(ctx, pagination, orderBy, filter)
 }
 

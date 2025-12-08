@@ -209,6 +209,18 @@ type Author {
   tags: [Tag]
 }
 
+"""Author connection"""
+type AuthorConnection {
+  edges: [AuthorEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Author"""
+type AuthorEdge {
+  cursor: String!
+  node: Author!
+}
+
 """Author profile details"""
 type AuthorProfile {
   id: UUID!
@@ -217,6 +229,18 @@ type AuthorProfile {
   biography: String
   favoriteGenre: String
   writingStyle: String
+}
+
+"""AuthorProfile connection"""
+type AuthorProfileConnection {
+  edges: [AuthorProfileEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for AuthorProfile"""
+type AuthorProfileEdge {
+  cursor: String!
+  node: AuthorProfile!
 }
 
 """Book with author, publisher, chapters, and tags"""
@@ -237,6 +261,18 @@ type Book {
   title: String!
 }
 
+"""Book connection"""
+type BookConnection {
+  edges: [BookEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Book"""
+type BookEdge {
+  cursor: String!
+  node: Book!
+}
+
 """Chapter belonging to a book"""
 type Chapter {
   id: UUID!
@@ -245,6 +281,18 @@ type Chapter {
   chapterIndex: Int!
   title: String!
   wordCount: Int!
+}
+
+"""Chapter connection"""
+type ChapterConnection {
+  edges: [ChapterEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Chapter"""
+type ChapterEdge {
+  cursor: String!
+  node: Chapter!
 }
 
 """Headquarters belongs to a publishing house"""
@@ -259,10 +307,24 @@ type Headquarters {
   publisherId: UUID!
 }
 
+"""Headquarters connection"""
+type HeadquartersConnection {
+  edges: [HeadquartersEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Headquarters"""
+type HeadquartersEdge {
+  cursor: String!
+  node: Headquarters!
+}
+
 type PageInfo {
   total: Int!
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
 }
 
 """Publishing house with catalog and authors"""
@@ -278,6 +340,18 @@ type PublishingHouse {
   name: String!
 }
 
+"""PublishingHouse connection"""
+type PublishingHouseConnection {
+  edges: [PublishingHouseEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for PublishingHouse"""
+type PublishingHouseEdge {
+  cursor: String!
+  node: PublishingHouse!
+}
+
 """Tag used for books and authors"""
 type Tag {
   id: UUID!
@@ -289,21 +363,33 @@ type Tag {
   name: String!
 }
 
+"""Tag connection"""
+type TagConnection {
+  edges: [TagEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Tag"""
+type TagEdge {
+  cursor: String!
+  node: Tag!
+}
+
 type Query {
   getAuthor(id: UUID!): Author!
-  listAuthor(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Author!]!
+  listAuthor(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): AuthorConnection!
   getAuthorProfile(id: UUID!): AuthorProfile!
-  listAuthorProfile(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [AuthorProfile!]!
+  listAuthorProfile(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): AuthorProfileConnection!
   getBook(id: UUID!): Book!
-  listBook(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Book!]!
+  listBook(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): BookConnection!
   getChapter(id: UUID!): Chapter!
-  listChapter(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Chapter!]!
+  listChapter(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): ChapterConnection!
   getHeadquarters(id: UUID!): Headquarters!
-  listHeadquarters(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Headquarters!]!
+  listHeadquarters(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): HeadquartersConnection!
   getPublishingHouse(id: UUID!): PublishingHouse!
-  listPublishingHouse(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [PublishingHouse!]!
+  listPublishingHouse(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): PublishingHouseConnection!
   getTag(id: UUID!): Tag!
-  listTag(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Tag!]!
+  listTag(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): TagConnection!
 }
 
 type Mutation {

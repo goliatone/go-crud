@@ -13,6 +13,8 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 GraphQL endpoint: `http://localhost:9091/graphql`  
 Playground: `http://localhost:9091/playground`
 
+All list operations return Relay connections (`edges { node cursor }` + `pageInfo`) so clients can page using cursors while still seeing total counts.
+
 ## Seeded IDs (hashid)
 - Publisher Aurora: `ddfe89a9-c118-334b-ad2f-941166ef26f4`
 - Publisher Nimbus: `83669b17-c772-3c97-8556-23f067d05ba3`
@@ -33,20 +35,26 @@ List publishing houses with nested data:
 ```graphql
 query {
   listPublishingHouse {
-    id
-    name
-    headquarters { city country openedAt }
-    authors {
-      id
-      fullName
-      email
-      tags { name category }
-    }
-    books {
-      id
-      title
-      status
-      chapters { title chapterIndex }
+    pageInfo { total hasNextPage hasPreviousPage startCursor endCursor }
+    edges {
+      cursor
+      node {
+        id
+        name
+        headquarters { city country openedAt }
+        authors {
+          id
+          fullName
+          email
+          tags { name category }
+        }
+        books {
+          id
+          title
+          status
+          chapters { title chapterIndex }
+        }
+      }
     }
   }
 }
@@ -87,9 +95,14 @@ Fetch authors by tag filter:
 ```graphql
 query {
   listAuthor(filter: [{ field: "tags.name", operator: EQ, value: "Science Fiction" }]) {
-    id
-    fullName
-    tags { name }
+    pageInfo { total hasNextPage hasPreviousPage }
+    edges {
+      node {
+        id
+        fullName
+        tags { name }
+      }
+    }
   }
 }
 ```

@@ -55,6 +55,18 @@ type Author struct {
 	Tags        []*Tag           `json:"tags,omitempty"`
 }
 
+// Author connection
+type AuthorConnection struct {
+	Edges    []*AuthorEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo     `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Author
+type AuthorEdge struct {
+	Cursor string  `json:"cursor,omitempty"`
+	Node   *Author `json:"node,omitempty"`
+}
+
 // Author profile details
 type AuthorProfile struct {
 	Id            string  `json:"id,omitempty"`
@@ -63,6 +75,18 @@ type AuthorProfile struct {
 	Biography     string  `json:"biography,omitempty"`
 	FavoriteGenre string  `json:"favorite_genre,omitempty"`
 	WritingStyle  string  `json:"writing_style,omitempty"`
+}
+
+// AuthorProfile connection
+type AuthorProfileConnection struct {
+	Edges    []*AuthorProfileEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo            `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for AuthorProfile
+type AuthorProfileEdge struct {
+	Cursor string         `json:"cursor,omitempty"`
+	Node   *AuthorProfile `json:"node,omitempty"`
 }
 
 // Book with author, publisher, chapters, and tags
@@ -83,6 +107,18 @@ type Book struct {
 	Title         string           `json:"title,omitempty"`
 }
 
+// Book connection
+type BookConnection struct {
+	Edges    []*BookEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo   `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Book
+type BookEdge struct {
+	Cursor string `json:"cursor,omitempty"`
+	Node   *Book  `json:"node,omitempty"`
+}
+
 // Chapter belonging to a book
 type Chapter struct {
 	Id           string `json:"id,omitempty"`
@@ -91,6 +127,18 @@ type Chapter struct {
 	ChapterIndex int    `json:"chapter_index,omitempty"`
 	Title        string `json:"title,omitempty"`
 	WordCount    int    `json:"word_count,omitempty"`
+}
+
+// Chapter connection
+type ChapterConnection struct {
+	Edges    []*ChapterEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo      `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Chapter
+type ChapterEdge struct {
+	Cursor string   `json:"cursor,omitempty"`
+	Node   *Chapter `json:"node,omitempty"`
 }
 
 // Headquarters belongs to a publishing house
@@ -105,10 +153,24 @@ type Headquarters struct {
 	PublisherId  string           `json:"publisher_id,omitempty"`
 }
 
+// Headquarters connection
+type HeadquartersConnection struct {
+	Edges    []*HeadquartersEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo           `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Headquarters
+type HeadquartersEdge struct {
+	Cursor string        `json:"cursor,omitempty"`
+	Node   *Headquarters `json:"node,omitempty"`
+}
+
 type PageInfo struct {
-	Total           int  `json:"total,omitempty"`
-	HasNextPage     bool `json:"hasNextPage,omitempty"`
-	HasPreviousPage bool `json:"hasPreviousPage,omitempty"`
+	Total           int    `json:"total,omitempty"`
+	HasNextPage     bool   `json:"hasNextPage,omitempty"`
+	HasPreviousPage bool   `json:"hasPreviousPage,omitempty"`
+	StartCursor     string `json:"startCursor,omitempty"`
+	EndCursor       string `json:"endCursor,omitempty"`
 }
 
 // Publishing house with catalog and authors
@@ -124,6 +186,18 @@ type PublishingHouse struct {
 	Name          string        `json:"name,omitempty"`
 }
 
+// PublishingHouse connection
+type PublishingHouseConnection struct {
+	Edges    []*PublishingHouseEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo              `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for PublishingHouse
+type PublishingHouseEdge struct {
+	Cursor string           `json:"cursor,omitempty"`
+	Node   *PublishingHouse `json:"node,omitempty"`
+}
+
 // Tag used for books and authors
 type Tag struct {
 	Id          string     `json:"id,omitempty"`
@@ -133,6 +207,18 @@ type Tag struct {
 	Category    string     `json:"category,omitempty"`
 	Description string     `json:"description,omitempty"`
 	Name        string     `json:"name,omitempty"`
+}
+
+// Tag connection
+type TagConnection struct {
+	Edges    []*TagEdge `json:"edges,omitempty"`
+	PageInfo *PageInfo  `json:"pageInfo,omitempty"`
+}
+
+// Edge wrapper for Tag
+type TagEdge struct {
+	Cursor string `json:"cursor,omitempty"`
+	Node   *Tag   `json:"node,omitempty"`
 }
 
 // Input type for pagination parameters

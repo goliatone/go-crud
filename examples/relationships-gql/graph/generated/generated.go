@@ -83,6 +83,16 @@ type ComplexityRoot struct {
 		UpdatedAt   func(childComplexity int) int
 	}
 
+	AuthorConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	AuthorEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	AuthorProfile struct {
 		Author        func(childComplexity int) int
 		AuthorID      func(childComplexity int) int
@@ -90,6 +100,16 @@ type ComplexityRoot struct {
 		FavoriteGenre func(childComplexity int) int
 		ID            func(childComplexity int) int
 		WritingStyle  func(childComplexity int) int
+	}
+
+	AuthorProfileConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	AuthorProfileEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Book struct {
@@ -109,6 +129,16 @@ type ComplexityRoot struct {
 		UpdatedAt     func(childComplexity int) int
 	}
 
+	BookConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	BookEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	Chapter struct {
 		Book         func(childComplexity int) int
 		BookID       func(childComplexity int) int
@@ -116,6 +146,16 @@ type ComplexityRoot struct {
 		ID           func(childComplexity int) int
 		Title        func(childComplexity int) int
 		WordCount    func(childComplexity int) int
+	}
+
+	ChapterConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	ChapterEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Headquarters struct {
@@ -127,6 +167,16 @@ type ComplexityRoot struct {
 		OpenedAt     func(childComplexity int) int
 		Publisher    func(childComplexity int) int
 		PublisherID  func(childComplexity int) int
+	}
+
+	HeadquartersConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	HeadquartersEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -154,8 +204,10 @@ type ComplexityRoot struct {
 	}
 
 	PageInfo struct {
+		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
 		HasPreviousPage func(childComplexity int) int
+		StartCursor     func(childComplexity int) int
 		Total           func(childComplexity int) int
 	}
 
@@ -169,6 +221,16 @@ type ComplexityRoot struct {
 		ImprintPrefix func(childComplexity int) int
 		Name          func(childComplexity int) int
 		UpdatedAt     func(childComplexity int) int
+	}
+
+	PublishingHouseConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	PublishingHouseEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Query struct {
@@ -196,6 +258,16 @@ type ComplexityRoot struct {
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
 		Name        func(childComplexity int) int
+	}
+
+	TagConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	TagEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 }
 
@@ -269,19 +341,19 @@ type PublishingHouseResolver interface {
 }
 type QueryResolver interface {
 	GetAuthor(ctx context.Context, id model.UUID) (*model.Author, error)
-	ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Author, error)
+	ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error)
 	GetAuthorProfile(ctx context.Context, id model.UUID) (*model.AuthorProfile, error)
-	ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.AuthorProfile, error)
+	ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error)
 	GetBook(ctx context.Context, id model.UUID) (*model.Book, error)
-	ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Book, error)
+	ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error)
 	GetChapter(ctx context.Context, id model.UUID) (*model.Chapter, error)
-	ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Chapter, error)
+	ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error)
 	GetHeadquarters(ctx context.Context, id model.UUID) (*model.Headquarters, error)
-	ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Headquarters, error)
+	ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error)
 	GetPublishingHouse(ctx context.Context, id model.UUID) (*model.PublishingHouse, error)
-	ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.PublishingHouse, error)
+	ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error)
 	GetTag(ctx context.Context, id model.UUID) (*model.Tag, error)
-	ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) ([]*model.Tag, error)
+	ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error)
 }
 type TagResolver interface {
 	ID(ctx context.Context, obj *model.Tag) (model.UUID, error)
@@ -461,6 +533,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Author.UpdatedAt(childComplexity), true
 
+	case "AuthorConnection.edges":
+		if e.complexity.AuthorConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.AuthorConnection.Edges(childComplexity), true
+	case "AuthorConnection.pageInfo":
+		if e.complexity.AuthorConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.AuthorConnection.PageInfo(childComplexity), true
+
+	case "AuthorEdge.cursor":
+		if e.complexity.AuthorEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.AuthorEdge.Cursor(childComplexity), true
+	case "AuthorEdge.node":
+		if e.complexity.AuthorEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.AuthorEdge.Node(childComplexity), true
+
 	case "AuthorProfile.author":
 		if e.complexity.AuthorProfile.Author == nil {
 			break
@@ -497,6 +595,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.AuthorProfile.WritingStyle(childComplexity), true
+
+	case "AuthorProfileConnection.edges":
+		if e.complexity.AuthorProfileConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.AuthorProfileConnection.Edges(childComplexity), true
+	case "AuthorProfileConnection.pageInfo":
+		if e.complexity.AuthorProfileConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.AuthorProfileConnection.PageInfo(childComplexity), true
+
+	case "AuthorProfileEdge.cursor":
+		if e.complexity.AuthorProfileEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.AuthorProfileEdge.Cursor(childComplexity), true
+	case "AuthorProfileEdge.node":
+		if e.complexity.AuthorProfileEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.AuthorProfileEdge.Node(childComplexity), true
 
 	case "Book.author":
 		if e.complexity.Book.Author == nil {
@@ -583,6 +707,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Book.UpdatedAt(childComplexity), true
 
+	case "BookConnection.edges":
+		if e.complexity.BookConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.BookConnection.Edges(childComplexity), true
+	case "BookConnection.pageInfo":
+		if e.complexity.BookConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.BookConnection.PageInfo(childComplexity), true
+
+	case "BookEdge.cursor":
+		if e.complexity.BookEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.BookEdge.Cursor(childComplexity), true
+	case "BookEdge.node":
+		if e.complexity.BookEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.BookEdge.Node(childComplexity), true
+
 	case "Chapter.book":
 		if e.complexity.Chapter.Book == nil {
 			break
@@ -619,6 +769,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Chapter.WordCount(childComplexity), true
+
+	case "ChapterConnection.edges":
+		if e.complexity.ChapterConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.ChapterConnection.Edges(childComplexity), true
+	case "ChapterConnection.pageInfo":
+		if e.complexity.ChapterConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.ChapterConnection.PageInfo(childComplexity), true
+
+	case "ChapterEdge.cursor":
+		if e.complexity.ChapterEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.ChapterEdge.Cursor(childComplexity), true
+	case "ChapterEdge.node":
+		if e.complexity.ChapterEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.ChapterEdge.Node(childComplexity), true
 
 	case "Headquarters.addressLine1":
 		if e.complexity.Headquarters.AddressLine1 == nil {
@@ -668,6 +844,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Headquarters.PublisherID(childComplexity), true
+
+	case "HeadquartersConnection.edges":
+		if e.complexity.HeadquartersConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.HeadquartersConnection.Edges(childComplexity), true
+	case "HeadquartersConnection.pageInfo":
+		if e.complexity.HeadquartersConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.HeadquartersConnection.PageInfo(childComplexity), true
+
+	case "HeadquartersEdge.cursor":
+		if e.complexity.HeadquartersEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.HeadquartersEdge.Cursor(childComplexity), true
+	case "HeadquartersEdge.node":
+		if e.complexity.HeadquartersEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.HeadquartersEdge.Node(childComplexity), true
 
 	case "Mutation.createAuthor":
 		if e.complexity.Mutation.CreateAuthor == nil {
@@ -901,6 +1103,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.UpdateTag(childComplexity, args["id"].(model.UUID), args["input"].(model.UpdateTagInput)), true
 
+	case "PageInfo.endCursor":
+		if e.complexity.PageInfo.EndCursor == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.EndCursor(childComplexity), true
 	case "PageInfo.hasNextPage":
 		if e.complexity.PageInfo.HasNextPage == nil {
 			break
@@ -913,6 +1121,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.PageInfo.HasPreviousPage(childComplexity), true
+	case "PageInfo.startCursor":
+		if e.complexity.PageInfo.StartCursor == nil {
+			break
+		}
+
+		return e.complexity.PageInfo.StartCursor(childComplexity), true
 	case "PageInfo.total":
 		if e.complexity.PageInfo.Total == nil {
 			break
@@ -974,6 +1188,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.PublishingHouse.UpdatedAt(childComplexity), true
+
+	case "PublishingHouseConnection.edges":
+		if e.complexity.PublishingHouseConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.PublishingHouseConnection.Edges(childComplexity), true
+	case "PublishingHouseConnection.pageInfo":
+		if e.complexity.PublishingHouseConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.PublishingHouseConnection.PageInfo(childComplexity), true
+
+	case "PublishingHouseEdge.cursor":
+		if e.complexity.PublishingHouseEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.PublishingHouseEdge.Cursor(childComplexity), true
+	case "PublishingHouseEdge.node":
+		if e.complexity.PublishingHouseEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.PublishingHouseEdge.Node(childComplexity), true
 
 	case "Query.getAuthor":
 		if e.complexity.Query.GetAuthor == nil {
@@ -1172,6 +1412,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Tag.Name(childComplexity), true
+
+	case "TagConnection.edges":
+		if e.complexity.TagConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.TagConnection.Edges(childComplexity), true
+	case "TagConnection.pageInfo":
+		if e.complexity.TagConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.TagConnection.PageInfo(childComplexity), true
+
+	case "TagEdge.cursor":
+		if e.complexity.TagEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.TagEdge.Cursor(childComplexity), true
+	case "TagEdge.node":
+		if e.complexity.TagEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.TagEdge.Node(childComplexity), true
 
 	}
 	return 0, false
@@ -1506,6 +1772,18 @@ type Author {
   tags: [Tag]
 }
 
+"""Author connection"""
+type AuthorConnection {
+  edges: [AuthorEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Author"""
+type AuthorEdge {
+  cursor: String!
+  node: Author!
+}
+
 """Author profile details"""
 type AuthorProfile {
   id: UUID!
@@ -1514,6 +1792,18 @@ type AuthorProfile {
   biography: String
   favoriteGenre: String
   writingStyle: String
+}
+
+"""AuthorProfile connection"""
+type AuthorProfileConnection {
+  edges: [AuthorProfileEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for AuthorProfile"""
+type AuthorProfileEdge {
+  cursor: String!
+  node: AuthorProfile!
 }
 
 """Book with author, publisher, chapters, and tags"""
@@ -1534,6 +1824,18 @@ type Book {
   title: String!
 }
 
+"""Book connection"""
+type BookConnection {
+  edges: [BookEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Book"""
+type BookEdge {
+  cursor: String!
+  node: Book!
+}
+
 """Chapter belonging to a book"""
 type Chapter {
   id: UUID!
@@ -1542,6 +1844,18 @@ type Chapter {
   chapterIndex: Int!
   title: String!
   wordCount: Int!
+}
+
+"""Chapter connection"""
+type ChapterConnection {
+  edges: [ChapterEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Chapter"""
+type ChapterEdge {
+  cursor: String!
+  node: Chapter!
 }
 
 """Headquarters belongs to a publishing house"""
@@ -1556,10 +1870,24 @@ type Headquarters {
   publisherId: UUID!
 }
 
+"""Headquarters connection"""
+type HeadquartersConnection {
+  edges: [HeadquartersEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Headquarters"""
+type HeadquartersEdge {
+  cursor: String!
+  node: Headquarters!
+}
+
 type PageInfo {
   total: Int!
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
 }
 
 """Publishing house with catalog and authors"""
@@ -1575,6 +1903,18 @@ type PublishingHouse {
   name: String!
 }
 
+"""PublishingHouse connection"""
+type PublishingHouseConnection {
+  edges: [PublishingHouseEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for PublishingHouse"""
+type PublishingHouseEdge {
+  cursor: String!
+  node: PublishingHouse!
+}
+
 """Tag used for books and authors"""
 type Tag {
   id: UUID!
@@ -1586,21 +1926,33 @@ type Tag {
   name: String!
 }
 
+"""Tag connection"""
+type TagConnection {
+  edges: [TagEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for Tag"""
+type TagEdge {
+  cursor: String!
+  node: Tag!
+}
+
 type Query {
   getAuthor(id: UUID!): Author!
-  listAuthor(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Author!]!
+  listAuthor(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): AuthorConnection!
   getAuthorProfile(id: UUID!): AuthorProfile!
-  listAuthorProfile(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [AuthorProfile!]!
+  listAuthorProfile(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): AuthorProfileConnection!
   getBook(id: UUID!): Book!
-  listBook(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Book!]!
+  listBook(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): BookConnection!
   getChapter(id: UUID!): Chapter!
-  listChapter(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Chapter!]!
+  listChapter(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): ChapterConnection!
   getHeadquarters(id: UUID!): Headquarters!
-  listHeadquarters(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Headquarters!]!
+  listHeadquarters(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): HeadquartersConnection!
   getPublishingHouse(id: UUID!): PublishingHouse!
-  listPublishingHouse(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [PublishingHouse!]!
+  listPublishingHouse(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): PublishingHouseConnection!
   getTag(id: UUID!): Tag!
-  listTag(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): [Tag!]!
+  listTag(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): TagConnection!
 }
 
 type Mutation {
@@ -2644,6 +2996,168 @@ func (ec *executionContext) fieldContext_Author_tags(_ context.Context, field gr
 	return fc, nil
 }
 
+func (ec *executionContext) _AuthorConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.AuthorConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNAuthorEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_AuthorEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_AuthorEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.AuthorConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.AuthorEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.AuthorEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Author_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Author_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Author_updatedAt(ctx, field)
+			case "active":
+				return ec.fieldContext_Author_active(ctx, field)
+			case "books":
+				return ec.fieldContext_Author_books(ctx, field)
+			case "email":
+				return ec.fieldContext_Author_email(ctx, field)
+			case "fullName":
+				return ec.fieldContext_Author_fullName(ctx, field)
+			case "hiredAt":
+				return ec.fieldContext_Author_hiredAt(ctx, field)
+			case "penName":
+				return ec.fieldContext_Author_penName(ctx, field)
+			case "profile":
+				return ec.fieldContext_Author_profile(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Author_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Author_publisherId(ctx, field)
+			case "tags":
+				return ec.fieldContext_Author_tags(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _AuthorProfile_id(ctx context.Context, field graphql.CollectedField, obj *model.AuthorProfile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2841,6 +3355,154 @@ func (ec *executionContext) fieldContext_AuthorProfile_writingStyle(_ context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorProfileConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.AuthorProfileConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorProfileConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNAuthorProfileEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorProfileConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorProfileConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_AuthorProfileEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_AuthorProfileEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfileEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorProfileConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.AuthorProfileConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorProfileConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorProfileConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorProfileConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorProfileEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.AuthorProfileEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorProfileEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorProfileEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorProfileEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AuthorProfileEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.AuthorProfileEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_AuthorProfileEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_AuthorProfileEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuthorProfileEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_AuthorProfile_id(ctx, field)
+			case "author":
+				return ec.fieldContext_AuthorProfile_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_AuthorProfile_authorId(ctx, field)
+			case "biography":
+				return ec.fieldContext_AuthorProfile_biography(ctx, field)
+			case "favoriteGenre":
+				return ec.fieldContext_AuthorProfile_favoriteGenre(ctx, field)
+			case "writingStyle":
+				return ec.fieldContext_AuthorProfile_writingStyle(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfile", field.Name)
 		},
 	}
 	return fc, nil
@@ -3330,6 +3992,170 @@ func (ec *executionContext) fieldContext_Book_title(_ context.Context, field gra
 	return fc, nil
 }
 
+func (ec *executionContext) _BookConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.BookConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BookConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNBookEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BookConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BookConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_BookEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_BookEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type BookEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BookConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.BookConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BookConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BookConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BookConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BookEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.BookEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BookEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BookEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BookEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BookEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.BookEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_BookEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_BookEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BookEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Book_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Book_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Book_updatedAt(ctx, field)
+			case "author":
+				return ec.fieldContext_Book_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_Book_authorId(ctx, field)
+			case "chapters":
+				return ec.fieldContext_Book_chapters(ctx, field)
+			case "isbn":
+				return ec.fieldContext_Book_isbn(ctx, field)
+			case "lastReprintAt":
+				return ec.fieldContext_Book_lastReprintAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Book_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Book_publisherId(ctx, field)
+			case "releaseDate":
+				return ec.fieldContext_Book_releaseDate(ctx, field)
+			case "status":
+				return ec.fieldContext_Book_status(ctx, field)
+			case "tags":
+				return ec.fieldContext_Book_tags(ctx, field)
+			case "title":
+				return ec.fieldContext_Book_title(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Chapter_id(ctx context.Context, field graphql.CollectedField, obj *model.Chapter) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3529,6 +4355,154 @@ func (ec *executionContext) fieldContext_Chapter_wordCount(_ context.Context, fi
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ChapterConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.ChapterConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ChapterConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNChapterEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ChapterConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChapterConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_ChapterEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_ChapterEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ChapterEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ChapterConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.ChapterConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ChapterConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ChapterConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChapterConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ChapterEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.ChapterEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ChapterEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ChapterEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChapterEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ChapterEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.ChapterEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ChapterEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ChapterEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ChapterEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Chapter_id(ctx, field)
+			case "book":
+				return ec.fieldContext_Chapter_book(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Chapter_bookId(ctx, field)
+			case "chapterIndex":
+				return ec.fieldContext_Chapter_chapterIndex(ctx, field)
+			case "title":
+				return ec.fieldContext_Chapter_title(ctx, field)
+			case "wordCount":
+				return ec.fieldContext_Chapter_wordCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Chapter", field.Name)
 		},
 	}
 	return fc, nil
@@ -3781,6 +4755,158 @@ func (ec *executionContext) fieldContext_Headquarters_publisherId(_ context.Cont
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HeadquartersConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.HeadquartersConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HeadquartersConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNHeadquartersEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HeadquartersConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HeadquartersConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_HeadquartersEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_HeadquartersEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type HeadquartersEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HeadquartersConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.HeadquartersConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HeadquartersConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HeadquartersConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HeadquartersConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HeadquartersEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.HeadquartersEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HeadquartersEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HeadquartersEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HeadquartersEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _HeadquartersEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.HeadquartersEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_HeadquartersEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_HeadquartersEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HeadquartersEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Headquarters_id(ctx, field)
+			case "addressLine1":
+				return ec.fieldContext_Headquarters_addressLine1(ctx, field)
+			case "addressLine2":
+				return ec.fieldContext_Headquarters_addressLine2(ctx, field)
+			case "city":
+				return ec.fieldContext_Headquarters_city(ctx, field)
+			case "country":
+				return ec.fieldContext_Headquarters_country(ctx, field)
+			case "openedAt":
+				return ec.fieldContext_Headquarters_openedAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Headquarters_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Headquarters_publisherId(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Headquarters", field.Name)
 		},
 	}
 	return fc, nil
@@ -5014,6 +6140,64 @@ func (ec *executionContext) fieldContext_PageInfo_hasPreviousPage(_ context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _PageInfo_startCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PageInfo_startCursor,
+		func(ctx context.Context) (any, error) {
+			return obj.StartCursor, nil
+		},
+		nil,
+		ec.marshalOString2string,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_startCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PageInfo_endCursor,
+		func(ctx context.Context) (any, error) {
+			return obj.EndCursor, nil
+		},
+		nil,
+		ec.marshalOString2string,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_PageInfo_endCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PublishingHouse_id(ctx context.Context, field graphql.CollectedField, obj *model.PublishingHouse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5351,6 +6535,160 @@ func (ec *executionContext) fieldContext_PublishingHouse_name(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _PublishingHouseConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.PublishingHouseConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PublishingHouseConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNPublishingHouseEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PublishingHouseConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PublishingHouseConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_PublishingHouseEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_PublishingHouseEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouseEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PublishingHouseConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.PublishingHouseConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PublishingHouseConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PublishingHouseConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PublishingHouseConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PublishingHouseEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.PublishingHouseEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PublishingHouseEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PublishingHouseEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PublishingHouseEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PublishingHouseEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.PublishingHouseEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PublishingHouseEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PublishingHouseEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PublishingHouseEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_PublishingHouse_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_PublishingHouse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_PublishingHouse_updatedAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_PublishingHouse_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_PublishingHouse_books(ctx, field)
+			case "establishedAt":
+				return ec.fieldContext_PublishingHouse_establishedAt(ctx, field)
+			case "headquarters":
+				return ec.fieldContext_PublishingHouse_headquarters(ctx, field)
+			case "imprintPrefix":
+				return ec.fieldContext_PublishingHouse_imprintPrefix(ctx, field)
+			case "name":
+				return ec.fieldContext_PublishingHouse_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_getAuthor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5431,7 +6769,7 @@ func (ec *executionContext) _Query_listAuthor(ctx context.Context, field graphql
 			return ec.resolvers.Query().ListAuthor(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNAuthor2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorᚄ,
+		ec.marshalNAuthorConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorConnection,
 		true,
 		true,
 	)
@@ -5445,34 +6783,12 @@ func (ec *executionContext) fieldContext_Query_listAuthor(ctx context.Context, f
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Author_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Author_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Author_updatedAt(ctx, field)
-			case "active":
-				return ec.fieldContext_Author_active(ctx, field)
-			case "books":
-				return ec.fieldContext_Author_books(ctx, field)
-			case "email":
-				return ec.fieldContext_Author_email(ctx, field)
-			case "fullName":
-				return ec.fieldContext_Author_fullName(ctx, field)
-			case "hiredAt":
-				return ec.fieldContext_Author_hiredAt(ctx, field)
-			case "penName":
-				return ec.fieldContext_Author_penName(ctx, field)
-			case "profile":
-				return ec.fieldContext_Author_profile(ctx, field)
-			case "publisher":
-				return ec.fieldContext_Author_publisher(ctx, field)
-			case "publisherId":
-				return ec.fieldContext_Author_publisherId(ctx, field)
-			case "tags":
-				return ec.fieldContext_Author_tags(ctx, field)
+			case "edges":
+				return ec.fieldContext_AuthorConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_AuthorConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type AuthorConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -5555,7 +6871,7 @@ func (ec *executionContext) _Query_listAuthorProfile(ctx context.Context, field 
 			return ec.resolvers.Query().ListAuthorProfile(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNAuthorProfile2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileᚄ,
+		ec.marshalNAuthorProfileConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileConnection,
 		true,
 		true,
 	)
@@ -5569,20 +6885,12 @@ func (ec *executionContext) fieldContext_Query_listAuthorProfile(ctx context.Con
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_AuthorProfile_id(ctx, field)
-			case "author":
-				return ec.fieldContext_AuthorProfile_author(ctx, field)
-			case "authorId":
-				return ec.fieldContext_AuthorProfile_authorId(ctx, field)
-			case "biography":
-				return ec.fieldContext_AuthorProfile_biography(ctx, field)
-			case "favoriteGenre":
-				return ec.fieldContext_AuthorProfile_favoriteGenre(ctx, field)
-			case "writingStyle":
-				return ec.fieldContext_AuthorProfile_writingStyle(ctx, field)
+			case "edges":
+				return ec.fieldContext_AuthorProfileConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_AuthorProfileConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type AuthorProfile", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfileConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -5681,7 +6989,7 @@ func (ec *executionContext) _Query_listBook(ctx context.Context, field graphql.C
 			return ec.resolvers.Query().ListBook(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNBook2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookᚄ,
+		ec.marshalNBookConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookConnection,
 		true,
 		true,
 	)
@@ -5695,36 +7003,12 @@ func (ec *executionContext) fieldContext_Query_listBook(ctx context.Context, fie
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Book_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Book_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Book_updatedAt(ctx, field)
-			case "author":
-				return ec.fieldContext_Book_author(ctx, field)
-			case "authorId":
-				return ec.fieldContext_Book_authorId(ctx, field)
-			case "chapters":
-				return ec.fieldContext_Book_chapters(ctx, field)
-			case "isbn":
-				return ec.fieldContext_Book_isbn(ctx, field)
-			case "lastReprintAt":
-				return ec.fieldContext_Book_lastReprintAt(ctx, field)
-			case "publisher":
-				return ec.fieldContext_Book_publisher(ctx, field)
-			case "publisherId":
-				return ec.fieldContext_Book_publisherId(ctx, field)
-			case "releaseDate":
-				return ec.fieldContext_Book_releaseDate(ctx, field)
-			case "status":
-				return ec.fieldContext_Book_status(ctx, field)
-			case "tags":
-				return ec.fieldContext_Book_tags(ctx, field)
-			case "title":
-				return ec.fieldContext_Book_title(ctx, field)
+			case "edges":
+				return ec.fieldContext_BookConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_BookConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type BookConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -5807,7 +7091,7 @@ func (ec *executionContext) _Query_listChapter(ctx context.Context, field graphq
 			return ec.resolvers.Query().ListChapter(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNChapter2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterᚄ,
+		ec.marshalNChapterConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterConnection,
 		true,
 		true,
 	)
@@ -5821,20 +7105,12 @@ func (ec *executionContext) fieldContext_Query_listChapter(ctx context.Context, 
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Chapter_id(ctx, field)
-			case "book":
-				return ec.fieldContext_Chapter_book(ctx, field)
-			case "bookId":
-				return ec.fieldContext_Chapter_bookId(ctx, field)
-			case "chapterIndex":
-				return ec.fieldContext_Chapter_chapterIndex(ctx, field)
-			case "title":
-				return ec.fieldContext_Chapter_title(ctx, field)
-			case "wordCount":
-				return ec.fieldContext_Chapter_wordCount(ctx, field)
+			case "edges":
+				return ec.fieldContext_ChapterConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_ChapterConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Chapter", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type ChapterConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -5921,7 +7197,7 @@ func (ec *executionContext) _Query_listHeadquarters(ctx context.Context, field g
 			return ec.resolvers.Query().ListHeadquarters(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNHeadquarters2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersᚄ,
+		ec.marshalNHeadquartersConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersConnection,
 		true,
 		true,
 	)
@@ -5935,24 +7211,12 @@ func (ec *executionContext) fieldContext_Query_listHeadquarters(ctx context.Cont
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Headquarters_id(ctx, field)
-			case "addressLine1":
-				return ec.fieldContext_Headquarters_addressLine1(ctx, field)
-			case "addressLine2":
-				return ec.fieldContext_Headquarters_addressLine2(ctx, field)
-			case "city":
-				return ec.fieldContext_Headquarters_city(ctx, field)
-			case "country":
-				return ec.fieldContext_Headquarters_country(ctx, field)
-			case "openedAt":
-				return ec.fieldContext_Headquarters_openedAt(ctx, field)
-			case "publisher":
-				return ec.fieldContext_Headquarters_publisher(ctx, field)
-			case "publisherId":
-				return ec.fieldContext_Headquarters_publisherId(ctx, field)
+			case "edges":
+				return ec.fieldContext_HeadquartersConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_HeadquartersConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Headquarters", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type HeadquartersConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -6041,7 +7305,7 @@ func (ec *executionContext) _Query_listPublishingHouse(ctx context.Context, fiel
 			return ec.resolvers.Query().ListPublishingHouse(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNPublishingHouse2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseᚄ,
+		ec.marshalNPublishingHouseConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseConnection,
 		true,
 		true,
 	)
@@ -6055,26 +7319,12 @@ func (ec *executionContext) fieldContext_Query_listPublishingHouse(ctx context.C
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_PublishingHouse_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_PublishingHouse_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_PublishingHouse_updatedAt(ctx, field)
-			case "authors":
-				return ec.fieldContext_PublishingHouse_authors(ctx, field)
-			case "books":
-				return ec.fieldContext_PublishingHouse_books(ctx, field)
-			case "establishedAt":
-				return ec.fieldContext_PublishingHouse_establishedAt(ctx, field)
-			case "headquarters":
-				return ec.fieldContext_PublishingHouse_headquarters(ctx, field)
-			case "imprintPrefix":
-				return ec.fieldContext_PublishingHouse_imprintPrefix(ctx, field)
-			case "name":
-				return ec.fieldContext_PublishingHouse_name(ctx, field)
+			case "edges":
+				return ec.fieldContext_PublishingHouseConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_PublishingHouseConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type PublishingHouse", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouseConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -6159,7 +7409,7 @@ func (ec *executionContext) _Query_listTag(ctx context.Context, field graphql.Co
 			return ec.resolvers.Query().ListTag(ctx, fc.Args["pagination"].(*model.PaginationInput), fc.Args["orderBy"].([]*model.OrderByInput), fc.Args["filter"].([]*model.FilterInput))
 		},
 		nil,
-		ec.marshalNTag2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagᚄ,
+		ec.marshalNTagConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagConnection,
 		true,
 		true,
 	)
@@ -6173,22 +7423,12 @@ func (ec *executionContext) fieldContext_Query_listTag(ctx context.Context, fiel
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Tag_id(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Tag_createdAt(ctx, field)
-			case "authors":
-				return ec.fieldContext_Tag_authors(ctx, field)
-			case "books":
-				return ec.fieldContext_Tag_books(ctx, field)
-			case "category":
-				return ec.fieldContext_Tag_category(ctx, field)
-			case "description":
-				return ec.fieldContext_Tag_description(ctx, field)
-			case "name":
-				return ec.fieldContext_Tag_name(ctx, field)
+			case "edges":
+				return ec.fieldContext_TagConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TagConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TagConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -6569,6 +7809,156 @@ func (ec *executionContext) fieldContext_Tag_name(_ context.Context, field graph
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.TagConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TagConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNTagEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TagConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "cursor":
+				return ec.fieldContext_TagEdge_cursor(ctx, field)
+			case "node":
+				return ec.fieldContext_TagEdge_node(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TagEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.TagConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TagConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TagConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_PageInfo_total(ctx, field)
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.TagEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TagEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TagEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TagEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.TagEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TagEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TagEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TagEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Tag_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Tag_createdAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_Tag_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_Tag_books(ctx, field)
+			case "category":
+				return ec.fieldContext_Tag_category(ctx, field)
+			case "description":
+				return ec.fieldContext_Tag_description(ctx, field)
+			case "name":
+				return ec.fieldContext_Tag_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
 		},
 	}
 	return fc, nil
@@ -9279,6 +10669,94 @@ func (ec *executionContext) _Author(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var authorConnectionImplementors = []string{"AuthorConnection"}
+
+func (ec *executionContext) _AuthorConnection(ctx context.Context, sel ast.SelectionSet, obj *model.AuthorConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, authorConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuthorConnection")
+		case "edges":
+			out.Values[i] = ec._AuthorConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._AuthorConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var authorEdgeImplementors = []string{"AuthorEdge"}
+
+func (ec *executionContext) _AuthorEdge(ctx context.Context, sel ast.SelectionSet, obj *model.AuthorEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, authorEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuthorEdge")
+		case "cursor":
+			out.Values[i] = ec._AuthorEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._AuthorEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var authorProfileImplementors = []string{"AuthorProfile"}
 
 func (ec *executionContext) _AuthorProfile(ctx context.Context, sel ast.SelectionSet, obj *model.AuthorProfile) graphql.Marshaler {
@@ -9370,6 +10848,94 @@ func (ec *executionContext) _AuthorProfile(ctx context.Context, sel ast.Selectio
 			out.Values[i] = ec._AuthorProfile_favoriteGenre(ctx, field, obj)
 		case "writingStyle":
 			out.Values[i] = ec._AuthorProfile_writingStyle(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var authorProfileConnectionImplementors = []string{"AuthorProfileConnection"}
+
+func (ec *executionContext) _AuthorProfileConnection(ctx context.Context, sel ast.SelectionSet, obj *model.AuthorProfileConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, authorProfileConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuthorProfileConnection")
+		case "edges":
+			out.Values[i] = ec._AuthorProfileConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._AuthorProfileConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var authorProfileEdgeImplementors = []string{"AuthorProfileEdge"}
+
+func (ec *executionContext) _AuthorProfileEdge(ctx context.Context, sel ast.SelectionSet, obj *model.AuthorProfileEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, authorProfileEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuthorProfileEdge")
+		case "cursor":
+			out.Values[i] = ec._AuthorProfileEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._AuthorProfileEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9690,6 +11256,94 @@ func (ec *executionContext) _Book(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
+var bookConnectionImplementors = []string{"BookConnection"}
+
+func (ec *executionContext) _BookConnection(ctx context.Context, sel ast.SelectionSet, obj *model.BookConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, bookConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BookConnection")
+		case "edges":
+			out.Values[i] = ec._BookConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._BookConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var bookEdgeImplementors = []string{"BookEdge"}
+
+func (ec *executionContext) _BookEdge(ctx context.Context, sel ast.SelectionSet, obj *model.BookEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, bookEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BookEdge")
+		case "cursor":
+			out.Values[i] = ec._BookEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._BookEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var chapterImplementors = []string{"Chapter"}
 
 func (ec *executionContext) _Chapter(ctx context.Context, sel ast.SelectionSet, obj *model.Chapter) graphql.Marshaler {
@@ -9789,6 +11443,94 @@ func (ec *executionContext) _Chapter(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = ec._Chapter_wordCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var chapterConnectionImplementors = []string{"ChapterConnection"}
+
+func (ec *executionContext) _ChapterConnection(ctx context.Context, sel ast.SelectionSet, obj *model.ChapterConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, chapterConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChapterConnection")
+		case "edges":
+			out.Values[i] = ec._ChapterConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._ChapterConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var chapterEdgeImplementors = []string{"ChapterEdge"}
+
+func (ec *executionContext) _ChapterEdge(ctx context.Context, sel ast.SelectionSet, obj *model.ChapterEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, chapterEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChapterEdge")
+		case "cursor":
+			out.Values[i] = ec._ChapterEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._ChapterEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -9948,6 +11690,94 @@ func (ec *executionContext) _Headquarters(ctx context.Context, sel ast.Selection
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var headquartersConnectionImplementors = []string{"HeadquartersConnection"}
+
+func (ec *executionContext) _HeadquartersConnection(ctx context.Context, sel ast.SelectionSet, obj *model.HeadquartersConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, headquartersConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HeadquartersConnection")
+		case "edges":
+			out.Values[i] = ec._HeadquartersConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._HeadquartersConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var headquartersEdgeImplementors = []string{"HeadquartersEdge"}
+
+func (ec *executionContext) _HeadquartersEdge(ctx context.Context, sel ast.SelectionSet, obj *model.HeadquartersEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, headquartersEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HeadquartersEdge")
+		case "cursor":
+			out.Values[i] = ec._HeadquartersEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._HeadquartersEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10186,6 +12016,10 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "startCursor":
+			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
+		case "endCursor":
+			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10367,6 +12201,94 @@ func (ec *executionContext) _PublishingHouse(ctx context.Context, sel ast.Select
 			out.Values[i] = ec._PublishingHouse_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var publishingHouseConnectionImplementors = []string{"PublishingHouseConnection"}
+
+func (ec *executionContext) _PublishingHouseConnection(ctx context.Context, sel ast.SelectionSet, obj *model.PublishingHouseConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, publishingHouseConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PublishingHouseConnection")
+		case "edges":
+			out.Values[i] = ec._PublishingHouseConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._PublishingHouseConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var publishingHouseEdgeImplementors = []string{"PublishingHouseEdge"}
+
+func (ec *executionContext) _PublishingHouseEdge(ctx context.Context, sel ast.SelectionSet, obj *model.PublishingHouseEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, publishingHouseEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PublishingHouseEdge")
+		case "cursor":
+			out.Values[i] = ec._PublishingHouseEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._PublishingHouseEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -10868,6 +12790,94 @@ func (ec *executionContext) _Tag(ctx context.Context, sel ast.SelectionSet, obj 
 	return out
 }
 
+var tagConnectionImplementors = []string{"TagConnection"}
+
+func (ec *executionContext) _TagConnection(ctx context.Context, sel ast.SelectionSet, obj *model.TagConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TagConnection")
+		case "edges":
+			out.Values[i] = ec._TagConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TagConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var tagEdgeImplementors = []string{"TagEdge"}
+
+func (ec *executionContext) _TagEdge(ctx context.Context, sel ast.SelectionSet, obj *model.TagEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TagEdge")
+		case "cursor":
+			out.Values[i] = ec._TagEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._TagEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
@@ -11207,50 +13217,6 @@ func (ec *executionContext) marshalNAuthor2githubᚗcomᚋgoliatoneᚋgoᚑcrud�
 	return ec._Author(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAuthor2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Author) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
 func (ec *executionContext) marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor(ctx context.Context, sel ast.SelectionSet, v *model.Author) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -11261,11 +13227,21 @@ func (ec *executionContext) marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcr
 	return ec._Author(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNAuthorProfile2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile(ctx context.Context, sel ast.SelectionSet, v model.AuthorProfile) graphql.Marshaler {
-	return ec._AuthorProfile(ctx, sel, &v)
+func (ec *executionContext) marshalNAuthorConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorConnection(ctx context.Context, sel ast.SelectionSet, v model.AuthorConnection) graphql.Marshaler {
+	return ec._AuthorConnection(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAuthorProfile2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.AuthorProfile) graphql.Marshaler {
+func (ec *executionContext) marshalNAuthorConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorConnection(ctx context.Context, sel ast.SelectionSet, v *model.AuthorConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AuthorConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNAuthorEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.AuthorEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11289,7 +13265,7 @@ func (ec *executionContext) marshalNAuthorProfile2ᚕᚖgithubᚗcomᚋgoliatone
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile(ctx, sel, v[i])
+			ret[i] = ec.marshalNAuthorEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11307,6 +13283,20 @@ func (ec *executionContext) marshalNAuthorProfile2ᚕᚖgithubᚗcomᚋgoliatone
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalNAuthorEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorEdge(ctx context.Context, sel ast.SelectionSet, v *model.AuthorEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AuthorEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNAuthorProfile2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile(ctx context.Context, sel ast.SelectionSet, v model.AuthorProfile) graphql.Marshaler {
+	return ec._AuthorProfile(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile(ctx context.Context, sel ast.SelectionSet, v *model.AuthorProfile) graphql.Marshaler {
@@ -11319,11 +13309,21 @@ func (ec *executionContext) marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋ
 	return ec._AuthorProfile(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBook2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v model.Book) graphql.Marshaler {
-	return ec._Book(ctx, sel, &v)
+func (ec *executionContext) marshalNAuthorProfileConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileConnection(ctx context.Context, sel ast.SelectionSet, v model.AuthorProfileConnection) graphql.Marshaler {
+	return ec._AuthorProfileConnection(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Book) graphql.Marshaler {
+func (ec *executionContext) marshalNAuthorProfileConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileConnection(ctx context.Context, sel ast.SelectionSet, v *model.AuthorProfileConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AuthorProfileConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNAuthorProfileEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.AuthorProfileEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11347,7 +13347,7 @@ func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑc
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook(ctx, sel, v[i])
+			ret[i] = ec.marshalNAuthorProfileEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11367,6 +13367,20 @@ func (ec *executionContext) marshalNBook2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑc
 	return ret
 }
 
+func (ec *executionContext) marshalNAuthorProfileEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfileEdge(ctx context.Context, sel ast.SelectionSet, v *model.AuthorProfileEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AuthorProfileEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBook2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v model.Book) graphql.Marshaler {
+	return ec._Book(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook(ctx context.Context, sel ast.SelectionSet, v *model.Book) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -11375,6 +13389,74 @@ func (ec *executionContext) marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrud
 		return graphql.Null
 	}
 	return ec._Book(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBookConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookConnection(ctx context.Context, sel ast.SelectionSet, v model.BookConnection) graphql.Marshaler {
+	return ec._BookConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBookConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookConnection(ctx context.Context, sel ast.SelectionSet, v *model.BookConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BookConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBookEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BookEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNBookEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBookEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBookEdge(ctx context.Context, sel ast.SelectionSet, v *model.BookEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BookEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {
@@ -11397,7 +13479,31 @@ func (ec *executionContext) marshalNChapter2githubᚗcomᚋgoliatoneᚋgoᚑcrud
 	return ec._Chapter(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNChapter2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Chapter) graphql.Marshaler {
+func (ec *executionContext) marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter(ctx context.Context, sel ast.SelectionSet, v *model.Chapter) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Chapter(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNChapterConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterConnection(ctx context.Context, sel ast.SelectionSet, v model.ChapterConnection) graphql.Marshaler {
+	return ec._ChapterConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNChapterConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterConnection(ctx context.Context, sel ast.SelectionSet, v *model.ChapterConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ChapterConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNChapterEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ChapterEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11421,7 +13527,7 @@ func (ec *executionContext) marshalNChapter2ᚕᚖgithubᚗcomᚋgoliatoneᚋgo�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter(ctx, sel, v[i])
+			ret[i] = ec.marshalNChapterEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11441,14 +13547,14 @@ func (ec *executionContext) marshalNChapter2ᚕᚖgithubᚗcomᚋgoliatoneᚋgo�
 	return ret
 }
 
-func (ec *executionContext) marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter(ctx context.Context, sel ast.SelectionSet, v *model.Chapter) graphql.Marshaler {
+func (ec *executionContext) marshalNChapterEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapterEdge(ctx context.Context, sel ast.SelectionSet, v *model.ChapterEdge) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Chapter(ctx, sel, v)
+	return ec._ChapterEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNCreateAuthorInput2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐCreateAuthorInput(ctx context.Context, v any) (model.CreateAuthorInput, error) {
@@ -11507,7 +13613,31 @@ func (ec *executionContext) marshalNHeadquarters2githubᚗcomᚋgoliatoneᚋgo�
 	return ec._Headquarters(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNHeadquarters2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Headquarters) graphql.Marshaler {
+func (ec *executionContext) marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters(ctx context.Context, sel ast.SelectionSet, v *model.Headquarters) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Headquarters(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNHeadquartersConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersConnection(ctx context.Context, sel ast.SelectionSet, v model.HeadquartersConnection) graphql.Marshaler {
+	return ec._HeadquartersConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNHeadquartersConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersConnection(ctx context.Context, sel ast.SelectionSet, v *model.HeadquartersConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._HeadquartersConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNHeadquartersEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.HeadquartersEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11531,7 +13661,7 @@ func (ec *executionContext) marshalNHeadquarters2ᚕᚖgithubᚗcomᚋgoliatone�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters(ctx, sel, v[i])
+			ret[i] = ec.marshalNHeadquartersEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11551,14 +13681,14 @@ func (ec *executionContext) marshalNHeadquarters2ᚕᚖgithubᚗcomᚋgoliatone�
 	return ret
 }
 
-func (ec *executionContext) marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters(ctx context.Context, sel ast.SelectionSet, v *model.Headquarters) graphql.Marshaler {
+func (ec *executionContext) marshalNHeadquartersEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquartersEdge(ctx context.Context, sel ast.SelectionSet, v *model.HeadquartersEdge) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Headquarters(ctx, sel, v)
+	return ec._HeadquartersEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
@@ -11577,11 +13707,45 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
+func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PageInfo(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNPublishingHouse2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse(ctx context.Context, sel ast.SelectionSet, v model.PublishingHouse) graphql.Marshaler {
 	return ec._PublishingHouse(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNPublishingHouse2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.PublishingHouse) graphql.Marshaler {
+func (ec *executionContext) marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse(ctx context.Context, sel ast.SelectionSet, v *model.PublishingHouse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PublishingHouse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPublishingHouseConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseConnection(ctx context.Context, sel ast.SelectionSet, v model.PublishingHouseConnection) graphql.Marshaler {
+	return ec._PublishingHouseConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPublishingHouseConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseConnection(ctx context.Context, sel ast.SelectionSet, v *model.PublishingHouseConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PublishingHouseConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPublishingHouseEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.PublishingHouseEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11605,7 +13769,7 @@ func (ec *executionContext) marshalNPublishingHouse2ᚕᚖgithubᚗcomᚋgoliato
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse(ctx, sel, v[i])
+			ret[i] = ec.marshalNPublishingHouseEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11625,14 +13789,14 @@ func (ec *executionContext) marshalNPublishingHouse2ᚕᚖgithubᚗcomᚋgoliato
 	return ret
 }
 
-func (ec *executionContext) marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse(ctx context.Context, sel ast.SelectionSet, v *model.PublishingHouse) graphql.Marshaler {
+func (ec *executionContext) marshalNPublishingHouseEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouseEdge(ctx context.Context, sel ast.SelectionSet, v *model.PublishingHouseEdge) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._PublishingHouse(ctx, sel, v)
+	return ec._PublishingHouseEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -11655,7 +13819,31 @@ func (ec *executionContext) marshalNTag2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋe
 	return ec._Tag(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTag2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Tag) graphql.Marshaler {
+func (ec *executionContext) marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag(ctx context.Context, sel ast.SelectionSet, v *model.Tag) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Tag(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTagConnection2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagConnection(ctx context.Context, sel ast.SelectionSet, v model.TagConnection) graphql.Marshaler {
+	return ec._TagConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTagConnection2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagConnection(ctx context.Context, sel ast.SelectionSet, v *model.TagConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TagConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTagEdge2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TagEdge) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -11679,7 +13867,7 @@ func (ec *executionContext) marshalNTag2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcr
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag(ctx, sel, v[i])
+			ret[i] = ec.marshalNTagEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -11699,14 +13887,14 @@ func (ec *executionContext) marshalNTag2ᚕᚖgithubᚗcomᚋgoliatoneᚋgoᚑcr
 	return ret
 }
 
-func (ec *executionContext) marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag(ctx context.Context, sel ast.SelectionSet, v *model.Tag) graphql.Marshaler {
+func (ec *executionContext) marshalNTagEdge2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTagEdge(ctx context.Context, sel ast.SelectionSet, v *model.TagEdge) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Tag(ctx, sel, v)
+	return ec._TagEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNUUID2githubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐUUID(ctx context.Context, v any) (model.UUID, error) {
