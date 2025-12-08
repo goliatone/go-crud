@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/goliatone/go-crud"
+	"github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
-	"github.com/goliatone/go-crud/examples/relationships-gql/internal/data"
 	repository "github.com/goliatone/go-repository-bun"
 )
 
@@ -27,11 +27,11 @@ func appendRelations(relations []string, criteria []repository.SelectCriteria) [
 }
 
 type publishingHouseService struct {
-	repo      repository.Repository[*data.PublishingHouse]
+	repo      repository.Repository[*relationships.PublishingHouse]
 	relations []string
 }
 
-func newPublishingHouseService(repo repository.Repository[*data.PublishingHouse]) crud.Service[model.PublishingHouse] {
+func newPublishingHouseService(repo repository.Repository[*relationships.PublishingHouse]) crud.Service[model.PublishingHouse] {
 	return &publishingHouseService{
 		repo:      repo,
 		relations: []string{"Headquarters", "Authors", "Books"},
@@ -51,7 +51,7 @@ func (s *publishingHouseService) Create(ctx crud.Context, record model.Publishin
 }
 
 func (s *publishingHouseService) CreateBatch(ctx crud.Context, records []model.PublishingHouse) ([]model.PublishingHouse, error) {
-	domain := make([]*data.PublishingHouse, 0, len(records))
+	domain := make([]*relationships.PublishingHouse, 0, len(records))
 	for _, record := range records {
 		item, err := publishingHouseFromModel(record)
 		if err != nil {
@@ -83,7 +83,7 @@ func (s *publishingHouseService) Update(ctx crud.Context, record model.Publishin
 }
 
 func (s *publishingHouseService) UpdateBatch(ctx crud.Context, records []model.PublishingHouse) ([]model.PublishingHouse, error) {
-	domain := make([]*data.PublishingHouse, 0, len(records))
+	domain := make([]*relationships.PublishingHouse, 0, len(records))
 	for _, record := range records {
 		item, err := publishingHouseFromModel(record)
 		if err != nil {
@@ -138,11 +138,11 @@ func (s *publishingHouseService) Show(ctx crud.Context, id string, criteria []re
 }
 
 type headquartersService struct {
-	repo      repository.Repository[*data.Headquarters]
+	repo      repository.Repository[*relationships.Headquarters]
 	relations []string
 }
 
-func newHeadquartersService(repo repository.Repository[*data.Headquarters]) crud.Service[model.Headquarters] {
+func newHeadquartersService(repo repository.Repository[*relationships.Headquarters]) crud.Service[model.Headquarters] {
 	return &headquartersService{
 		repo:      repo,
 		relations: []string{"Publisher"},
@@ -162,7 +162,7 @@ func (s *headquartersService) Create(ctx crud.Context, record model.Headquarters
 }
 
 func (s *headquartersService) CreateBatch(ctx crud.Context, records []model.Headquarters) ([]model.Headquarters, error) {
-	domain := make([]*data.Headquarters, 0, len(records))
+	domain := make([]*relationships.Headquarters, 0, len(records))
 	for _, record := range records {
 		item, err := headquartersFromModel(record)
 		if err != nil {
@@ -194,7 +194,7 @@ func (s *headquartersService) Update(ctx crud.Context, record model.Headquarters
 }
 
 func (s *headquartersService) UpdateBatch(ctx crud.Context, records []model.Headquarters) ([]model.Headquarters, error) {
-	domain := make([]*data.Headquarters, 0, len(records))
+	domain := make([]*relationships.Headquarters, 0, len(records))
 	for _, record := range records {
 		item, err := headquartersFromModel(record)
 		if err != nil {
@@ -249,11 +249,11 @@ func (s *headquartersService) Show(ctx crud.Context, id string, criteria []repos
 }
 
 type authorService struct {
-	repo      repository.Repository[*data.Author]
+	repo      repository.Repository[*relationships.Author]
 	relations []string
 }
 
-func newAuthorService(repo repository.Repository[*data.Author]) crud.Service[model.Author] {
+func newAuthorService(repo repository.Repository[*relationships.Author]) crud.Service[model.Author] {
 	return &authorService{
 		repo:      repo,
 		relations: []string{"Publisher", "Profile", "Books", "Tags"},
@@ -273,7 +273,7 @@ func (s *authorService) Create(ctx crud.Context, record model.Author) (model.Aut
 }
 
 func (s *authorService) CreateBatch(ctx crud.Context, records []model.Author) ([]model.Author, error) {
-	domain := make([]*data.Author, 0, len(records))
+	domain := make([]*relationships.Author, 0, len(records))
 	for _, record := range records {
 		item, err := authorFromModel(record)
 		if err != nil {
@@ -305,7 +305,7 @@ func (s *authorService) Update(ctx crud.Context, record model.Author) (model.Aut
 }
 
 func (s *authorService) UpdateBatch(ctx crud.Context, records []model.Author) ([]model.Author, error) {
-	domain := make([]*data.Author, 0, len(records))
+	domain := make([]*relationships.Author, 0, len(records))
 	for _, record := range records {
 		item, err := authorFromModel(record)
 		if err != nil {
@@ -360,11 +360,11 @@ func (s *authorService) Show(ctx crud.Context, id string, criteria []repository.
 }
 
 type authorProfileService struct {
-	repo      repository.Repository[*data.AuthorProfile]
+	repo      repository.Repository[*relationships.AuthorProfile]
 	relations []string
 }
 
-func newAuthorProfileService(repo repository.Repository[*data.AuthorProfile]) crud.Service[model.AuthorProfile] {
+func newAuthorProfileService(repo repository.Repository[*relationships.AuthorProfile]) crud.Service[model.AuthorProfile] {
 	return &authorProfileService{
 		repo:      repo,
 		relations: []string{"Author"},
@@ -384,7 +384,7 @@ func (s *authorProfileService) Create(ctx crud.Context, record model.AuthorProfi
 }
 
 func (s *authorProfileService) CreateBatch(ctx crud.Context, records []model.AuthorProfile) ([]model.AuthorProfile, error) {
-	domain := make([]*data.AuthorProfile, 0, len(records))
+	domain := make([]*relationships.AuthorProfile, 0, len(records))
 	for _, record := range records {
 		item, err := authorProfileFromModel(record)
 		if err != nil {
@@ -416,7 +416,7 @@ func (s *authorProfileService) Update(ctx crud.Context, record model.AuthorProfi
 }
 
 func (s *authorProfileService) UpdateBatch(ctx crud.Context, records []model.AuthorProfile) ([]model.AuthorProfile, error) {
-	domain := make([]*data.AuthorProfile, 0, len(records))
+	domain := make([]*relationships.AuthorProfile, 0, len(records))
 	for _, record := range records {
 		item, err := authorProfileFromModel(record)
 		if err != nil {
@@ -471,11 +471,11 @@ func (s *authorProfileService) Show(ctx crud.Context, id string, criteria []repo
 }
 
 type bookService struct {
-	repo      repository.Repository[*data.Book]
+	repo      repository.Repository[*relationships.Book]
 	relations []string
 }
 
-func newBookService(repo repository.Repository[*data.Book]) crud.Service[model.Book] {
+func newBookService(repo repository.Repository[*relationships.Book]) crud.Service[model.Book] {
 	return &bookService{
 		repo:      repo,
 		relations: []string{"Publisher", "Author", "Chapters", "Tags"},
@@ -495,7 +495,7 @@ func (s *bookService) Create(ctx crud.Context, record model.Book) (model.Book, e
 }
 
 func (s *bookService) CreateBatch(ctx crud.Context, records []model.Book) ([]model.Book, error) {
-	domain := make([]*data.Book, 0, len(records))
+	domain := make([]*relationships.Book, 0, len(records))
 	for _, record := range records {
 		item, err := bookFromModel(record)
 		if err != nil {
@@ -527,7 +527,7 @@ func (s *bookService) Update(ctx crud.Context, record model.Book) (model.Book, e
 }
 
 func (s *bookService) UpdateBatch(ctx crud.Context, records []model.Book) ([]model.Book, error) {
-	domain := make([]*data.Book, 0, len(records))
+	domain := make([]*relationships.Book, 0, len(records))
 	for _, record := range records {
 		item, err := bookFromModel(record)
 		if err != nil {
@@ -582,11 +582,11 @@ func (s *bookService) Show(ctx crud.Context, id string, criteria []repository.Se
 }
 
 type chapterService struct {
-	repo      repository.Repository[*data.Chapter]
+	repo      repository.Repository[*relationships.Chapter]
 	relations []string
 }
 
-func newChapterService(repo repository.Repository[*data.Chapter]) crud.Service[model.Chapter] {
+func newChapterService(repo repository.Repository[*relationships.Chapter]) crud.Service[model.Chapter] {
 	return &chapterService{
 		repo:      repo,
 		relations: []string{"Book"},
@@ -606,7 +606,7 @@ func (s *chapterService) Create(ctx crud.Context, record model.Chapter) (model.C
 }
 
 func (s *chapterService) CreateBatch(ctx crud.Context, records []model.Chapter) ([]model.Chapter, error) {
-	domain := make([]*data.Chapter, 0, len(records))
+	domain := make([]*relationships.Chapter, 0, len(records))
 	for _, record := range records {
 		item, err := chapterFromModel(record)
 		if err != nil {
@@ -638,7 +638,7 @@ func (s *chapterService) Update(ctx crud.Context, record model.Chapter) (model.C
 }
 
 func (s *chapterService) UpdateBatch(ctx crud.Context, records []model.Chapter) ([]model.Chapter, error) {
-	domain := make([]*data.Chapter, 0, len(records))
+	domain := make([]*relationships.Chapter, 0, len(records))
 	for _, record := range records {
 		item, err := chapterFromModel(record)
 		if err != nil {
@@ -693,11 +693,11 @@ func (s *chapterService) Show(ctx crud.Context, id string, criteria []repository
 }
 
 type tagService struct {
-	repo      repository.Repository[*data.Tag]
+	repo      repository.Repository[*relationships.Tag]
 	relations []string
 }
 
-func newTagService(repo repository.Repository[*data.Tag]) crud.Service[model.Tag] {
+func newTagService(repo repository.Repository[*relationships.Tag]) crud.Service[model.Tag] {
 	return &tagService{
 		repo:      repo,
 		relations: []string{"Books", "Authors"},
@@ -717,7 +717,7 @@ func (s *tagService) Create(ctx crud.Context, record model.Tag) (model.Tag, erro
 }
 
 func (s *tagService) CreateBatch(ctx crud.Context, records []model.Tag) ([]model.Tag, error) {
-	domain := make([]*data.Tag, 0, len(records))
+	domain := make([]*relationships.Tag, 0, len(records))
 	for _, record := range records {
 		item, err := tagFromModel(record)
 		if err != nil {
@@ -749,7 +749,7 @@ func (s *tagService) Update(ctx crud.Context, record model.Tag) (model.Tag, erro
 }
 
 func (s *tagService) UpdateBatch(ctx crud.Context, records []model.Tag) ([]model.Tag, error) {
-	domain := make([]*data.Tag, 0, len(records))
+	domain := make([]*relationships.Tag, 0, len(records))
 	for _, record := range records {
 		item, err := tagFromModel(record)
 		if err != nil {
@@ -813,7 +813,7 @@ type services struct {
 	tag             crud.Service[model.Tag]
 }
 
-func newServices(repos data.Repositories) services {
+func newServices(repos relationships.Repositories) services {
 	return services{
 		publishingHouse: newPublishingHouseService(repos.Publishers),
 		headquarters:    newHeadquartersService(repos.Headquarters),
