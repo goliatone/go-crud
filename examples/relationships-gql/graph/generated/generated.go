@@ -1755,7 +1755,7 @@ input UpdateTagInput {
   description: String
 }
 
-"""Author with profile, books, and tags"""
+"""Schema for Author"""
 type Author {
   id: UUID!
   createdAt: Time
@@ -1784,7 +1784,7 @@ type AuthorEdge {
   node: Author!
 }
 
-"""Author profile details"""
+"""Schema for AuthorProfile"""
 type AuthorProfile {
   id: UUID!
   author: Author
@@ -1806,7 +1806,7 @@ type AuthorProfileEdge {
   node: AuthorProfile!
 }
 
-"""Book with author, publisher, chapters, and tags"""
+"""Schema for Book"""
 type Book {
   id: UUID!
   createdAt: Time
@@ -1836,7 +1836,7 @@ type BookEdge {
   node: Book!
 }
 
-"""Chapter belonging to a book"""
+"""Schema for Chapter"""
 type Chapter {
   id: UUID!
   book: Book
@@ -1858,7 +1858,7 @@ type ChapterEdge {
   node: Chapter!
 }
 
-"""Headquarters belongs to a publishing house"""
+"""Schema for Headquarters"""
 type Headquarters {
   id: UUID!
   addressLine1: String!
@@ -1890,7 +1890,7 @@ type PageInfo {
   endCursor: String
 }
 
-"""Publishing house with catalog and authors"""
+"""Schema for PublishingHouse"""
 type PublishingHouse {
   id: UUID!
   createdAt: Time
@@ -1915,7 +1915,7 @@ type PublishingHouseEdge {
   node: PublishingHouse!
 }
 
-"""Tag used for books and authors"""
+"""Schema for Tag"""
 type Tag {
   id: UUID!
   createdAt: Time

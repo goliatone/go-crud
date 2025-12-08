@@ -40,7 +40,7 @@ const (
 
 // Schema for Author
 type Author struct {
-	Id          []*Book          `json:"id,omitempty"`
+	Id          string           `json:"id,omitempty"`
 	CreatedAt   *time.Time       `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time       `json:"updated_at,omitempty"`
 	Active      bool             `json:"active,omitempty"`
@@ -51,7 +51,7 @@ type Author struct {
 	PenName     string           `json:"pen_name,omitempty"`
 	Profile     *AuthorProfile   `json:"profile,omitempty"`
 	Publisher   *PublishingHouse `json:"publisher,omitempty"`
-	PublisherId *PublishingHouse `json:"publisher_id,omitempty"`
+	PublisherId string           `json:"publisher_id,omitempty"`
 	Tags        []*Tag           `json:"tags,omitempty"`
 }
 
@@ -71,7 +71,7 @@ type AuthorEdge struct {
 type AuthorProfile struct {
 	Id            string  `json:"id,omitempty"`
 	Author        *Author `json:"author,omitempty"`
-	AuthorId      *Author `json:"author_id,omitempty"`
+	AuthorId      string  `json:"author_id,omitempty"`
 	Biography     string  `json:"biography,omitempty"`
 	FavoriteGenre string  `json:"favorite_genre,omitempty"`
 	WritingStyle  string  `json:"writing_style,omitempty"`
@@ -91,16 +91,16 @@ type AuthorProfileEdge struct {
 
 // Schema for Book
 type Book struct {
-	Id            []*Chapter       `json:"id,omitempty"`
+	Id            string           `json:"id,omitempty"`
 	CreatedAt     *time.Time       `json:"created_at,omitempty"`
 	UpdatedAt     *time.Time       `json:"updated_at,omitempty"`
 	Author        *Author          `json:"author,omitempty"`
-	AuthorId      *Author          `json:"author_id,omitempty"`
+	AuthorId      string           `json:"author_id,omitempty"`
 	Chapters      []*Chapter       `json:"chapters,omitempty"`
 	Isbn          string           `json:"isbn,omitempty"`
 	LastReprintAt *time.Time       `json:"last_reprint_at,omitempty"`
 	Publisher     *PublishingHouse `json:"publisher,omitempty"`
-	PublisherId   *PublishingHouse `json:"publisher_id,omitempty"`
+	PublisherId   string           `json:"publisher_id,omitempty"`
 	ReleaseDate   *time.Time       `json:"release_date,omitempty"`
 	Status        string           `json:"status,omitempty"`
 	Tags          []*Tag           `json:"tags,omitempty"`
@@ -123,7 +123,7 @@ type BookEdge struct {
 type Chapter struct {
 	Id           string `json:"id,omitempty"`
 	Book         *Book  `json:"book,omitempty"`
-	BookId       *Book  `json:"book_id,omitempty"`
+	BookId       string `json:"book_id,omitempty"`
 	ChapterIndex int    `json:"chapter_index,omitempty"`
 	Title        string `json:"title,omitempty"`
 	WordCount    int    `json:"word_count,omitempty"`
@@ -150,7 +150,7 @@ type Headquarters struct {
 	Country      string           `json:"country,omitempty"`
 	OpenedAt     *time.Time       `json:"opened_at,omitempty"`
 	Publisher    *PublishingHouse `json:"publisher,omitempty"`
-	PublisherId  *PublishingHouse `json:"publisher_id,omitempty"`
+	PublisherId  string           `json:"publisher_id,omitempty"`
 }
 
 // Headquarters connection
@@ -175,7 +175,7 @@ type PageInfo struct {
 
 // Schema for PublishingHouse
 type PublishingHouse struct {
-	Id            []*Book       `json:"id,omitempty"`
+	Id            string        `json:"id,omitempty"`
 	CreatedAt     *time.Time    `json:"created_at,omitempty"`
 	UpdatedAt     *time.Time    `json:"updated_at,omitempty"`
 	Authors       []*Author     `json:"authors,omitempty"`
@@ -242,28 +242,31 @@ type FilterInput struct {
 
 // Create payload for Author
 type CreateAuthorInput struct {
-	Active    bool       `json:"active,omitempty"`
-	Email     string     `json:"email,omitempty"`
-	FullName  string     `json:"fullName,omitempty"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-	HiredAt   *time.Time `json:"hiredAt,omitempty"`
-	PenName   *string    `json:"penName,omitempty"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	Active      bool       `json:"active,omitempty"`
+	Email       string     `json:"email,omitempty"`
+	FullName    string     `json:"fullName,omitempty"`
+	PublisherId string     `json:"publisherId,omitempty"`
+	CreatedAt   *time.Time `json:"createdAt,omitempty"`
+	HiredAt     *time.Time `json:"hiredAt,omitempty"`
+	PenName     *string    `json:"penName,omitempty"`
+	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
 }
 
 // Update payload for Author
 type UpdateAuthorInput struct {
-	Active    *bool      `json:"active,omitempty"`
-	Email     *string    `json:"email,omitempty"`
-	FullName  *string    `json:"fullName,omitempty"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-	HiredAt   *time.Time `json:"hiredAt,omitempty"`
-	PenName   *string    `json:"penName,omitempty"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	Active      *bool      `json:"active,omitempty"`
+	Email       *string    `json:"email,omitempty"`
+	FullName    *string    `json:"fullName,omitempty"`
+	PublisherId *string    `json:"publisherId,omitempty"`
+	CreatedAt   *time.Time `json:"createdAt,omitempty"`
+	HiredAt     *time.Time `json:"hiredAt,omitempty"`
+	PenName     *string    `json:"penName,omitempty"`
+	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
 }
 
 // Create payload for AuthorProfile
 type CreateAuthorProfileInput struct {
+	AuthorId      string  `json:"authorId,omitempty"`
 	Biography     *string `json:"biography,omitempty"`
 	FavoriteGenre *string `json:"favoriteGenre,omitempty"`
 	WritingStyle  *string `json:"writingStyle,omitempty"`
@@ -271,6 +274,7 @@ type CreateAuthorProfileInput struct {
 
 // Update payload for AuthorProfile
 type UpdateAuthorProfileInput struct {
+	AuthorId      *string `json:"authorId,omitempty"`
 	Biography     *string `json:"biography,omitempty"`
 	FavoriteGenre *string `json:"favoriteGenre,omitempty"`
 	WritingStyle  *string `json:"writingStyle,omitempty"`
@@ -278,7 +282,9 @@ type UpdateAuthorProfileInput struct {
 
 // Create payload for Book
 type CreateBookInput struct {
+	AuthorId      string     `json:"authorId,omitempty"`
 	Isbn          string     `json:"isbn,omitempty"`
+	PublisherId   string     `json:"publisherId,omitempty"`
 	Status        string     `json:"status,omitempty"`
 	Title         string     `json:"title,omitempty"`
 	CreatedAt     *time.Time `json:"createdAt,omitempty"`
@@ -289,7 +295,9 @@ type CreateBookInput struct {
 
 // Update payload for Book
 type UpdateBookInput struct {
+	AuthorId      *string    `json:"authorId,omitempty"`
 	Isbn          *string    `json:"isbn,omitempty"`
+	PublisherId   *string    `json:"publisherId,omitempty"`
 	Status        *string    `json:"status,omitempty"`
 	Title         *string    `json:"title,omitempty"`
 	CreatedAt     *time.Time `json:"createdAt,omitempty"`
@@ -300,6 +308,7 @@ type UpdateBookInput struct {
 
 // Create payload for Chapter
 type CreateChapterInput struct {
+	BookId       string `json:"bookId,omitempty"`
 	ChapterIndex int    `json:"chapterIndex,omitempty"`
 	Title        string `json:"title,omitempty"`
 	WordCount    int    `json:"wordCount,omitempty"`
@@ -307,6 +316,7 @@ type CreateChapterInput struct {
 
 // Update payload for Chapter
 type UpdateChapterInput struct {
+	BookId       *string `json:"bookId,omitempty"`
 	ChapterIndex *int    `json:"chapterIndex,omitempty"`
 	Title        *string `json:"title,omitempty"`
 	WordCount    *int    `json:"wordCount,omitempty"`
@@ -317,6 +327,7 @@ type CreateHeadquartersInput struct {
 	AddressLine1 string     `json:"addressLine1,omitempty"`
 	City         string     `json:"city,omitempty"`
 	Country      string     `json:"country,omitempty"`
+	PublisherId  string     `json:"publisherId,omitempty"`
 	AddressLine2 *string    `json:"addressLine2,omitempty"`
 	OpenedAt     *time.Time `json:"openedAt,omitempty"`
 }
@@ -326,6 +337,7 @@ type UpdateHeadquartersInput struct {
 	AddressLine1 *string    `json:"addressLine1,omitempty"`
 	City         *string    `json:"city,omitempty"`
 	Country      *string    `json:"country,omitempty"`
+	PublisherId  *string    `json:"publisherId,omitempty"`
 	AddressLine2 *string    `json:"addressLine2,omitempty"`
 	OpenedAt     *time.Time `json:"openedAt,omitempty"`
 }
