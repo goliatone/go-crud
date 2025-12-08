@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/99designs/gqlgen v0.17.84
+	github.com/ettle/strcase v0.2.0
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-crud v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
@@ -23,7 +24,6 @@ require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/flosch/pongo2/v6 v6.0.0 // indirect
