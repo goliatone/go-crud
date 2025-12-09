@@ -41,19 +41,25 @@ type Field struct {
 
 // Relation holds the relationship metadata required by templates.
 type Relation struct {
-	Name          string
-	OriginalName  string
-	Key           string
-	AliasFor      string
-	Type          string
-	Cardinality   string
-	SourceField   string
-	ForeignKey    string
-	Inverse       string
-	RelationType  string
-	RelatedSchema string
-	IsList        bool
-	Nullable      bool
+	Name             string
+	OriginalName     string
+	Key              string
+	AliasFor         string
+	Type             string
+	Cardinality      string
+	SourceField      string
+	SourceColumn     string
+	TargetColumn     string
+	ForeignKey       string
+	Inverse          string
+	RelationType     string
+	RelatedSchema    string
+	IsList           bool
+	Nullable         bool
+	PivotTable       string
+	SourcePivotField string
+	TargetPivotField string
+	TargetTable      string
 }
 
 // NameFormatter converts raw identifiers into template-facing names.
@@ -244,18 +250,24 @@ func buildRelation(propName, relKey string, rel *router.RelationshipInfo, prop r
 	}
 
 	relation := Relation{
-		Name:          opts.fieldNamer(propName),
-		OriginalName:  propName,
-		Key:           relKey,
-		Type:          opts.typeNamer(target),
-		Cardinality:   cardinality,
-		SourceField:   rel.SourceField,
-		ForeignKey:    rel.ForeignKey,
-		Inverse:       rel.Inverse,
-		RelationType:  rel.RelationType,
-		RelatedSchema: target,
-		IsList:        rel.IsSlice || prop.Items != nil || isMany,
-		Nullable:      prop.Nullable,
+		Name:             opts.fieldNamer(propName),
+		OriginalName:     propName,
+		Key:              relKey,
+		Type:             opts.typeNamer(target),
+		Cardinality:      cardinality,
+		SourceField:      rel.SourceField,
+		SourceColumn:     rel.SourceColumn,
+		TargetColumn:     rel.TargetColumn,
+		ForeignKey:       rel.ForeignKey,
+		Inverse:          rel.Inverse,
+		RelationType:     rel.RelationType,
+		RelatedSchema:    target,
+		IsList:           rel.IsSlice || prop.Items != nil || isMany,
+		Nullable:         prop.Nullable,
+		PivotTable:       rel.PivotTable,
+		SourcePivotField: rel.SourcePivotColumn,
+		TargetPivotField: rel.TargetPivotColumn,
+		TargetTable:      rel.TargetTable,
 	}
 
 	if isAlias && relKey != "" {
