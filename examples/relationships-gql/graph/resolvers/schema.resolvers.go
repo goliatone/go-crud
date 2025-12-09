@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
@@ -302,6 +303,111 @@ func (r *queryResolver) ListTag(ctx context.Context, pagination *model.Paginatio
 	return r.Resolver.ListTag(ctx, pagination, orderBy, filter)
 }
 
+// AuthorCreated is the resolver for the authorCreated field.
+func (r *subscriptionResolver) AuthorCreated(ctx context.Context) (<-chan *model.Author, error) {
+	panic(fmt.Errorf("not implemented: AuthorCreated - authorCreated"))
+}
+
+// AuthorUpdated is the resolver for the authorUpdated field.
+func (r *subscriptionResolver) AuthorUpdated(ctx context.Context) (<-chan *model.Author, error) {
+	panic(fmt.Errorf("not implemented: AuthorUpdated - authorUpdated"))
+}
+
+// AuthorDeleted is the resolver for the authorDeleted field.
+func (r *subscriptionResolver) AuthorDeleted(ctx context.Context) (<-chan *model.Author, error) {
+	panic(fmt.Errorf("not implemented: AuthorDeleted - authorDeleted"))
+}
+
+// AuthorProfileCreated is the resolver for the authorProfileCreated field.
+func (r *subscriptionResolver) AuthorProfileCreated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	panic(fmt.Errorf("not implemented: AuthorProfileCreated - authorProfileCreated"))
+}
+
+// AuthorProfileUpdated is the resolver for the authorProfileUpdated field.
+func (r *subscriptionResolver) AuthorProfileUpdated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	panic(fmt.Errorf("not implemented: AuthorProfileUpdated - authorProfileUpdated"))
+}
+
+// AuthorProfileDeleted is the resolver for the authorProfileDeleted field.
+func (r *subscriptionResolver) AuthorProfileDeleted(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	panic(fmt.Errorf("not implemented: AuthorProfileDeleted - authorProfileDeleted"))
+}
+
+// BookCreated is the resolver for the bookCreated field.
+func (r *subscriptionResolver) BookCreated(ctx context.Context) (<-chan *model.Book, error) {
+	panic(fmt.Errorf("not implemented: BookCreated - bookCreated"))
+}
+
+// BookUpdated is the resolver for the bookUpdated field.
+func (r *subscriptionResolver) BookUpdated(ctx context.Context) (<-chan *model.Book, error) {
+	panic(fmt.Errorf("not implemented: BookUpdated - bookUpdated"))
+}
+
+// BookDeleted is the resolver for the bookDeleted field.
+func (r *subscriptionResolver) BookDeleted(ctx context.Context) (<-chan *model.Book, error) {
+	panic(fmt.Errorf("not implemented: BookDeleted - bookDeleted"))
+}
+
+// ChapterCreated is the resolver for the chapterCreated field.
+func (r *subscriptionResolver) ChapterCreated(ctx context.Context) (<-chan *model.Chapter, error) {
+	panic(fmt.Errorf("not implemented: ChapterCreated - chapterCreated"))
+}
+
+// ChapterUpdated is the resolver for the chapterUpdated field.
+func (r *subscriptionResolver) ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, error) {
+	panic(fmt.Errorf("not implemented: ChapterUpdated - chapterUpdated"))
+}
+
+// ChapterDeleted is the resolver for the chapterDeleted field.
+func (r *subscriptionResolver) ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, error) {
+	panic(fmt.Errorf("not implemented: ChapterDeleted - chapterDeleted"))
+}
+
+// HeadquartersCreated is the resolver for the headquartersCreated field.
+func (r *subscriptionResolver) HeadquartersCreated(ctx context.Context) (<-chan *model.Headquarters, error) {
+	panic(fmt.Errorf("not implemented: HeadquartersCreated - headquartersCreated"))
+}
+
+// HeadquartersUpdated is the resolver for the headquartersUpdated field.
+func (r *subscriptionResolver) HeadquartersUpdated(ctx context.Context) (<-chan *model.Headquarters, error) {
+	panic(fmt.Errorf("not implemented: HeadquartersUpdated - headquartersUpdated"))
+}
+
+// HeadquartersDeleted is the resolver for the headquartersDeleted field.
+func (r *subscriptionResolver) HeadquartersDeleted(ctx context.Context) (<-chan *model.Headquarters, error) {
+	panic(fmt.Errorf("not implemented: HeadquartersDeleted - headquartersDeleted"))
+}
+
+// PublishingHouseCreated is the resolver for the publishingHouseCreated field.
+func (r *subscriptionResolver) PublishingHouseCreated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	panic(fmt.Errorf("not implemented: PublishingHouseCreated - publishingHouseCreated"))
+}
+
+// PublishingHouseUpdated is the resolver for the publishingHouseUpdated field.
+func (r *subscriptionResolver) PublishingHouseUpdated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	panic(fmt.Errorf("not implemented: PublishingHouseUpdated - publishingHouseUpdated"))
+}
+
+// PublishingHouseDeleted is the resolver for the publishingHouseDeleted field.
+func (r *subscriptionResolver) PublishingHouseDeleted(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	panic(fmt.Errorf("not implemented: PublishingHouseDeleted - publishingHouseDeleted"))
+}
+
+// TagCreated is the resolver for the tagCreated field.
+func (r *subscriptionResolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
+	panic(fmt.Errorf("not implemented: TagCreated - tagCreated"))
+}
+
+// TagUpdated is the resolver for the tagUpdated field.
+func (r *subscriptionResolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
+	panic(fmt.Errorf("not implemented: TagUpdated - tagUpdated"))
+}
+
+// TagDeleted is the resolver for the tagDeleted field.
+func (r *subscriptionResolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
+	panic(fmt.Errorf("not implemented: TagDeleted - tagDeleted"))
+}
+
 // ID is the resolver for the id field.
 func (r *tagResolver) ID(ctx context.Context, obj *model.Tag) (model.UUID, error) {
 	return asUUID(obj.Id), nil
@@ -554,6 +660,9 @@ func (r *Resolver) PublishingHouse() generated.PublishingHouseResolver {
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Subscription returns generated.SubscriptionResolver implementation.
+func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
+
 // Tag returns generated.TagResolver implementation.
 func (r *Resolver) Tag() generated.TagResolver { return &tagResolver{r} }
 
@@ -635,6 +744,7 @@ type headquartersResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type publishingHouseResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
 type tagResolver struct{ *Resolver }
 type createAuthorInputResolver struct{ *Resolver }
 type createAuthorProfileInputResolver struct{ *Resolver }

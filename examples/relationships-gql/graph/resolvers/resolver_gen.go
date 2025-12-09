@@ -65,11 +65,11 @@ var criteriaConfig = map[string]map[string]criteriaField{
 		"publisher.name":          {Column: "publisher.name", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
 		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
 		"publisherid":             {Column: "publisher_id"},
-		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_author", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_author", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_author", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_author", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_author", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
 		"updatedat":               {Column: "updated_at"},
 	},
 
@@ -121,11 +121,11 @@ var criteriaConfig = map[string]map[string]criteriaField{
 		"publisherid":             {Column: "publisher_id"},
 		"releasedate":             {Column: "release_date"},
 		"status":                  {Column: "status"},
-		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
-		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_book", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_book", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_book", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_book", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "tag_book", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
 		"title":                   {Column: "title"},
 		"updatedat":               {Column: "updated_at"},
 	},
@@ -204,25 +204,25 @@ var criteriaConfig = map[string]map[string]criteriaField{
 
 	"Tag": {
 
-		"authors.active":      {Column: "authors.active", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.createdat":   {Column: "authors.created_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.email":       {Column: "authors.email", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.fullname":    {Column: "authors.full_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.hiredat":     {Column: "authors.hired_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.id":          {Column: "authors.id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.penname":     {Column: "authors.pen_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.publisherid": {Column: "authors.publisher_id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"authors.updatedat":   {Column: "authors.updated_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
-		"books.authorid":      {Column: "books.author_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.createdat":     {Column: "books.created_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.id":            {Column: "books.id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.isbn":          {Column: "books.isbn", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.lastreprintat": {Column: "books.last_reprint_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.publisherid":   {Column: "books.publisher_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.releasedate":   {Column: "books.release_date", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.status":        {Column: "books.status", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.title":         {Column: "books.title", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
-		"books.updatedat":     {Column: "books.updated_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"authors.active":      {Column: "authors.active", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.createdat":   {Column: "authors.created_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.email":       {Column: "authors.email", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.fullname":    {Column: "authors.full_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.hiredat":     {Column: "authors.hired_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.id":          {Column: "authors.id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.penname":     {Column: "authors.pen_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.publisherid": {Column: "authors.publisher_id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.updatedat":   {Column: "authors.updated_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"books.authorid":      {Column: "books.author_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.createdat":     {Column: "books.created_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.id":            {Column: "books.id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.isbn":          {Column: "books.isbn", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.lastreprintat": {Column: "books.last_reprint_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.publisherid":   {Column: "books.publisher_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.releasedate":   {Column: "books.release_date", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.status":        {Column: "books.status", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.title":         {Column: "books.title", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.updatedat":     {Column: "books.updated_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tag", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
 		"category":            {Column: "category"},
 		"createdat":           {Column: "created_at"},
 		"description":         {Column: "description"},
@@ -579,6 +579,22 @@ func setTimePtr(dst **time.Time, data *model.Time) {
 	}
 	val := time.Time(*data)
 	*dst = &val
+}
+
+func valueString(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case *string:
+		if val == nil {
+			return ""
+		}
+		return *val
+	case fmt.Stringer:
+		return val.String()
+	default:
+		return fmt.Sprint(val)
+	}
 }
 
 func (r *Resolver) AuthorService() crud.Service[model.Author] {
