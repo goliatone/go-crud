@@ -11,12 +11,13 @@ import (
 
 // Overlay enriches SchemaMetadata with additional SDL constructs.
 type Overlay struct {
-	Scalars   []Scalar    `json:"scalars" yaml:"scalars"`
-	Enums     []Enum      `json:"enums" yaml:"enums"`
-	Inputs    []Input     `json:"inputs" yaml:"inputs"`
-	Queries   []Operation `json:"queries" yaml:"queries"`
-	Mutations []Operation `json:"mutations" yaml:"mutations"`
-	Hooks     Hooks       `json:"hooks" yaml:"hooks"`
+	Scalars       []Scalar       `json:"scalars" yaml:"scalars"`
+	Enums         []Enum         `json:"enums" yaml:"enums"`
+	Inputs        []Input        `json:"inputs" yaml:"inputs"`
+	Queries       []Operation    `json:"queries" yaml:"queries"`
+	Mutations     []Operation    `json:"mutations" yaml:"mutations"`
+	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
+	Hooks         Hooks          `json:"hooks" yaml:"hooks"`
 }
 
 // Scalar describes a custom scalar and its optional Go type mapping.
@@ -72,6 +73,24 @@ type Argument struct {
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	List        bool   `json:"list,omitempty" yaml:"list,omitempty"`
 	Required    bool   `json:"required,omitempty" yaml:"required,omitempty"`
+}
+
+// Subscription describes a subscription operation that streams data over websockets.
+type Subscription struct {
+	Name        string     `json:"name" yaml:"name"`
+	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
+	ReturnType  string     `json:"return_type" yaml:"return_type"`
+	List        bool       `json:"list,omitempty" yaml:"list,omitempty"`
+	Required    bool       `json:"required,omitempty" yaml:"required,omitempty"`
+	Args        []Argument `json:"args,omitempty" yaml:"args,omitempty"`
+	// Entity ties the subscription to a domain entity (used for resolver/event wiring).
+	Entity string `json:"entity,omitempty" yaml:"entity,omitempty"`
+	// Event describes the lifecycle trigger (e.g., created/updated/deleted).
+	Event string `json:"event,omitempty" yaml:"event,omitempty"`
+	// Topic is the event bus topic used by subscription resolvers (defaults to entity.event).
+	Topic string `json:"topic,omitempty" yaml:"topic,omitempty"`
+	// Events preserves legacy multi-event overlays; the first entry is used when Event is empty.
+	Events []string `json:"events,omitempty" yaml:"events,omitempty"`
 }
 
 // Hooks defines resolver hook snippets and required imports.
@@ -141,6 +160,7 @@ func Merge(base, extra Overlay) Overlay {
 	out.Queries = append(out.Queries, extra.Queries...)
 	out.Mutations = append([]Operation{}, base.Mutations...)
 	out.Mutations = append(out.Mutations, extra.Mutations...)
+	out.Subscriptions = mergeSubscriptions(base.Subscriptions, extra.Subscriptions)
 	return out
 }
 
@@ -194,6 +214,24 @@ func mergeInputs(base, extra []Input) []Input {
 		}
 		seen[in.Name] = len(result)
 		result = append(result, in)
+	}
+	return result
+}
+
+func mergeSubscriptions(base, extra []Subscription) []Subscription {
+	result := make([]Subscription, 0, len(base)+len(extra))
+	seen := make(map[string]int)
+	for _, s := range base {
+		seen[s.Name] = len(result)
+		result = append(result, s)
+	}
+	for _, s := range extra {
+		if idx, ok := seen[s.Name]; ok {
+			result[idx] = s
+			continue
+		}
+		seen[s.Name] = len(result)
+		result = append(result, s)
 	}
 	return result
 }
