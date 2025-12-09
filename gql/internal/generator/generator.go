@@ -34,6 +34,8 @@ type Options struct {
 	SkipGQLGen         bool
 	RunGoImports       bool
 	EmitDataloader     bool
+	EmitSubscriptions  bool
+	SubscriptionEvents []string
 	PolicyHook         string
 	OmitMutationFields []string
 	OverlayFile        string
@@ -123,11 +125,13 @@ func Generate(ctx context.Context, opts Options) (Result, error) {
 	w := writer.New(writerOpts...)
 
 	ctxData := templates.BuildContext(doc, templates.ContextOptions{
-		ConfigPath:     configPath,
-		OutDir:         outDir,
-		PolicyHook:     opts.PolicyHook,
-		EmitDataloader: opts.EmitDataloader,
-		Overlay:        ol,
+		ConfigPath:         configPath,
+		OutDir:             outDir,
+		PolicyHook:         opts.PolicyHook,
+		EmitDataloader:     opts.EmitDataloader,
+		EmitSubscriptions:  opts.EmitSubscriptions,
+		SubscriptionEvents: opts.SubscriptionEvents,
+		Overlay:            ol,
 		HookOptions: hooks.Options{
 			Overlay:     ol.Hooks,
 			AuthPackage: opts.AuthPackage,
