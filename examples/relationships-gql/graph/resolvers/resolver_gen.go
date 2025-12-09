@@ -21,8 +21,15 @@ type ScopeGuardFunc func(ctx context.Context, entity, action string) error
 type ContextFactory func(ctx context.Context) crud.Context
 
 type criteriaField struct {
-	Column   string
-	Relation string
+	Column       string
+	Relation     string
+	RelationType string
+	PivotTable   string
+	SourceColumn string
+	TargetColumn string
+	SourcePivot  string
+	TargetPivot  string
+	TargetTable  string
 }
 
 var criteriaConfig = map[string]map[string]criteriaField{
@@ -30,53 +37,53 @@ var criteriaConfig = map[string]map[string]criteriaField{
 	"Author": {
 
 		"active":                  {Column: "active"},
-		"books.authorid":          {Column: "books.author_id", Relation: "Books"},
-		"books.createdat":         {Column: "books.created_at", Relation: "Books"},
-		"books.id":                {Column: "books.id", Relation: "Books"},
-		"books.isbn":              {Column: "books.isbn", Relation: "Books"},
-		"books.lastreprintat":     {Column: "books.last_reprint_at", Relation: "Books"},
-		"books.publisherid":       {Column: "books.publisher_id", Relation: "Books"},
-		"books.releasedate":       {Column: "books.release_date", Relation: "Books"},
-		"books.status":            {Column: "books.status", Relation: "Books"},
-		"books.title":             {Column: "books.title", Relation: "Books"},
-		"books.updatedat":         {Column: "books.updated_at", Relation: "Books"},
+		"books.authorid":          {Column: "books.author_id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.createdat":         {Column: "books.created_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.id":                {Column: "books.id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.isbn":              {Column: "books.isbn", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.lastreprintat":     {Column: "books.last_reprint_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.publisherid":       {Column: "books.publisher_id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.releasedate":       {Column: "books.release_date", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.status":            {Column: "books.status", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.title":             {Column: "books.title", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.updatedat":         {Column: "books.updated_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
 		"createdat":               {Column: "created_at"},
 		"email":                   {Column: "email"},
 		"fullname":                {Column: "full_name"},
 		"hiredat":                 {Column: "hired_at"},
 		"id":                      {Column: "id"},
 		"penname":                 {Column: "pen_name"},
-		"profile.authorid":        {Column: "profile.author_id", Relation: "Profile"},
-		"profile.biography":       {Column: "profile.biography", Relation: "Profile"},
-		"profile.favoritegenre":   {Column: "profile.favorite_genre", Relation: "Profile"},
-		"profile.id":              {Column: "profile.id", Relation: "Profile"},
-		"profile.writingstyle":    {Column: "profile.writing_style", Relation: "Profile"},
-		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher"},
-		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher"},
-		"publisher.id":            {Column: "publisher.id", Relation: "Publisher"},
-		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher"},
-		"publisher.name":          {Column: "publisher.name", Relation: "Publisher"},
-		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher"},
+		"profile.authorid":        {Column: "profile.author_id", Relation: "Profile", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "profile"},
+		"profile.biography":       {Column: "profile.biography", Relation: "Profile", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "profile"},
+		"profile.favoritegenre":   {Column: "profile.favorite_genre", Relation: "Profile", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "profile"},
+		"profile.id":              {Column: "profile.id", Relation: "Profile", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "profile"},
+		"profile.writingstyle":    {Column: "profile.writing_style", Relation: "Profile", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "profile"},
+		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.id":            {Column: "publisher.id", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.name":          {Column: "publisher.name", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
 		"publisherid":             {Column: "publisher_id"},
-		"tags.category":           {Column: "tags.category", Relation: "Tags"},
-		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags"},
-		"tags.description":        {Column: "tags.description", Relation: "Tags"},
-		"tags.id":                 {Column: "tags.id", Relation: "Tags"},
-		"tags.name":               {Column: "tags.name", Relation: "Tags"},
+		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "author_id", TargetPivot: "tag_id", TargetTable: "tags"},
 		"updatedat":               {Column: "updated_at"},
 	},
 
 	"AuthorProfile": {
 
-		"author.active":      {Column: "author.active", Relation: "Author"},
-		"author.createdat":   {Column: "author.created_at", Relation: "Author"},
-		"author.email":       {Column: "author.email", Relation: "Author"},
-		"author.fullname":    {Column: "author.full_name", Relation: "Author"},
-		"author.hiredat":     {Column: "author.hired_at", Relation: "Author"},
-		"author.id":          {Column: "author.id", Relation: "Author"},
-		"author.penname":     {Column: "author.pen_name", Relation: "Author"},
-		"author.publisherid": {Column: "author.publisher_id", Relation: "Author"},
-		"author.updatedat":   {Column: "author.updated_at", Relation: "Author"},
+		"author.active":      {Column: "author.active", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.createdat":   {Column: "author.created_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.email":       {Column: "author.email", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.fullname":    {Column: "author.full_name", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.hiredat":     {Column: "author.hired_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.id":          {Column: "author.id", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.penname":     {Column: "author.pen_name", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.publisherid": {Column: "author.publisher_id", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.updatedat":   {Column: "author.updated_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
 		"authorid":           {Column: "author_id"},
 		"biography":          {Column: "biography"},
 		"favoritegenre":      {Column: "favorite_genre"},
@@ -86,55 +93,55 @@ var criteriaConfig = map[string]map[string]criteriaField{
 
 	"Book": {
 
-		"author.active":           {Column: "author.active", Relation: "Author"},
-		"author.createdat":        {Column: "author.created_at", Relation: "Author"},
-		"author.email":            {Column: "author.email", Relation: "Author"},
-		"author.fullname":         {Column: "author.full_name", Relation: "Author"},
-		"author.hiredat":          {Column: "author.hired_at", Relation: "Author"},
-		"author.id":               {Column: "author.id", Relation: "Author"},
-		"author.penname":          {Column: "author.pen_name", Relation: "Author"},
-		"author.publisherid":      {Column: "author.publisher_id", Relation: "Author"},
-		"author.updatedat":        {Column: "author.updated_at", Relation: "Author"},
+		"author.active":           {Column: "author.active", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.createdat":        {Column: "author.created_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.email":            {Column: "author.email", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.fullname":         {Column: "author.full_name", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.hiredat":          {Column: "author.hired_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.id":               {Column: "author.id", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.penname":          {Column: "author.pen_name", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.publisherid":      {Column: "author.publisher_id", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
+		"author.updatedat":        {Column: "author.updated_at", Relation: "Author", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "author"},
 		"authorid":                {Column: "author_id"},
-		"chapters.bookid":         {Column: "chapters.book_id", Relation: "Chapters"},
-		"chapters.chapterindex":   {Column: "chapters.chapter_index", Relation: "Chapters"},
-		"chapters.id":             {Column: "chapters.id", Relation: "Chapters"},
-		"chapters.title":          {Column: "chapters.title", Relation: "Chapters"},
-		"chapters.wordcount":      {Column: "chapters.word_count", Relation: "Chapters"},
+		"chapters.bookid":         {Column: "chapters.book_id", Relation: "Chapters", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "chapters"},
+		"chapters.chapterindex":   {Column: "chapters.chapter_index", Relation: "Chapters", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "chapters"},
+		"chapters.id":             {Column: "chapters.id", Relation: "Chapters", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "chapters"},
+		"chapters.title":          {Column: "chapters.title", Relation: "Chapters", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "chapters"},
+		"chapters.wordcount":      {Column: "chapters.word_count", Relation: "Chapters", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "chapters"},
 		"createdat":               {Column: "created_at"},
 		"id":                      {Column: "id"},
 		"isbn":                    {Column: "isbn"},
 		"lastreprintat":           {Column: "last_reprint_at"},
-		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher"},
-		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher"},
-		"publisher.id":            {Column: "publisher.id", Relation: "Publisher"},
-		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher"},
-		"publisher.name":          {Column: "publisher.name", Relation: "Publisher"},
-		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher"},
+		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.id":            {Column: "publisher.id", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.name":          {Column: "publisher.name", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
 		"publisherid":             {Column: "publisher_id"},
 		"releasedate":             {Column: "release_date"},
 		"status":                  {Column: "status"},
-		"tags.category":           {Column: "tags.category", Relation: "Tags"},
-		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags"},
-		"tags.description":        {Column: "tags.description", Relation: "Tags"},
-		"tags.id":                 {Column: "tags.id", Relation: "Tags"},
-		"tags.name":               {Column: "tags.name", Relation: "Tags"},
+		"tags.category":           {Column: "tags.category", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.createdat":          {Column: "tags.created_at", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.description":        {Column: "tags.description", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.id":                 {Column: "tags.id", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
+		"tags.name":               {Column: "tags.name", Relation: "Tags", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "book_id", TargetPivot: "tag_id", TargetTable: "tags"},
 		"title":                   {Column: "title"},
 		"updatedat":               {Column: "updated_at"},
 	},
 
 	"Chapter": {
 
-		"book.authorid":      {Column: "book.author_id", Relation: "Book"},
-		"book.createdat":     {Column: "book.created_at", Relation: "Book"},
-		"book.id":            {Column: "book.id", Relation: "Book"},
-		"book.isbn":          {Column: "book.isbn", Relation: "Book"},
-		"book.lastreprintat": {Column: "book.last_reprint_at", Relation: "Book"},
-		"book.publisherid":   {Column: "book.publisher_id", Relation: "Book"},
-		"book.releasedate":   {Column: "book.release_date", Relation: "Book"},
-		"book.status":        {Column: "book.status", Relation: "Book"},
-		"book.title":         {Column: "book.title", Relation: "Book"},
-		"book.updatedat":     {Column: "book.updated_at", Relation: "Book"},
+		"book.authorid":      {Column: "book.author_id", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.createdat":     {Column: "book.created_at", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.id":            {Column: "book.id", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.isbn":          {Column: "book.isbn", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.lastreprintat": {Column: "book.last_reprint_at", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.publisherid":   {Column: "book.publisher_id", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.releasedate":   {Column: "book.release_date", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.status":        {Column: "book.status", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.title":         {Column: "book.title", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
+		"book.updatedat":     {Column: "book.updated_at", Relation: "Book", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "book"},
 		"bookid":             {Column: "book_id"},
 		"chapterindex":       {Column: "chapter_index"},
 		"id":                 {Column: "id"},
@@ -150,45 +157,45 @@ var criteriaConfig = map[string]map[string]criteriaField{
 		"country":                 {Column: "country"},
 		"id":                      {Column: "id"},
 		"openedat":                {Column: "opened_at"},
-		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher"},
-		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher"},
-		"publisher.id":            {Column: "publisher.id", Relation: "Publisher"},
-		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher"},
-		"publisher.name":          {Column: "publisher.name", Relation: "Publisher"},
-		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher"},
+		"publisher.createdat":     {Column: "publisher.created_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.establishedat": {Column: "publisher.established_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.id":            {Column: "publisher.id", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.imprintprefix": {Column: "publisher.imprint_prefix", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.name":          {Column: "publisher.name", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
+		"publisher.updatedat":     {Column: "publisher.updated_at", Relation: "Publisher", RelationType: "belongsTo", SourceColumn: "id", TargetColumn: "id", TargetTable: "publisher"},
 		"publisherid":             {Column: "publisher_id"},
 	},
 
 	"PublishingHouse": {
 
-		"authors.active":            {Column: "authors.active", Relation: "Authors"},
-		"authors.createdat":         {Column: "authors.created_at", Relation: "Authors"},
-		"authors.email":             {Column: "authors.email", Relation: "Authors"},
-		"authors.fullname":          {Column: "authors.full_name", Relation: "Authors"},
-		"authors.hiredat":           {Column: "authors.hired_at", Relation: "Authors"},
-		"authors.id":                {Column: "authors.id", Relation: "Authors"},
-		"authors.penname":           {Column: "authors.pen_name", Relation: "Authors"},
-		"authors.publisherid":       {Column: "authors.publisher_id", Relation: "Authors"},
-		"authors.updatedat":         {Column: "authors.updated_at", Relation: "Authors"},
-		"books.authorid":            {Column: "books.author_id", Relation: "Books"},
-		"books.createdat":           {Column: "books.created_at", Relation: "Books"},
-		"books.id":                  {Column: "books.id", Relation: "Books"},
-		"books.isbn":                {Column: "books.isbn", Relation: "Books"},
-		"books.lastreprintat":       {Column: "books.last_reprint_at", Relation: "Books"},
-		"books.publisherid":         {Column: "books.publisher_id", Relation: "Books"},
-		"books.releasedate":         {Column: "books.release_date", Relation: "Books"},
-		"books.status":              {Column: "books.status", Relation: "Books"},
-		"books.title":               {Column: "books.title", Relation: "Books"},
-		"books.updatedat":           {Column: "books.updated_at", Relation: "Books"},
+		"authors.active":            {Column: "authors.active", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.createdat":         {Column: "authors.created_at", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.email":             {Column: "authors.email", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.fullname":          {Column: "authors.full_name", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.hiredat":           {Column: "authors.hired_at", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.id":                {Column: "authors.id", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.penname":           {Column: "authors.pen_name", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.publisherid":       {Column: "authors.publisher_id", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"authors.updatedat":         {Column: "authors.updated_at", Relation: "Authors", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "authors"},
+		"books.authorid":            {Column: "books.author_id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.createdat":           {Column: "books.created_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.id":                  {Column: "books.id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.isbn":                {Column: "books.isbn", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.lastreprintat":       {Column: "books.last_reprint_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.publisherid":         {Column: "books.publisher_id", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.releasedate":         {Column: "books.release_date", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.status":              {Column: "books.status", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.title":               {Column: "books.title", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
+		"books.updatedat":           {Column: "books.updated_at", Relation: "Books", RelationType: "hasMany", SourceColumn: "id", TargetColumn: "id", TargetTable: "books"},
 		"createdat":                 {Column: "created_at"},
 		"establishedat":             {Column: "established_at"},
-		"headquarters.addressline1": {Column: "headquarters.address_line1", Relation: "Headquarters"},
-		"headquarters.addressline2": {Column: "headquarters.address_line2", Relation: "Headquarters"},
-		"headquarters.city":         {Column: "headquarters.city", Relation: "Headquarters"},
-		"headquarters.country":      {Column: "headquarters.country", Relation: "Headquarters"},
-		"headquarters.id":           {Column: "headquarters.id", Relation: "Headquarters"},
-		"headquarters.openedat":     {Column: "headquarters.opened_at", Relation: "Headquarters"},
-		"headquarters.publisherid":  {Column: "headquarters.publisher_id", Relation: "Headquarters"},
+		"headquarters.addressline1": {Column: "headquarters.address_line1", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.addressline2": {Column: "headquarters.address_line2", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.city":         {Column: "headquarters.city", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.country":      {Column: "headquarters.country", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.id":           {Column: "headquarters.id", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.openedat":     {Column: "headquarters.opened_at", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
+		"headquarters.publisherid":  {Column: "headquarters.publisher_id", Relation: "Headquarters", RelationType: "hasOne", SourceColumn: "id", TargetColumn: "id", TargetTable: "headquarters"},
 		"id":                        {Column: "id"},
 		"imprintprefix":             {Column: "imprint_prefix"},
 		"name":                      {Column: "name"},
@@ -197,25 +204,25 @@ var criteriaConfig = map[string]map[string]criteriaField{
 
 	"Tag": {
 
-		"authors.active":      {Column: "authors.active", Relation: "Authors"},
-		"authors.createdat":   {Column: "authors.created_at", Relation: "Authors"},
-		"authors.email":       {Column: "authors.email", Relation: "Authors"},
-		"authors.fullname":    {Column: "authors.full_name", Relation: "Authors"},
-		"authors.hiredat":     {Column: "authors.hired_at", Relation: "Authors"},
-		"authors.id":          {Column: "authors.id", Relation: "Authors"},
-		"authors.penname":     {Column: "authors.pen_name", Relation: "Authors"},
-		"authors.publisherid": {Column: "authors.publisher_id", Relation: "Authors"},
-		"authors.updatedat":   {Column: "authors.updated_at", Relation: "Authors"},
-		"books.authorid":      {Column: "books.author_id", Relation: "Books"},
-		"books.createdat":     {Column: "books.created_at", Relation: "Books"},
-		"books.id":            {Column: "books.id", Relation: "Books"},
-		"books.isbn":          {Column: "books.isbn", Relation: "Books"},
-		"books.lastreprintat": {Column: "books.last_reprint_at", Relation: "Books"},
-		"books.publisherid":   {Column: "books.publisher_id", Relation: "Books"},
-		"books.releasedate":   {Column: "books.release_date", Relation: "Books"},
-		"books.status":        {Column: "books.status", Relation: "Books"},
-		"books.title":         {Column: "books.title", Relation: "Books"},
-		"books.updatedat":     {Column: "books.updated_at", Relation: "Books"},
+		"authors.active":      {Column: "authors.active", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.createdat":   {Column: "authors.created_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.email":       {Column: "authors.email", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.fullname":    {Column: "authors.full_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.hiredat":     {Column: "authors.hired_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.id":          {Column: "authors.id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.penname":     {Column: "authors.pen_name", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.publisherid": {Column: "authors.publisher_id", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"authors.updatedat":   {Column: "authors.updated_at", Relation: "Authors", RelationType: "manyToMany", PivotTable: "author_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "author_id", TargetTable: "authors"},
+		"books.authorid":      {Column: "books.author_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.createdat":     {Column: "books.created_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.id":            {Column: "books.id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.isbn":          {Column: "books.isbn", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.lastreprintat": {Column: "books.last_reprint_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.publisherid":   {Column: "books.publisher_id", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.releasedate":   {Column: "books.release_date", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.status":        {Column: "books.status", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.title":         {Column: "books.title", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
+		"books.updatedat":     {Column: "books.updated_at", Relation: "Books", RelationType: "manyToMany", PivotTable: "book_tags", SourceColumn: "id", TargetColumn: "id", SourcePivot: "tag_id", TargetPivot: "book_id", TargetTable: "books"},
 		"category":            {Column: "category"},
 		"createdat":           {Column: "created_at"},
 		"description":         {Column: "description"},
@@ -271,12 +278,15 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 		dir := normalizeDirection(ob.Direction)
 		column := field.Column
 		relation := field.Relation
+		relType := field.RelationType
 
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-			if relation != "" {
-				q = q.Relation(relation)
+			var col string
+			q, col = applyRelation(q, relation, relType, field, column)
+			if col == "" {
+				col = column
 			}
-			return q.OrderExpr("? ?", bun.Safe(column), bun.Safe(dir))
+			return q.OrderExpr("? ?", bun.Safe(col), bun.Safe(dir))
 		})
 	}
 
@@ -301,6 +311,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 
 		column := field.Column
 		relation := field.Relation
+		relType := field.RelationType
 
 		switch op {
 		case "IN", "NOT IN":
@@ -309,26 +320,52 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 				continue
 			}
 			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if relation != "" {
-					q = q.Relation(relation)
+				var col string
+				q, col = applyRelation(q, relation, relType, field, column)
+				if col == "" {
+					col = column
 				}
-				expr := fmt.Sprintf("%s IN (?)", column)
+				expr := fmt.Sprintf("%s IN (?)", col)
 				if op == "NOT IN" {
-					expr = fmt.Sprintf("%s NOT IN (?)", column)
+					expr = fmt.Sprintf("%s NOT IN (?)", col)
 				}
 				return q.Where(expr, bun.In(values))
 			})
 		default:
 			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if relation != "" {
-					q = q.Relation(relation)
+				var col string
+				q, col = applyRelation(q, relation, relType, field, column)
+				if col == "" {
+					col = column
 				}
-				return q.Where(fmt.Sprintf("%s %s ?", column, op), value)
+				return q.Where(fmt.Sprintf("%s %s ?", col, op), value)
 			})
 		}
 	}
 
 	return criteria
+}
+
+func applyRelation(q *bun.SelectQuery, relation, relType string, field criteriaField, column string) (*bun.SelectQuery, string) {
+	rel := strings.ToLower(strings.ReplaceAll(relType, "-", ""))
+	rel = strings.ReplaceAll(rel, "_", "")
+	if (rel == "manytomany" || rel == "m2m") && field.PivotTable != "" && field.SourcePivot != "" && field.TargetPivot != "" && field.TargetTable != "" {
+		targetAlias := strings.ToLower(strings.ReplaceAll(field.Relation, ".", "_"))
+		pivotAlias := fmt.Sprintf("%s_pivot", targetAlias)
+		q = q.Join(fmt.Sprintf("JOIN %s AS %s ON %s.%s = ?TableAlias.%s", field.PivotTable, pivotAlias, pivotAlias, field.SourcePivot, field.SourceColumn))
+		q = q.Join(fmt.Sprintf("JOIN %s AS %s ON %s.%s = %s.%s", field.TargetTable, targetAlias, targetAlias, field.TargetColumn, pivotAlias, field.TargetPivot))
+		if strings.Contains(column, ".") {
+			parts := strings.SplitN(column, ".", 2)
+			column = targetAlias + "." + parts[1]
+		} else {
+			column = targetAlias + "." + column
+		}
+		return q, column
+	}
+	if relation != "" {
+		q = q.Relation(relation)
+	}
+	return q, column
 }
 
 func paginationBounds(p *model.PaginationInput, returned int) (limit int, offset int) {
@@ -555,7 +592,8 @@ func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, err
 	if err := r.guard(ctx, "Author", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorService().Show(r.crudContext(ctx), id, nil)
+	svc := r.AuthorService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +605,8 @@ func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationI
 		return nil, err
 	}
 	criteria := buildCriteria("Author", pagination, orderBy, filter)
-	records, total, err := r.AuthorService().Index(r.crudContext(ctx), criteria)
+	svc := r.AuthorService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -595,7 +634,8 @@ func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInp
 	}
 	var record model.Author
 	applyInput(&record, input)
-	record, err := r.AuthorService().Create(r.crudContext(ctx), record)
+	svc := r.AuthorService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -606,13 +646,14 @@ func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.Upda
 	if err := r.guard(ctx, "Author", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorService().Show(r.crudContext(ctx), id, nil)
+	svc := r.AuthorService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.AuthorService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -623,9 +664,10 @@ func (r *Resolver) DeleteAuthor(ctx context.Context, id string) (bool, error) {
 	if err := r.guard(ctx, "Author", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.AuthorService()
 	var record model.Author
 	setID(&record, id)
-	if err := r.AuthorService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -642,7 +684,8 @@ func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.Auth
 	if err := r.guard(ctx, "AuthorProfile", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorProfileService().Show(r.crudContext(ctx), id, nil)
+	svc := r.AuthorProfileService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -654,7 +697,8 @@ func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.Pagi
 		return nil, err
 	}
 	criteria := buildCriteria("AuthorProfile", pagination, orderBy, filter)
-	records, total, err := r.AuthorProfileService().Index(r.crudContext(ctx), criteria)
+	svc := r.AuthorProfileService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +726,8 @@ func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAu
 	}
 	var record model.AuthorProfile
 	applyInput(&record, input)
-	record, err := r.AuthorProfileService().Create(r.crudContext(ctx), record)
+	svc := r.AuthorProfileService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -693,13 +738,14 @@ func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input mod
 	if err := r.guard(ctx, "AuthorProfile", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.AuthorProfileService().Show(r.crudContext(ctx), id, nil)
+	svc := r.AuthorProfileService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.AuthorProfileService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -710,9 +756,10 @@ func (r *Resolver) DeleteAuthorProfile(ctx context.Context, id string) (bool, er
 	if err := r.guard(ctx, "AuthorProfile", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.AuthorProfileService()
 	var record model.AuthorProfile
 	setID(&record, id)
-	if err := r.AuthorProfileService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -729,7 +776,8 @@ func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) 
 	if err := r.guard(ctx, "Book", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.BookService().Show(r.crudContext(ctx), id, nil)
+	svc := r.BookService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -741,7 +789,8 @@ func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInp
 		return nil, err
 	}
 	criteria := buildCriteria("Book", pagination, orderBy, filter)
-	records, total, err := r.BookService().Index(r.crudContext(ctx), criteria)
+	svc := r.BookService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -769,7 +818,8 @@ func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) 
 	}
 	var record model.Book
 	applyInput(&record, input)
-	record, err := r.BookService().Create(r.crudContext(ctx), record)
+	svc := r.BookService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -780,13 +830,14 @@ func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.Update
 	if err := r.guard(ctx, "Book", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.BookService().Show(r.crudContext(ctx), id, nil)
+	svc := r.BookService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.BookService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -797,9 +848,10 @@ func (r *Resolver) DeleteBook(ctx context.Context, id string) (bool, error) {
 	if err := r.guard(ctx, "Book", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.BookService()
 	var record model.Book
 	setID(&record, id)
-	if err := r.BookService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -816,7 +868,8 @@ func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, e
 	if err := r.guard(ctx, "Chapter", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.ChapterService().Show(r.crudContext(ctx), id, nil)
+	svc := r.ChapterService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -828,7 +881,8 @@ func (r *Resolver) ListChapter(ctx context.Context, pagination *model.Pagination
 		return nil, err
 	}
 	criteria := buildCriteria("Chapter", pagination, orderBy, filter)
-	records, total, err := r.ChapterService().Index(r.crudContext(ctx), criteria)
+	svc := r.ChapterService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -856,7 +910,8 @@ func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterI
 	}
 	var record model.Chapter
 	applyInput(&record, input)
-	record, err := r.ChapterService().Create(r.crudContext(ctx), record)
+	svc := r.ChapterService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -867,13 +922,14 @@ func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.Upd
 	if err := r.guard(ctx, "Chapter", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.ChapterService().Show(r.crudContext(ctx), id, nil)
+	svc := r.ChapterService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.ChapterService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -884,9 +940,10 @@ func (r *Resolver) DeleteChapter(ctx context.Context, id string) (bool, error) {
 	if err := r.guard(ctx, "Chapter", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.ChapterService()
 	var record model.Chapter
 	setID(&record, id)
-	if err := r.ChapterService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -903,7 +960,8 @@ func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headq
 	if err := r.guard(ctx, "Headquarters", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.HeadquartersService().Show(r.crudContext(ctx), id, nil)
+	svc := r.HeadquartersService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +973,8 @@ func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.Pagin
 		return nil, err
 	}
 	criteria := buildCriteria("Headquarters", pagination, orderBy, filter)
-	records, total, err := r.HeadquartersService().Index(r.crudContext(ctx), criteria)
+	svc := r.HeadquartersService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -943,7 +1002,8 @@ func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHea
 	}
 	var record model.Headquarters
 	applyInput(&record, input)
-	record, err := r.HeadquartersService().Create(r.crudContext(ctx), record)
+	svc := r.HeadquartersService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -954,13 +1014,14 @@ func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input mode
 	if err := r.guard(ctx, "Headquarters", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.HeadquartersService().Show(r.crudContext(ctx), id, nil)
+	svc := r.HeadquartersService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.HeadquartersService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -971,9 +1032,10 @@ func (r *Resolver) DeleteHeadquarters(ctx context.Context, id string) (bool, err
 	if err := r.guard(ctx, "Headquarters", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.HeadquartersService()
 	var record model.Headquarters
 	setID(&record, id)
-	if err := r.HeadquartersService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -990,7 +1052,8 @@ func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.Pu
 	if err := r.guard(ctx, "PublishingHouse", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.PublishingHouseService().Show(r.crudContext(ctx), id, nil)
+	svc := r.PublishingHouseService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1065,8 @@ func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.Pa
 		return nil, err
 	}
 	criteria := buildCriteria("PublishingHouse", pagination, orderBy, filter)
-	records, total, err := r.PublishingHouseService().Index(r.crudContext(ctx), criteria)
+	svc := r.PublishingHouseService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -1030,7 +1094,8 @@ func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.Create
 	}
 	var record model.PublishingHouse
 	applyInput(&record, input)
-	record, err := r.PublishingHouseService().Create(r.crudContext(ctx), record)
+	svc := r.PublishingHouseService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -1041,13 +1106,14 @@ func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input m
 	if err := r.guard(ctx, "PublishingHouse", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.PublishingHouseService().Show(r.crudContext(ctx), id, nil)
+	svc := r.PublishingHouseService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.PublishingHouseService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -1058,9 +1124,10 @@ func (r *Resolver) DeletePublishingHouse(ctx context.Context, id string) (bool, 
 	if err := r.guard(ctx, "PublishingHouse", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.PublishingHouseService()
 	var record model.PublishingHouse
 	setID(&record, id)
-	if err := r.PublishingHouseService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1077,7 +1144,8 @@ func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
 	if err := r.guard(ctx, "Tag", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.TagService().Show(r.crudContext(ctx), id, nil)
+	svc := r.TagService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1089,7 +1157,8 @@ func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInpu
 		return nil, err
 	}
 	criteria := buildCriteria("Tag", pagination, orderBy, filter)
-	records, total, err := r.TagService().Index(r.crudContext(ctx), criteria)
+	svc := r.TagService()
+	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -1117,7 +1186,8 @@ func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*
 	}
 	var record model.Tag
 	applyInput(&record, input)
-	record, err := r.TagService().Create(r.crudContext(ctx), record)
+	svc := r.TagService()
+	record, err := svc.Create(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -1128,13 +1198,14 @@ func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateT
 	if err := r.guard(ctx, "Tag", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.TagService().Show(r.crudContext(ctx), id, nil)
+	svc := r.TagService()
+	record, err := svc.Show(r.crudContext(ctx), id, nil)
 	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.TagService().Update(r.crudContext(ctx), record)
+	record, err = svc.Update(r.crudContext(ctx), record)
 	if err != nil {
 		return nil, err
 	}
@@ -1145,9 +1216,10 @@ func (r *Resolver) DeleteTag(ctx context.Context, id string) (bool, error) {
 	if err := r.guard(ctx, "Tag", "delete"); err != nil {
 		return false, err
 	}
+	svc := r.TagService()
 	var record model.Tag
 	setID(&record, id)
-	if err := r.TagService().Delete(r.crudContext(ctx), record); err != nil {
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
 	return true, nil

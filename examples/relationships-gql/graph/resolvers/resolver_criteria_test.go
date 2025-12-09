@@ -82,3 +82,21 @@ func TestListBookPageInfoEndBoundary(t *testing.T) {
 	require.Equal(t, encodeCursor(offset), conn.PageInfo.StartCursor)
 	require.Equal(t, encodeCursor(offset), conn.PageInfo.EndCursor)
 }
+
+func TestListAuthorFiltersByTags(t *testing.T) {
+	resolver, ctx, cleanup := setupResolver(t)
+	defer cleanup()
+
+	filters := []*model.FilterInput{
+		{Field: "tags.name", Operator: model.FilterOperatorEQ, Value: "Science Fiction"},
+	}
+
+	conn, err := resolver.ListAuthor(ctx, nil, nil, filters)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	require.NotEmpty(t, conn.Edges)
+	for _, edge := range conn.Edges {
+		require.NotNil(t, edge.Node)
+		require.NotEmpty(t, edge.Node.FullName)
+	}
+}
