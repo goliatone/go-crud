@@ -16,6 +16,7 @@ type Overlay struct {
 	Inputs    []Input     `json:"inputs" yaml:"inputs"`
 	Queries   []Operation `json:"queries" yaml:"queries"`
 	Mutations []Operation `json:"mutations" yaml:"mutations"`
+	Hooks     Hooks       `json:"hooks" yaml:"hooks"`
 }
 
 // Scalar describes a custom scalar and its optional Go type mapping.
@@ -73,6 +74,30 @@ type Argument struct {
 	Required    bool   `json:"required,omitempty" yaml:"required,omitempty"`
 }
 
+// Hooks defines resolver hook snippets and required imports.
+type Hooks struct {
+	Imports  []string               `json:"imports,omitempty" yaml:"imports,omitempty"`
+	Default  HookSet                `json:"default,omitempty" yaml:"default,omitempty"`
+	Entities map[string]EntityHooks `json:"entities,omitempty" yaml:"entities,omitempty"`
+}
+
+// EntityHooks configures hooks for a single entity.
+type EntityHooks struct {
+	Imports    []string           `json:"imports,omitempty" yaml:"imports,omitempty"`
+	All        HookSet            `json:"all,omitempty" yaml:"all,omitempty"`
+	Operations map[string]HookSet `json:"operations,omitempty" yaml:"operations,omitempty"`
+}
+
+// HookSet captures hook snippets for a given operation.
+type HookSet struct {
+	Imports      []string `json:"imports,omitempty" yaml:"imports,omitempty"`
+	AuthGuard    string   `json:"auth_guard,omitempty" yaml:"auth_guard,omitempty"`
+	ScopeGuard   string   `json:"scope_guard,omitempty" yaml:"scope_guard,omitempty"`
+	Preload      string   `json:"preload,omitempty" yaml:"preload,omitempty"`
+	WrapRepo     string   `json:"wrap_repo,omitempty" yaml:"wrap_repo,omitempty"`
+	ErrorHandler string   `json:"error_handler,omitempty" yaml:"error_handler,omitempty"`
+}
+
 // Load reads an overlay from JSON or YAML. Empty path returns an empty overlay.
 func Load(path string) (Overlay, error) {
 	if path == "" {
@@ -111,6 +136,7 @@ func Merge(base, extra Overlay) Overlay {
 	out.Scalars = mergeScalars(base.Scalars, extra.Scalars)
 	out.Enums = mergeEnums(base.Enums, extra.Enums)
 	out.Inputs = mergeInputs(base.Inputs, extra.Inputs)
+	out.Hooks = mergeHooks(base.Hooks, extra.Hooks)
 	out.Queries = append([]Operation{}, base.Queries...)
 	out.Queries = append(out.Queries, extra.Queries...)
 	out.Mutations = append([]Operation{}, base.Mutations...)
@@ -170,4 +196,61 @@ func mergeInputs(base, extra []Input) []Input {
 		result = append(result, in)
 	}
 	return result
+}
+
+func mergeHooks(base, extra Hooks) Hooks {
+	out := Hooks{
+		Imports: append([]string{}, base.Imports...),
+		Default: mergeHookSet(base.Default, extra.Default),
+	}
+	if len(extra.Imports) > 0 {
+		out.Imports = append(out.Imports, extra.Imports...)
+	}
+
+	if len(base.Entities) == 0 && len(extra.Entities) == 0 {
+		return out
+	}
+
+	out.Entities = make(map[string]EntityHooks, len(base.Entities)+len(extra.Entities))
+	for name, hooks := range base.Entities {
+		out.Entities[name] = hooks
+	}
+
+	for name, hooks := range extra.Entities {
+		current := out.Entities[name]
+		current.Imports = append(current.Imports, hooks.Imports...)
+		current.All = mergeHookSet(current.All, hooks.All)
+		if len(current.Operations) == 0 && len(hooks.Operations) > 0 {
+			current.Operations = make(map[string]HookSet, len(hooks.Operations))
+		}
+		for op, set := range hooks.Operations {
+			current.Operations[op] = mergeHookSet(current.Operations[op], set)
+		}
+		out.Entities[name] = current
+	}
+
+	return out
+}
+
+func mergeHookSet(base, extra HookSet) HookSet {
+	out := base
+	if extra.AuthGuard != "" {
+		out.AuthGuard = extra.AuthGuard
+	}
+	if extra.ScopeGuard != "" {
+		out.ScopeGuard = extra.ScopeGuard
+	}
+	if extra.Preload != "" {
+		out.Preload = extra.Preload
+	}
+	if extra.WrapRepo != "" {
+		out.WrapRepo = extra.WrapRepo
+	}
+	if extra.ErrorHandler != "" {
+		out.ErrorHandler = extra.ErrorHandler
+	}
+	if len(extra.Imports) > 0 {
+		out.Imports = append(out.Imports, extra.Imports...)
+	}
+	return out
 }
