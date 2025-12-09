@@ -30,6 +30,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	var include, exclude, omitMutationFields stringList
 	typeMappings := newTypeMappingFlag()
+	var subscriptionEvents stringList
 
 	fs.StringVar(&opts.MetadataFile, "metadata-file", opts.MetadataFile, "path to a JSON file containing router.SchemaMetadata")
 	fs.StringVar(&opts.SchemaPackage, "schema-package", opts.SchemaPackage, "package to import before reading schemas from the registry (optional)")
@@ -42,6 +43,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	fs.BoolVar(&opts.SkipGQLGen, "skip-gqlgen", opts.SkipGQLGen, "skip running gqlgen even if requested")
 	fs.BoolVar(&opts.RunGoImports, "goimports", opts.RunGoImports, "apply goimports to generated Go files")
 	fs.BoolVar(&opts.EmitDataloader, "emit-dataloader", opts.EmitDataloader, "generate dataloader scaffold (off by default)")
+	fs.BoolVar(&opts.EmitSubscriptions, "emit-subscriptions", opts.EmitSubscriptions, "generate subscription SDL and resolvers (off by default)")
 	fs.StringVar(&opts.PolicyHook, "policy-hook", opts.PolicyHook, "optional scope guard function to invoke inside generated resolvers")
 	fs.StringVar(&opts.OverlayFile, "overlay-file", opts.OverlayFile, "JSON/YAML overlay to enrich metadata with scalars/enums/inputs/operations")
 	fs.StringVar(&opts.HooksFile, "hooks-file", opts.HooksFile, "JSON/YAML overlay containing resolver hook snippets/imports")
@@ -51,6 +53,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	fs.Var(&include, "include", "schema include glob (repeatable)")
 	fs.Var(&exclude, "exclude", "schema exclude glob (repeatable)")
 	fs.Var(&omitMutationFields, "omit-mutation-field", "field name or entity.field to omit from mutation helpers (repeatable)")
+	fs.Var(&subscriptionEvents, "subscription-event", "subscription event trigger (created, updated, deleted). repeatable; defaults to created,updated,deleted")
 	fs.Var(typeMappings, "type-mapping", "scalar override mapping (e.g., string:uuid=UUID or time.Time=Time)")
 
 	if err := fs.Parse(args); err != nil {
@@ -64,6 +67,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	opts.Exclude = exclude
 	opts.OmitMutationFields = omitMutationFields
 	opts.TypeMappings = typeMappings.values
+	opts.SubscriptionEvents = subscriptionEvents
 
 	result, err := generator.Generate(ctx, opts)
 	if err != nil {
