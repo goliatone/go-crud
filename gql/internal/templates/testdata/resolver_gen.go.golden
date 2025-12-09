@@ -397,6 +397,22 @@ func setTimePtr(dst **time.Time, data *model.Time) {
 	*dst = &val
 }
 
+func valueString(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case *string:
+		if val == nil {
+			return ""
+		}
+		return *val
+	case fmt.Stringer:
+		return val.String()
+	default:
+		return fmt.Sprint(val)
+	}
+}
+
 func (r *Resolver) PostService() crud.Service[model.Post] {
 	if r.PostSvc == nil {
 		panic("PostService is not configured on Resolver")

@@ -5,13 +5,11 @@ package resolvers
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
-
-	"errors"
-	"github.com/goliatone/go-auth"
 
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
@@ -50,6 +48,39 @@ var criteriaConfig = map[string]map[string]criteriaField{
 	},
 }
 
+var subscriptionTopics = map[string]map[string]string{}
+
+func init() {
+	addSubscriptionTopic("Post", "created", "post.created")
+	addSubscriptionTopic("Post", "updated", "post.updated")
+	addSubscriptionTopic("Post", "deleted", "post.deleted")
+	addSubscriptionTopic("User", "created", "user.created")
+	addSubscriptionTopic("User", "updated", "user.updated")
+	addSubscriptionTopic("User", "deleted", "user.deleted")
+}
+
+func addSubscriptionTopic(entity, event, topic string) {
+	if topic == "" {
+		return
+	}
+	if subscriptionTopics[entity] == nil {
+		subscriptionTopics[entity] = make(map[string]string)
+	}
+	subscriptionTopics[entity][strings.ToLower(event)] = topic
+}
+
+func subscriptionTopic(entity, event string) string {
+	events, ok := subscriptionTopics[entity]
+	if !ok {
+		return ""
+	}
+	return events[strings.ToLower(event)]
+}
+
+func hasSubscription(entity, event string) bool {
+	return subscriptionTopic(entity, event) != ""
+}
+
 func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
@@ -64,6 +95,28 @@ func (r *Resolver) guard(ctx context.Context, entity, action string) error {
 		}
 	}
 	return nil
+}
+
+func (r *Resolver) publishEvent(ctx context.Context, entity, event string, payload any) error {
+	if r.Events == nil {
+		return nil
+	}
+	topic := subscriptionTopic(entity, event)
+	if topic == "" {
+		return nil
+	}
+	return r.Events.Publish(ctx, topic, payload)
+}
+
+func (r *Resolver) subscribe(ctx context.Context, entity, event string) (<-chan EventMessage, error) {
+	if r.Events == nil {
+		return nil, errors.New("subscriptions are not configured")
+	}
+	topic := subscriptionTopic(entity, event)
+	if topic == "" {
+		return nil, errors.New("subscription is not enabled for " + entity + ":" + event)
+	}
+	return r.Events.Subscribe(ctx, topic)
 }
 
 func buildCriteria(entity string, p *model.PaginationInput, order []*model.OrderByInput, filters []*model.FilterInput) []repository.SelectCriteria {
@@ -424,11 +477,6 @@ func (r *Resolver) PostService() crud.Service[model.Post] {
 }
 
 func (r *Resolver) GetPost(ctx context.Context, id string) (*model.Post, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "Post", "show"); err != nil {
 		return nil, err
 	}
@@ -441,16 +489,10 @@ func (r *Resolver) GetPost(ctx context.Context, id string) (*model.Post, error) 
 }
 
 func (r *Resolver) ListPost(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PostConnection, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "Post", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Post", pagination, orderBy, filter)
-	criteria = append(criteria, repository.SelectRelation("Author"))
 	svc := r.PostService()
 	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
@@ -475,11 +517,6 @@ func (r *Resolver) ListPost(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreatePost(ctx context.Context, input model.CreatePostInput) (*model.Post, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "Post", "create"); err != nil {
 		return nil, err
 	}
@@ -490,15 +527,13 @@ func (r *Resolver) CreatePost(ctx context.Context, input model.CreatePostInput) 
 	if err != nil {
 		return nil, err
 	}
+	if err := r.publishEvent(ctx, "Post", "created", record); err != nil {
+		return nil, err
+	}
 	return &record, nil
 }
 
 func (r *Resolver) UpdatePost(ctx context.Context, id string, input model.UpdatePostInput) (*model.Post, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "Post", "update"); err != nil {
 		return nil, err
 	}
@@ -513,22 +548,34 @@ func (r *Resolver) UpdatePost(ctx context.Context, id string, input model.Update
 	if err != nil {
 		return nil, err
 	}
+	if err := r.publishEvent(ctx, "Post", "updated", record); err != nil {
+		return nil, err
+	}
 	return &record, nil
 }
 
 func (r *Resolver) DeletePost(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return false, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "Post", "delete"); err != nil {
 		return false, err
 	}
 	svc := r.PostService()
 	var record model.Post
 	setID(&record, id)
+	var deleted *model.Post
+	if hasSubscription("Post", "deleted") && r.Events != nil {
+		current, err := svc.Show(r.crudContext(ctx), id, nil)
+		if err == nil {
+			deleted = &current
+		}
+	}
 	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
+		return false, err
+	}
+	payload := record
+	if deleted != nil {
+		payload = *deleted
+	}
+	if err := r.publishEvent(ctx, "Post", "deleted", payload); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -542,11 +589,6 @@ func (r *Resolver) UserService() crud.Service[model.User] {
 }
 
 func (r *Resolver) GetUser(ctx context.Context, id string) (*model.User, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "User", "show"); err != nil {
 		return nil, err
 	}
@@ -559,11 +601,6 @@ func (r *Resolver) GetUser(ctx context.Context, id string) (*model.User, error) 
 }
 
 func (r *Resolver) ListUser(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.UserConnection, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "User", "index"); err != nil {
 		return nil, err
 	}
@@ -592,11 +629,6 @@ func (r *Resolver) ListUser(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "User", "create"); err != nil {
 		return nil, err
 	}
@@ -607,15 +639,13 @@ func (r *Resolver) CreateUser(ctx context.Context, input model.CreateUserInput) 
 	if err != nil {
 		return nil, err
 	}
+	if err := r.publishEvent(ctx, "User", "created", record); err != nil {
+		return nil, err
+	}
 	return &record, nil
 }
 
 func (r *Resolver) UpdateUser(ctx context.Context, id string, input model.UpdateUserInput) (*model.User, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return nil, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "User", "update"); err != nil {
 		return nil, err
 	}
@@ -630,23 +660,239 @@ func (r *Resolver) UpdateUser(ctx context.Context, id string, input model.Update
 	if err != nil {
 		return nil, err
 	}
+	if err := r.publishEvent(ctx, "User", "updated", record); err != nil {
+		return nil, err
+	}
 	return &record, nil
 }
 
 func (r *Resolver) DeleteUser(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
-	if !ok || user == nil {
-		return false, errors.New("unauthorized")
-	}
-	_ = user
 	if err := r.guard(ctx, "User", "delete"); err != nil {
 		return false, err
 	}
 	svc := r.UserService()
 	var record model.User
 	setID(&record, id)
+	var deleted *model.User
+	if hasSubscription("User", "deleted") && r.Events != nil {
+		current, err := svc.Show(r.crudContext(ctx), id, nil)
+		if err == nil {
+			deleted = &current
+		}
+	}
 	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 		return false, err
 	}
+	payload := record
+	if deleted != nil {
+		payload = *deleted
+	}
+	if err := r.publishEvent(ctx, "User", "deleted", payload); err != nil {
+		return false, err
+	}
 	return true, nil
+}
+
+func (r *Resolver) PostCreated(ctx context.Context) (<-chan *model.Post, error) {
+	stream, err := r.subscribe(ctx, "Post", "created")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.Post)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.Post:
+					out <- payload
+				case model.Post:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func (r *Resolver) PostUpdated(ctx context.Context) (<-chan *model.Post, error) {
+	stream, err := r.subscribe(ctx, "Post", "updated")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.Post)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.Post:
+					out <- payload
+				case model.Post:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func (r *Resolver) PostDeleted(ctx context.Context) (<-chan *model.Post, error) {
+	stream, err := r.subscribe(ctx, "Post", "deleted")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.Post)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.Post:
+					out <- payload
+				case model.Post:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func (r *Resolver) UserCreated(ctx context.Context) (<-chan *model.User, error) {
+	stream, err := r.subscribe(ctx, "User", "created")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.User)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.User:
+					out <- payload
+				case model.User:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func (r *Resolver) UserUpdated(ctx context.Context) (<-chan *model.User, error) {
+	stream, err := r.subscribe(ctx, "User", "updated")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.User)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.User:
+					out <- payload
+				case model.User:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+func (r *Resolver) UserDeleted(ctx context.Context) (<-chan *model.User, error) {
+	stream, err := r.subscribe(ctx, "User", "deleted")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.User)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+				switch payload := msg.Payload.(type) {
+				case *model.User:
+					out <- payload
+				case model.User:
+					item := payload
+					out <- &item
+				}
+			}
+		}
+	}()
+
+	return out, nil
 }
