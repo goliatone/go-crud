@@ -18,12 +18,14 @@ import (
 
 // ContextOptions controls context construction.
 type ContextOptions struct {
-	ConfigPath     string
-	OutDir         string
-	PolicyHook     string
-	EmitDataloader bool
-	Overlay        overlay.Overlay
-	HookOptions    hooks.Options
+	ConfigPath         string
+	OutDir             string
+	PolicyHook         string
+	EmitDataloader     bool
+	EmitSubscriptions  bool
+	SubscriptionEvents []string
+	Overlay            overlay.Overlay
+	HookOptions        hooks.Options
 }
 
 // BuildContext produces a template Context with defaults plus overlay additions.
@@ -40,11 +42,18 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 		ctx.ModelPackage = modelRel
 	}
 	ctx.ResolverPackage = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "resolvers")))
-	ctx.DataloaderPackage = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "dataloader")))
+	dataloaderRel := toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "dataloader")))
+	if modPath != "" {
+		ctx.DataloaderPackage = path.Join(modPath, dataloaderRel)
+	} else {
+		ctx.DataloaderPackage = dataloaderRel
+	}
 	ctx.PolicyHook = opts.PolicyHook
 	ctx.EmitDataloader = opts.EmitDataloader
+	ctx.EmitSubscriptions = opts.EmitSubscriptions
 
-	defaultOverlay := buildDefaultOverlay(doc)
+	events := normalizeSubscriptionEvents(opts.SubscriptionEvents, opts.EmitSubscriptions)
+	defaultOverlay := buildDefaultOverlay(doc, events)
 	merged := overlay.Merge(defaultOverlay, opts.Overlay)
 
 	ctx.Scalars = toTemplateScalars(sanitizeScalars(merged.Scalars))
@@ -52,6 +61,7 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	ctx.Inputs = toTemplateInputs(sanitizeInputs(merged.Inputs))
 	ctx.Queries = toTemplateOperations(sanitizeOperations(merged.Queries))
 	ctx.Mutations = toTemplateOperations(sanitizeOperations(merged.Mutations))
+	ctx.Subscriptions = toTemplateSubscriptions(sanitizeSubscriptions(merged.Subscriptions))
 
 	ctx.Entities = append([]formatter.Entity{}, ctx.Entities...)
 	ctx.Entities = append(ctx.Entities, buildPageInfo())
@@ -69,10 +79,12 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 		})
 	}
 
+	ctx.DataloaderEntities = buildDataloaderEntities(doc, ctx.ModelStructs)
+
 	return ctx
 }
 
-func buildDefaultOverlay(doc formatter.Document) overlay.Overlay {
+func buildDefaultOverlay(doc formatter.Document, subscriptionEvents []string) overlay.Overlay {
 	scalars := []overlay.Scalar{
 		{Name: "UUID", Description: "Custom scalar for UUID values", GoType: "string"},
 		{Name: "Time", Description: "Custom scalar for Time values", GoType: "time.Time"},
@@ -191,11 +203,12 @@ func buildDefaultOverlay(doc formatter.Document) overlay.Overlay {
 	}
 
 	return overlay.Overlay{
-		Scalars:   scalars,
-		Enums:     enums,
-		Inputs:    inputs,
-		Queries:   queries,
-		Mutations: mutations,
+		Scalars:       scalars,
+		Enums:         enums,
+		Inputs:        inputs,
+		Queries:       queries,
+		Mutations:     mutations,
+		Subscriptions: buildDefaultSubscriptions(doc.Entities, subscriptionEvents),
 	}
 }
 
@@ -305,6 +318,31 @@ func buildEntityInputs(entity formatter.Entity) (overlay.Input, overlay.Input) {
 		}
 }
 
+func buildDefaultSubscriptions(entities []formatter.Entity, events []string) []overlay.Subscription {
+	if len(events) == 0 {
+		return nil
+	}
+
+	var subs []overlay.Subscription
+	for _, entity := range entities {
+		for _, event := range events {
+			event = strings.TrimSpace(strings.ToLower(event))
+			if event == "" {
+				continue
+			}
+			subs = append(subs, overlay.Subscription{
+				Name:       lowerFirst(entity.Name) + strcase.ToPascal(event),
+				ReturnType: entity.Name,
+				Required:   true,
+				Entity:     entity.Name,
+				Event:      event,
+				Topic:      fmt.Sprintf("%s.%s", lowerFirst(entity.Name), event),
+			})
+		}
+	}
+	return subs
+}
+
 func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	imports := map[string]struct{}{}
 	enums := make([]ModelEnum, 0, len(ctx.Enums))
@@ -380,6 +418,181 @@ func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	sort.Strings(importList)
 
 	return structs, enums, importList
+}
+
+func buildDataloaderEntities(doc formatter.Document, models []ModelStruct) []DataloaderEntity {
+	modelFields := make(map[string]map[string]ModelField, len(models))
+	for _, m := range models {
+		fields := make(map[string]ModelField, len(m.Fields))
+		for _, f := range m.Fields {
+			fields[strings.ToLower(f.JSONName)] = f
+		}
+		modelFields[m.Name] = fields
+	}
+
+	pkByEntity := make(map[string]DataloaderField, len(doc.Entities))
+	for _, ent := range doc.Entities {
+		pk := findPrimaryKey(ent, modelFields[ent.Name])
+		if pk.Column != "" {
+			pkByEntity[ent.Name] = pk
+		}
+	}
+
+	entities := make([]DataloaderEntity, 0, len(doc.Entities))
+	for _, ent := range doc.Entities {
+		pk := pkByEntity[ent.Name]
+		if pk.Column == "" {
+			continue
+		}
+
+		entity := DataloaderEntity{
+			Name:      ent.Name,
+			ModelName: ent.Name,
+			PK:        pk,
+			Relations: buildDataloaderRelations(ent, pk, modelFields, pkByEntity),
+			Resolver:  lowerFirst(ent.Name),
+		}
+		entities = append(entities, entity)
+	}
+
+	return entities
+}
+
+func findPrimaryKey(entity formatter.Entity, fields map[string]ModelField) DataloaderField {
+	var pk formatter.Field
+	for _, f := range entity.Fields {
+		if f.Relation != nil {
+			continue
+		}
+		if pk.Name == "" || strings.EqualFold(f.OriginalName, "id") {
+			pk = f
+		}
+		if strings.EqualFold(f.OriginalName, "id") {
+			break
+		}
+	}
+
+	if pk.Name == "" {
+		return DataloaderField{}
+	}
+
+	return toDataloaderField(pk, fields)
+}
+
+func toDataloaderField(f formatter.Field, fields map[string]ModelField) DataloaderField {
+	field := ModelField{Name: strcase.ToPascal(f.Name), JSONName: f.OriginalName, GoType: f.Type}
+	if mf, ok := fields[strings.ToLower(f.OriginalName)]; ok {
+		field = mf
+	}
+	return DataloaderField{
+		Name:      f.Name,
+		FieldName: field.Name,
+		Column:    f.OriginalName,
+		GoType:    field.GoType,
+	}
+}
+
+func buildDataloaderRelations(entity formatter.Entity, pk DataloaderField, modelFields map[string]map[string]ModelField, pkByEntity map[string]DataloaderField) []DataloaderRelation {
+	sourceFields := modelFields[entity.Name]
+	relations := make([]DataloaderRelation, 0, len(entity.Fields))
+	for _, f := range entity.Fields {
+		if f.Relation == nil {
+			continue
+		}
+		targetFields := modelFields[f.Relation.Type]
+		targetPK := pkByEntity[f.Relation.Type]
+		relation := DataloaderRelation{
+			Name:         f.Name,
+			FieldName:    structFieldName(f.OriginalName, sourceFields),
+			Target:       f.Relation.Type,
+			TargetField:  structFieldName(f.Relation.Type, targetFields),
+			RelationType: normalizeRelationType(f.Relation),
+			IsList:       f.Relation.IsList,
+			SourceColumn: firstNonEmpty(f.Relation.SourceColumn, f.Relation.SourceField, pk.Column),
+			TargetColumn: firstNonEmpty(f.Relation.TargetColumn, "id"),
+			SourceField:  f.Relation.SourceField,
+			PivotTable:   f.Relation.PivotTable,
+			SourcePivot:  f.Relation.SourcePivotField,
+			TargetPivot:  f.Relation.TargetPivotField,
+			TargetTable:  firstNonEmpty(f.Relation.TargetTable, f.Relation.OriginalName, f.Relation.RelatedSchema),
+		}
+		if relation.RelationType == "manyToMany" {
+			if relation.SourcePivot == "" {
+				relation.SourcePivot = fmt.Sprintf("%s_id", strcase.ToSnake(entity.RawName))
+			}
+			if relation.TargetPivot == "" {
+				relation.TargetPivot = fmt.Sprintf("%s_id", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)))
+			}
+			if relation.TargetTable == "" {
+				relation.TargetTable = strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName))
+			}
+			if relation.PivotTable == "" {
+				targetName := relation.TargetTable
+				if targetName == "" {
+					targetName = strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName))
+				}
+				relation.PivotTable = fmt.Sprintf("%s_%s", strcase.ToSnake(entity.RawName), targetName)
+			}
+		}
+		if relation.SourceColumn == "" {
+			relation.SourceColumn = pk.Column
+		}
+		relation.SourceFieldKey = findModelField(firstNonEmpty(f.Relation.SourceField, f.Relation.SourceColumn), sourceFields, pk)
+		relation.TargetFieldKey = findModelField(relation.TargetColumn, targetFields, targetPK)
+		relations = append(relations, relation)
+	}
+	return relations
+}
+
+func structFieldName(name string, fields map[string]ModelField) string {
+	if name == "" {
+		return ""
+	}
+	if field, ok := fields[strings.ToLower(name)]; ok {
+		return field.Name
+	}
+	return strcase.ToPascal(name)
+}
+
+func findModelField(name string, fields map[string]ModelField, fallback DataloaderField) DataloaderField {
+	if name == "" {
+		return fallback
+	}
+	key := strings.ToLower(name)
+	if field, ok := fields[key]; ok {
+		return DataloaderField{
+			Name:      lowerFirst(field.Name),
+			FieldName: field.Name,
+			Column:    field.JSONName,
+			GoType:    field.GoType,
+		}
+	}
+	return fallback
+}
+
+func normalizeRelationType(rel *formatter.Relation) string {
+	if rel == nil {
+		return ""
+	}
+
+	normalized := strings.ToLower(strings.ReplaceAll(rel.RelationType, "-", ""))
+	normalized = strings.ReplaceAll(normalized, "_", "")
+
+	switch normalized {
+	case "belongsto":
+		return "belongsTo"
+	case "hasmany":
+		return "hasMany"
+	case "hasone":
+		return "hasOne"
+	case "manytomany", "m2m":
+		return "manyToMany"
+	}
+
+	if rel.IsList {
+		return "hasMany"
+	}
+	return "hasOne"
 }
 
 func scalarGoTypes(scalars []TemplateScalar) map[string]string {
@@ -760,4 +973,103 @@ func buildArgsSignature(args []TemplateArgument) string {
 		parts = append(parts, sig)
 	}
 	return strings.Join(parts, ", ")
+}
+
+func normalizeSubscriptionEvents(events []string, enabled bool) []string {
+	if !enabled {
+		return nil
+	}
+	if len(events) == 0 {
+		events = []string{"created", "updated", "deleted"}
+	}
+	seen := make(map[string]struct{}, len(events))
+	out := make([]string, 0, len(events))
+	for _, e := range events {
+		normalized := strings.TrimSpace(strings.ToLower(e))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func sanitizeSubscriptions(list []overlay.Subscription) []overlay.Subscription {
+	var out []overlay.Subscription
+	for _, sub := range list {
+		sub.Name = strings.TrimSpace(sub.Name)
+		sub.ReturnType = strings.TrimSpace(sub.ReturnType)
+		if sub.Name == "" || sub.ReturnType == "" {
+			continue
+		}
+		var args []overlay.Argument
+		for _, a := range sub.Args {
+			a.Name = strings.TrimSpace(a.Name)
+			a.Type = strings.TrimSpace(a.Type)
+			if a.Name == "" || a.Type == "" {
+				continue
+			}
+			args = append(args, a)
+		}
+		sub.Args = args
+		if sub.Entity == "" {
+			sub.Entity = strings.TrimSpace(sub.ReturnType)
+		}
+
+		event := strings.TrimSpace(strings.ToLower(sub.Event))
+		if event == "" && len(sub.Events) > 0 {
+			if normalized := normalizeSubscriptionEvents(sub.Events, true); len(normalized) > 0 {
+				event = normalized[0]
+			}
+		}
+		sub.Event = event
+
+		if sub.Topic == "" {
+			switch {
+			case sub.Entity != "" && sub.Event != "":
+				sub.Topic = fmt.Sprintf("%s.%s", lowerFirst(sub.Entity), sub.Event)
+			case sub.Event != "":
+				sub.Topic = sub.Event
+			case sub.Name != "":
+				sub.Topic = lowerFirst(sub.Name)
+			}
+		}
+
+		out = append(out, sub)
+	}
+	return out
+}
+
+func toTemplateSubscriptions(list []overlay.Subscription) []TemplateSubscription {
+	out := make([]TemplateSubscription, 0, len(list))
+	for _, sub := range list {
+		args := make([]TemplateArgument, 0, len(sub.Args))
+		for _, a := range sub.Args {
+			args = append(args, TemplateArgument{
+				Name:        a.Name,
+				Type:        a.Type,
+				Description: a.Description,
+				List:        a.List,
+				Required:    a.Required,
+			})
+		}
+		out = append(out, TemplateSubscription{
+			Name:          sub.Name,
+			ReturnType:    sub.ReturnType,
+			List:          sub.List,
+			Required:      sub.Required,
+			Description:   sub.Description,
+			Args:          args,
+			ArgsSignature: buildArgsSignature(args),
+			Entity:        sub.Entity,
+			Event:         sub.Event,
+			Topic:         sub.Topic,
+			MethodName:    strcase.ToPascal(sub.Name),
+		})
+	}
+	return out
 }

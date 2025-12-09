@@ -9,12 +9,17 @@ import (
 	"reflect"
 	"strings"
 	"time"
+{% if Subscriptions %}	"errors"
+{% endif %}
 
 {% for imp in Hooks.Imports %}	"{{ imp }}"
 {% endfor %}
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
+{% if EmitDataloader %}
+	"{{ DataloaderPackage }}"
+{% endif %}
 
 	"{{ ModelPackage }}"
 )
@@ -44,6 +49,35 @@ var criteriaConfig = map[string]map[string]criteriaField{
 {% endfor %}
 }
 
+{% if Subscriptions %}var subscriptionTopics = map[string]map[string]string{}
+
+func init() {
+{% for sub in Subscriptions %}	addSubscriptionTopic("{{ sub.Entity }}", "{{ sub.Event }}", "{{ sub.Topic }}")
+{% endfor %}}
+
+func addSubscriptionTopic(entity, event, topic string) {
+	if topic == "" {
+		return
+	}
+	if subscriptionTopics[entity] == nil {
+		subscriptionTopics[entity] = make(map[string]string)
+	}
+	subscriptionTopics[entity][strings.ToLower(event)] = topic
+}
+
+func subscriptionTopic(entity, event string) string {
+	events, ok := subscriptionTopics[entity]
+	if !ok {
+		return ""
+	}
+	return events[strings.ToLower(event)]
+}
+
+func hasSubscription(entity, event string) bool {
+	return subscriptionTopic(entity, event) != ""
+}
+{% endif %}
+
 func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
@@ -59,6 +93,42 @@ func (r *Resolver) guard(ctx context.Context, entity, action string) error {
 	}
 	{% if PolicyHook %}return {{ PolicyHook }}(ctx, entity, action){% else %}return nil{% endif %}
 }
+
+{% if Subscriptions %}func (r *Resolver) publishEvent(ctx context.Context, entity, event string, payload any) error {
+	if r.Events == nil {
+		return nil
+	}
+	topic := subscriptionTopic(entity, event)
+	if topic == "" {
+		return nil
+	}
+	return r.Events.Publish(ctx, topic, payload)
+}
+
+func (r *Resolver) subscribe(ctx context.Context, entity, event string) (<-chan EventMessage, error) {
+	if r.Events == nil {
+		return nil, errors.New("subscriptions are not configured")
+	}
+	topic := subscriptionTopic(entity, event)
+	if topic == "" {
+		return nil, errors.New("subscription is not enabled for " + entity + ":" + event)
+	}
+	return r.Events.Subscribe(ctx, topic)
+}
+{% endif %}
+
+{% if EmitDataloader %}
+func (r *Resolver) loader(ctx context.Context) *dataloader.Loader {
+	if r.Loaders != nil {
+		return r.Loaders
+	}
+	if ctx == nil {
+		return nil
+	}
+	loader, _ := dataloader.FromContext(ctx)
+	return loader
+}
+{% endif %}
 
 func buildCriteria(entity string, p *model.PaginationInput, order []*model.OrderByInput, filters []*model.FilterInput) []repository.SelectCriteria {
 	fields := criteriaConfig[entity]
@@ -394,6 +464,22 @@ func setTimePtr(dst **time.Time, data *model.Time) {
 	*dst = &val
 }
 
+func valueString(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case *string:
+		if val == nil {
+			return ""
+		}
+		return *val
+	case fmt.Stringer:
+		return val.String()
+	default:
+		return fmt.Sprint(val)
+	}
+}
+
 {% for entity in ResolverEntities %}
 func (r *Resolver) {{ entity.Name }}Service() crud.Service[model.{{ entity.Name }}] {
 	if r.{{ entity.Name }}Svc == nil {
@@ -480,7 +566,10 @@ func (r *Resolver) Create{{ entity.Name }}(ctx context.Context, input model.Crea
 {% endif %}	if err != nil {
 		return nil, err
 	}
-	return &record, nil
+{% if Subscriptions %}	if err := r.publishEvent(ctx, "{{ entity.Name }}", "created", record); err != nil {
+		return nil, err
+	}
+{% endif %}	return &record, nil
 }
 
 func (r *Resolver) Update{{ entity.Name }}(ctx context.Context, id string, input model.Update{{ entity.Name }}Input) (*model.{{ entity.Name }}, error) {
@@ -510,7 +599,10 @@ func (r *Resolver) Update{{ entity.Name }}(ctx context.Context, id string, input
 {% endif %}	if err != nil {
 		return nil, err
 	}
-	return &record, nil
+{% if Subscriptions %}	if err := r.publishEvent(ctx, "{{ entity.Name }}", "updated", record); err != nil {
+		return nil, err
+	}
+{% endif %}	return &record, nil
 }
 
 func (r *Resolver) Delete{{ entity.Name }}(ctx context.Context, id string) (bool, error) {
@@ -526,11 +618,120 @@ func (r *Resolver) Delete{{ entity.Name }}(ctx context.Context, id string) (bool
 {% if entity.Hooks.Delete.WrapRepo %}	{{ entity.Hooks.Delete.WrapRepo | safe }}
 {% endif %}	var record model.{{ entity.Name }}
 	setID(&record, id)
-	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
+{% if Subscriptions %}	var deleted *model.{{ entity.Name }}
+	if hasSubscription("{{ entity.Name }}", "deleted") && r.Events != nil {
+		current, err := svc.Show(r.crudContext(ctx), id, nil)
+		if err == nil {
+			deleted = &current
+		}
+	}
+{% endif %}	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
 {% if entity.Hooks.Delete.ErrorHandler %}		err = {{ entity.Hooks.Delete.ErrorHandler | safe }}
 {% endif %}		return false, err
 	}
-	return true, nil
+{% if Subscriptions %}	payload := record
+	if deleted != nil {
+		payload = *deleted
+	}
+	if err := r.publishEvent(ctx, "{{ entity.Name }}", "deleted", payload); err != nil {
+		return false, err
+	}
+{% endif %}	return true, nil
 }
 
 {% endfor %}
+{% if Subscriptions %}{% for sub in Subscriptions %}
+func (r *Resolver) {{ sub.MethodName }}(ctx context.Context{% for arg in sub.Args %}, {{ arg.Name }} any{% endfor %}) (<-chan {% if sub.List %}[]*model.{{ sub.ReturnType }}{% else %}*model.{{ sub.ReturnType }}{% endif %}, error) {
+	stream, err := r.subscribe(ctx, "{{ sub.Entity }}", "{{ sub.Event }}")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan {% if sub.List %}[]*model.{{ sub.ReturnType }}{% else %}*model.{{ sub.ReturnType }}{% endif %})
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+				if msg.Err != nil {
+					continue
+				}
+{% if sub.List %}				switch payload := msg.Payload.(type) {
+				case []model.{{ sub.ReturnType }}:
+					items := make([]*model.{{ sub.ReturnType }}, 0, len(payload))
+					for i := range payload {
+						items = append(items, &payload[i])
+					}
+					out <- items
+				case []*model.{{ sub.ReturnType }}:
+					out <- payload
+				}
+{% else %}				switch payload := msg.Payload.(type) {
+				case *model.{{ sub.ReturnType }}:
+					out <- payload
+				case model.{{ sub.ReturnType }}:
+					item := payload
+					out <- &item
+				}
+{% endif %}			}
+		}
+	}()
+
+	return out, nil
+}
+{% endfor %}{% endif %}
+{% if EmitDataloader %}
+{% for entity in DataloaderEntities %}{% for rel in entity.Relations %}
+func (r *{{ entity.Resolver }}Resolver) {{ rel.FieldName }}(ctx context.Context, obj *model.{{ entity.Name }}) ({% if rel.IsList %}[]*model.{{ rel.Target }}{% else %}*model.{{ rel.Target }}{% endif %}, error) {
+	if obj == nil {
+		return {% if rel.IsList %}nil{% else %}nil{% endif %}, nil
+	}
+{% if rel.IsList %}	if obj.{{ rel.FieldName }} != nil && len(obj.{{ rel.FieldName }}) > 0 {
+		return obj.{{ rel.FieldName }}, nil
+	}
+{% else %}	if obj.{{ rel.FieldName }} != nil {
+		return obj.{{ rel.FieldName }}, nil
+	}
+{% endif %}	loader := r.loader(ctx)
+	if loader == nil {
+		return obj.{{ rel.FieldName }}, nil
+	}
+{% if rel.RelationType == "belongsTo" %}	key := valueString(obj.{{ rel.SourceFieldKey.FieldName }})
+	if strings.TrimSpace(key) == "" {
+		return nil, nil
+	}
+	record, err := loader.{{ rel.Target }}ByID.Load(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return record, nil
+{% elif rel.RelationType == "hasOne" %}	key := valueString(obj.{{ entity.PK.FieldName }})
+	if strings.TrimSpace(key) == "" {
+		return obj.{{ rel.FieldName }}, nil
+	}
+	items, err := loader.{{ entity.Name }}{{ rel.FieldName }}.Load(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) > 0 {
+		return items[0], nil
+	}
+	return nil, nil
+{% else %}	key := valueString(obj.{{ entity.PK.FieldName }})
+	if strings.TrimSpace(key) == "" {
+		return obj.{{ rel.FieldName }}, nil
+	}
+	items, err := loader.{{ entity.Name }}{{ rel.FieldName }}.Load(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+{% endif %}
+}
+
+{% endfor %}{% endfor %}{% endif %}

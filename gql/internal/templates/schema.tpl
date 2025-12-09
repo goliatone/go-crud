@@ -55,3 +55,12 @@ type Mutation {
 {% endif %}  {{ op.Name }}{% if op.ArgsSignature %}({{ op.ArgsSignature }}){% endif %}: {% if op.List %}[{{ op.ReturnType }}!]{% if op.Required %}!{% endif %}{% else %}{{ op.ReturnType }}{% if op.Required %}!{% endif %}{% endif %}
 {% endfor -%}
 }
+
+{% if Subscriptions %}
+type Subscription {
+{% for op in Subscriptions -%}
+{% if op.Description %}  """{{ op.Description }}"""
+{% endif %}  {{ op.Name }}{% if op.ArgsSignature %}({{ op.ArgsSignature }}){% endif %}: {% if op.List %}[{{ op.ReturnType }}!]{% if op.Required %}!{% endif %}{% else %}{{ op.ReturnType }}{% if op.Required %}!{% endif %}{% endif %}
+{% endfor -%}
+}
+{% endif %}

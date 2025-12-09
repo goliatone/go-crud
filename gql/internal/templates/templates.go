@@ -55,25 +55,28 @@ func NewRendererWithBaseDir(baseDir string) (gotemplate.Renderer, error) {
 
 // Context is the render context passed into templates.
 type Context struct {
-	Notice            string
-	Entities          []formatter.Entity
-	ModelPackage      string
-	ResolverPackage   string
-	DataloaderPackage string
-	SchemaPath        string
-	PolicyHook        string
-	EmitDataloader    bool
-	Scalars           []TemplateScalar
-	Enums             []TemplateEnum
-	Inputs            []TemplateInput
-	Queries           []TemplateOperation
-	Mutations         []TemplateOperation
-	ModelStructs      []ModelStruct
-	ModelEnums        []ModelEnum
-	ModelImports      []string
-	Criteria          map[string][]CriteriaField
-	Hooks             hooks.TemplateHooks
-	ResolverEntities  []ResolverEntity
+	Notice             string
+	Entities           []formatter.Entity
+	ModelPackage       string
+	ResolverPackage    string
+	DataloaderPackage  string
+	SchemaPath         string
+	PolicyHook         string
+	EmitDataloader     bool
+	EmitSubscriptions  bool
+	Scalars            []TemplateScalar
+	Enums              []TemplateEnum
+	Inputs             []TemplateInput
+	Queries            []TemplateOperation
+	Mutations          []TemplateOperation
+	Subscriptions      []TemplateSubscription
+	ModelStructs       []ModelStruct
+	ModelEnums         []ModelEnum
+	ModelImports       []string
+	Criteria           map[string][]CriteriaField
+	Hooks              hooks.TemplateHooks
+	ResolverEntities   []ResolverEntity
+	DataloaderEntities []DataloaderEntity
 }
 
 type TemplateScalar struct {
@@ -125,6 +128,20 @@ type TemplateArgument struct {
 	Required    bool
 }
 
+type TemplateSubscription struct {
+	Name          string
+	ReturnType    string
+	List          bool
+	Required      bool
+	Args          []TemplateArgument
+	Description   string
+	ArgsSignature string
+	Entity        string
+	Event         string
+	Topic         string
+	MethodName    string
+}
+
 // ModelStruct describes a Go struct to be generated for gqlgen models.
 type ModelStruct struct {
 	Name        string
@@ -163,6 +180,43 @@ type CriteriaField struct {
 type ResolverEntity struct {
 	formatter.Entity
 	Hooks hooks.TemplateEntityHooks
+}
+
+// DataloaderEntity captures metadata needed to generate dataloaders per entity.
+type DataloaderEntity struct {
+	Name       string
+	ModelName  string
+	PK         DataloaderField
+	Relations  []DataloaderRelation
+	Resolver   string
+	IsRelation bool
+}
+
+// DataloaderField describes a field used as a key when batching lookups.
+type DataloaderField struct {
+	Name      string
+	FieldName string
+	Column    string
+	GoType    string
+}
+
+// DataloaderRelation captures how to fetch a relation for an entity.
+type DataloaderRelation struct {
+	Name           string
+	FieldName      string
+	Target         string
+	TargetField    string
+	RelationType   string
+	IsList         bool
+	SourceColumn   string
+	TargetColumn   string
+	SourceField    string
+	SourceFieldKey DataloaderField
+	TargetFieldKey DataloaderField
+	PivotTable     string
+	SourcePivot    string
+	TargetPivot    string
+	TargetTable    string
 }
 
 // NewContext builds a default context from a formatted document.

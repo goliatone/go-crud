@@ -72,6 +72,28 @@ func TestTemplates_RenderWithHooks(t *testing.T) {
 	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen_hooks.go.golden")
 }
 
+func TestTemplates_RenderSubscriptions(t *testing.T) {
+	renderer, err := NewRenderer()
+	require.NoError(t, err)
+
+	schemas, err := metadata.FromFile(filepath.Join("testdata", "metadata.json"))
+	require.NoError(t, err)
+
+	doc, err := formatter.Format(schemas)
+	require.NoError(t, err)
+
+	ctx := BuildContext(doc, ContextOptions{
+		ConfigPath:         "gqlgen.yml",
+		OutDir:             "graph",
+		EmitSubscriptions:  true,
+		SubscriptionEvents: []string{"created", "updated", "deleted"},
+	})
+
+	assertRenderMatches(t, renderer, SchemaTemplate, ctx, "schema_subscriptions.graphql.golden")
+	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen_subscriptions.go.golden")
+	assertRenderMatches(t, renderer, ResolverCustomTemplate, ctx, "resolver_custom_subscriptions.go.golden")
+}
+
 func TestBuildContext_OmitsMutationFields(t *testing.T) {
 	schemas, err := metadata.FromFile(filepath.Join("testdata", "metadata.json"))
 	require.NoError(t, err)
