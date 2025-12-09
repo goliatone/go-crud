@@ -11,6 +11,7 @@ import (
 
 	"github.com/goliatone/go-crud/gql/internal/formatter"
 	"github.com/goliatone/go-crud/gql/internal/gqlgen"
+	"github.com/goliatone/go-crud/gql/internal/hooks"
 	"github.com/goliatone/go-crud/gql/internal/metadata"
 	"github.com/goliatone/go-crud/gql/internal/overlay"
 	"github.com/goliatone/go-crud/gql/internal/templates"
@@ -36,6 +37,10 @@ type Options struct {
 	PolicyHook         string
 	OmitMutationFields []string
 	OverlayFile        string
+	HooksFile          string
+	AuthPackage        string
+	AuthGuard          string
+	AuthFail           string
 }
 
 // FileResult captures the status of a single write.
@@ -74,6 +79,14 @@ func Generate(ctx context.Context, opts Options) (Result, error) {
 	ol, err := overlay.Load(opts.OverlayFile)
 	if err != nil {
 		return result, fmt.Errorf("load overlay: %w", err)
+	}
+
+	if opts.HooksFile != "" {
+		hookOverlay, err := overlay.Load(opts.HooksFile)
+		if err != nil {
+			return result, fmt.Errorf("load hooks overlay: %w", err)
+		}
+		ol = overlay.Merge(ol, hookOverlay)
 	}
 
 	schemas = filterSchemas(schemas, opts.Include, opts.Exclude)
@@ -115,6 +128,12 @@ func Generate(ctx context.Context, opts Options) (Result, error) {
 		PolicyHook:     opts.PolicyHook,
 		EmitDataloader: opts.EmitDataloader,
 		Overlay:        ol,
+		HookOptions: hooks.Options{
+			Overlay:     ol.Hooks,
+			AuthPackage: opts.AuthPackage,
+			AuthGuard:   opts.AuthGuard,
+			AuthFail:    opts.AuthFail,
+		},
 	})
 
 	writeSteps := []struct {
