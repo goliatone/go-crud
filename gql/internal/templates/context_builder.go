@@ -12,6 +12,7 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/goliatone/go-crud/gql/internal/formatter"
+	"github.com/goliatone/go-crud/gql/internal/hooks"
 	"github.com/goliatone/go-crud/gql/internal/overlay"
 )
 
@@ -22,12 +23,12 @@ type ContextOptions struct {
 	PolicyHook     string
 	EmitDataloader bool
 	Overlay        overlay.Overlay
+	HookOptions    hooks.Options
 }
 
 // BuildContext produces a template Context with defaults plus overlay additions.
 func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	ctx := NewContext(doc)
-	ctx.ResolverEntities = doc.Entities
 
 	configDir := filepath.Dir(opts.ConfigPath)
 	ctx.SchemaPath = toSlash(relOrDefault(configDir, filepath.Join(opts.OutDir, "schema.graphql")))
@@ -59,6 +60,14 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 
 	ctx.ModelStructs, ctx.ModelEnums, ctx.ModelImports = buildModels(ctx)
 	ctx.Criteria = buildCriteriaConfig(doc)
+	ctx.Hooks = hooks.Build(doc, opts.HookOptions)
+	ctx.ResolverEntities = make([]ResolverEntity, 0, len(doc.Entities))
+	for _, ent := range doc.Entities {
+		ctx.ResolverEntities = append(ctx.ResolverEntities, ResolverEntity{
+			Entity: ent,
+			Hooks:  ctx.Hooks.Entities[ent.Name],
+		})
+	}
 
 	return ctx
 }
@@ -591,10 +600,33 @@ func collectCriteriaFields(entity formatter.Entity, byName, byRaw map[string]for
 				if tf.Relation != nil {
 					continue
 				}
+				rt := strings.ToLower(strings.ReplaceAll(f.Relation.RelationType, "-", ""))
+				rt = strings.ReplaceAll(rt, "_", "")
+				pivotTable := f.Relation.PivotTable
+				if pivotTable == "" && (rt == "manytomany" || rt == "m2m") {
+					pivotTable = fmt.Sprintf("%s_%s", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)), strcase.ToSnake(entity.RawName))
+				}
+				sourcePivot := f.Relation.SourcePivotField
+				if sourcePivot == "" && (rt == "manytomany" || rt == "m2m") {
+					sourcePivot = fmt.Sprintf("%s_id", strcase.ToSnake(entity.RawName))
+				}
+				targetPivot := f.Relation.TargetPivotField
+				if targetPivot == "" && (rt == "manytomany" || rt == "m2m") {
+					targetPivot = fmt.Sprintf("%s_id", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)))
+				}
+				targetTable := firstNonEmpty(f.Relation.TargetTable, f.Relation.OriginalName, f.Relation.RelatedSchema)
+
 				result = append(result, CriteriaField{
-					Field:    fmt.Sprintf("%s.%s", f.Name, tf.Name),
-					Column:   fmt.Sprintf("%s.%s", f.OriginalName, tf.OriginalName),
-					Relation: strcase.ToPascal(f.Name),
+					Field:        fmt.Sprintf("%s.%s", f.Name, tf.Name),
+					Column:       fmt.Sprintf("%s.%s", f.OriginalName, tf.OriginalName),
+					Relation:     strcase.ToPascal(f.Name),
+					RelationType: f.Relation.RelationType,
+					PivotTable:   pivotTable,
+					SourceColumn: firstNonEmpty(f.Relation.SourceColumn, "id"),
+					TargetColumn: firstNonEmpty(f.Relation.TargetColumn, "id"),
+					SourcePivot:  sourcePivot,
+					TargetPivot:  targetPivot,
+					TargetTable:  targetTable,
 				})
 			}
 			continue
@@ -605,6 +637,15 @@ func collectCriteriaFields(entity formatter.Entity, byName, byRaw map[string]for
 		})
 	}
 	return result
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func sanitizeOperations(list []overlay.Operation) []overlay.Operation {

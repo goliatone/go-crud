@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/goliatone/go-crud/gql/internal/formatter"
+	"github.com/goliatone/go-crud/gql/internal/hooks"
 	"github.com/goliatone/go-crud/gql/internal/metadata"
+	"github.com/goliatone/go-crud/gql/internal/overlay"
 )
 
 func TestTemplates_RenderGolden(t *testing.T) {
@@ -36,6 +38,38 @@ func TestTemplates_RenderGolden(t *testing.T) {
 	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen.go.golden")
 	assertRenderMatches(t, renderer, ResolverCustomTemplate, ctx, "resolver_custom.go.golden")
 	assertRenderMatches(t, renderer, DataloaderTemplate, ctx, "dataloader.go.golden")
+}
+
+func TestTemplates_RenderWithHooks(t *testing.T) {
+	renderer, err := NewRenderer()
+	require.NoError(t, err)
+
+	schemas, err := metadata.FromFile(filepath.Join("testdata", "metadata.json"))
+	require.NoError(t, err)
+
+	doc, err := formatter.Format(schemas)
+	require.NoError(t, err)
+
+	ctx := BuildContext(doc, ContextOptions{
+		ConfigPath: "gqlgen.yml",
+		OutDir:     "graph",
+		HookOptions: hooks.Options{
+			AuthPackage: "github.com/goliatone/go-auth",
+			AuthGuard:   "auth.FromContext(ctx)",
+			Overlay: overlay.Hooks{
+				Entities: map[string]overlay.EntityHooks{
+					"post": {
+						Operations: map[string]overlay.HookSet{
+							"list": {Preload: "criteria = append(criteria, repository.SelectRelation(\"Author\"))"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	require.Contains(t, ctx.Hooks.Imports, "github.com/goliatone/go-auth")
+	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen_hooks.go.golden")
 }
 
 func TestBuildContext_OmitsMutationFields(t *testing.T) {

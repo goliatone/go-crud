@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+{% for imp in Hooks.Imports %}	"{{ imp }}"
+{% endfor %}
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
@@ -21,15 +23,22 @@ type ScopeGuardFunc func(ctx context.Context, entity, action string) error
 type ContextFactory func(ctx context.Context) crud.Context
 
 type criteriaField struct {
-	Column   string
-	Relation string
+	Column       string
+	Relation     string
+	RelationType string
+	PivotTable   string
+	SourceColumn string
+	TargetColumn string
+	SourcePivot  string
+	TargetPivot  string
+	TargetTable  string
 }
 
 var criteriaConfig = map[string]map[string]criteriaField{
 {% for entity in ResolverEntities %}
 	"{{ entity.Name }}": {
 	{% if Criteria and Criteria[entity.Name] %}
-	{% for field in Criteria[entity.Name] %}		"{{ field.Field | lower }}": {Column: "{{ field.Column }}"{% if field.Relation %}, Relation: "{{ field.Relation }}"{% endif %}},
+	{% for field in Criteria[entity.Name] %}		"{{ field.Field | lower }}": {Column: "{{ field.Column }}"{% if field.Relation %}, Relation: "{{ field.Relation }}"{% endif %}{% if field.RelationType %}, RelationType: "{{ field.RelationType }}"{% endif %}{% if field.PivotTable %}, PivotTable: "{{ field.PivotTable }}"{% endif %}{% if field.SourceColumn %}, SourceColumn: "{{ field.SourceColumn }}"{% endif %}{% if field.TargetColumn %}, TargetColumn: "{{ field.TargetColumn }}"{% endif %}{% if field.SourcePivot %}, SourcePivot: "{{ field.SourcePivot }}"{% endif %}{% if field.TargetPivot %}, TargetPivot: "{{ field.TargetPivot }}"{% endif %}{% if field.TargetTable %}, TargetTable: "{{ field.TargetTable }}"{% endif %}},
 	{% endfor %}
 	{% endif %}	},
 {% endfor %}
@@ -82,12 +91,15 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 		dir := normalizeDirection(ob.Direction)
 		column := field.Column
 		relation := field.Relation
+		relType := field.RelationType
 
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-			if relation != "" {
-				q = q.Relation(relation)
+			var col string
+			q, col = applyRelation(q, relation, relType, field, column)
+			if col == "" {
+				col = column
 			}
-			return q.OrderExpr("? ?", bun.Safe(column), bun.Safe(dir))
+			return q.OrderExpr("? ?", bun.Safe(col), bun.Safe(dir))
 		})
 	}
 
@@ -112,6 +124,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 
 		column := field.Column
 		relation := field.Relation
+		relType := field.RelationType
 
 		switch op {
 		case "IN", "NOT IN":
@@ -119,27 +132,53 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 			if len(values) == 0 {
 				continue
 			}
-			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if relation != "" {
-					q = q.Relation(relation)
-				}
-				expr := fmt.Sprintf("%s IN (?)", column)
-				if op == "NOT IN" {
-					expr = fmt.Sprintf("%s NOT IN (?)", column)
-				}
-				return q.Where(expr, bun.In(values))
-			})
+				criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
+					var col string
+					q, col = applyRelation(q, relation, relType, field, column)
+					if col == "" {
+						col = column
+					}
+					expr := fmt.Sprintf("%s IN (?)", col)
+					if op == "NOT IN" {
+						expr = fmt.Sprintf("%s NOT IN (?)", col)
+					}
+					return q.Where(expr, bun.In(values))
+				})
 		default:
 			criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if relation != "" {
-					q = q.Relation(relation)
+				var col string
+				q, col = applyRelation(q, relation, relType, field, column)
+				if col == "" {
+					col = column
 				}
-				return q.Where(fmt.Sprintf("%s %s ?", column, op), value)
+				return q.Where(fmt.Sprintf("%s %s ?", col, op), value)
 			})
 		}
 	}
 
 	return criteria
+}
+
+func applyRelation(q *bun.SelectQuery, relation, relType string, field criteriaField, column string) (*bun.SelectQuery, string) {
+	rel := strings.ToLower(strings.ReplaceAll(relType, "-", ""))
+	rel = strings.ReplaceAll(rel, "_", "")
+	if (rel == "manytomany" || rel == "m2m") && field.PivotTable != "" && field.SourcePivot != "" && field.TargetPivot != "" && field.TargetTable != "" {
+		targetAlias := strings.ToLower(strings.ReplaceAll(field.Relation, ".", "_"))
+		pivotAlias := fmt.Sprintf("%s_pivot", targetAlias)
+		q = q.Join(fmt.Sprintf("JOIN %s AS %s ON %s.%s = ?TableAlias.%s", field.PivotTable, pivotAlias, pivotAlias, field.SourcePivot, field.SourceColumn))
+		q = q.Join(fmt.Sprintf("JOIN %s AS %s ON %s.%s = %s.%s", field.TargetTable, targetAlias, targetAlias, field.TargetColumn, pivotAlias, field.TargetPivot))
+		if strings.Contains(column, ".") {
+			parts := strings.SplitN(column, ".", 2)
+			column = targetAlias + "." + parts[1]
+		} else {
+			column = targetAlias + "." + column
+		}
+		return q, column
+	}
+	if relation != "" {
+		q = q.Relation(relation)
+	}
+	return q, column
 }
 
 func paginationBounds(p *model.PaginationInput, returned int) (limit int, offset int) {
@@ -364,23 +403,43 @@ func (r *Resolver) {{ entity.Name }}Service() crud.Service[model.{{ entity.Name 
 }
 
 func (r *Resolver) Get{{ entity.Name }}(ctx context.Context, id string) (*model.{{ entity.Name }}, error) {
-	if err := r.guard(ctx, "{{ entity.Name }}", "show"); err != nil {
+{% if entity.Hooks.Get.AuthGuard %}	{{ entity.Hooks.Get.AuthGuard | safe }}
+{% endif %}	if err := r.guard(ctx, "{{ entity.Name }}", "show"); err != nil {
 		return nil, err
 	}
-	record, err := r.{{ entity.Name }}Service().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
+{% if entity.Hooks.Get.ScopeGuard %}	if err := {{ entity.Hooks.Get.ScopeGuard | safe }}; err != nil {
+		return nil, err
+	}
+{% endif %}{% if entity.Hooks.Get.Preload %}	{{ entity.Hooks.Get.Preload | safe }}
+{% endif %}	svc := r.{{ entity.Name }}Service()
+{% if entity.Hooks.Get.WrapRepo %}	{{ entity.Hooks.Get.WrapRepo | safe }}
+{% endif %}	record, err := svc.Show(r.crudContext(ctx), id, nil)
+{% if entity.Hooks.Get.ErrorHandler %}	if err != nil {
+		err = {{ entity.Hooks.Get.ErrorHandler | safe }}
+	}
+{% endif %}	if err != nil {
 		return nil, err
 	}
 	return &record, nil
 }
 
 func (r *Resolver) List{{ entity.Name }}(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.{{ entity.Name }}Connection, error) {
-	if err := r.guard(ctx, "{{ entity.Name }}", "index"); err != nil {
+{% if entity.Hooks.List.AuthGuard %}	{{ entity.Hooks.List.AuthGuard | safe }}
+{% endif %}	if err := r.guard(ctx, "{{ entity.Name }}", "index"); err != nil {
 		return nil, err
 	}
-	criteria := buildCriteria("{{ entity.Name }}", pagination, orderBy, filter)
-	records, total, err := r.{{ entity.Name }}Service().Index(r.crudContext(ctx), criteria)
-	if err != nil {
+{% if entity.Hooks.List.ScopeGuard %}	if err := {{ entity.Hooks.List.ScopeGuard | safe }}; err != nil {
+		return nil, err
+	}
+{% endif %}	criteria := buildCriteria("{{ entity.Name }}", pagination, orderBy, filter)
+{% if entity.Hooks.List.Preload %}	{{ entity.Hooks.List.Preload | safe }}
+{% endif %}	svc := r.{{ entity.Name }}Service()
+{% if entity.Hooks.List.WrapRepo %}	{{ entity.Hooks.List.WrapRepo | safe }}
+{% endif %}	records, total, err := svc.Index(r.crudContext(ctx), criteria)
+{% if entity.Hooks.List.ErrorHandler %}	if err != nil {
+		err = {{ entity.Hooks.List.ErrorHandler | safe }}
+	}
+{% endif %}	if err != nil {
 		return nil, err
 	}
 	limit, offset := paginationBounds(pagination, len(records))
@@ -402,43 +461,74 @@ func (r *Resolver) List{{ entity.Name }}(ctx context.Context, pagination *model.
 }
 
 func (r *Resolver) Create{{ entity.Name }}(ctx context.Context, input model.Create{{ entity.Name }}Input) (*model.{{ entity.Name }}, error) {
-	if err := r.guard(ctx, "{{ entity.Name }}", "create"); err != nil {
+{% if entity.Hooks.Create.AuthGuard %}	{{ entity.Hooks.Create.AuthGuard | safe }}
+{% endif %}	if err := r.guard(ctx, "{{ entity.Name }}", "create"); err != nil {
 		return nil, err
 	}
-	var record model.{{ entity.Name }}
+{% if entity.Hooks.Create.ScopeGuard %}	if err := {{ entity.Hooks.Create.ScopeGuard | safe }}; err != nil {
+		return nil, err
+	}
+{% endif %}{% if entity.Hooks.Create.Preload %}	{{ entity.Hooks.Create.Preload | safe }}
+{% endif %}	var record model.{{ entity.Name }}
 	applyInput(&record, input)
-	record, err := r.{{ entity.Name }}Service().Create(r.crudContext(ctx), record)
-	if err != nil {
+	svc := r.{{ entity.Name }}Service()
+{% if entity.Hooks.Create.WrapRepo %}	{{ entity.Hooks.Create.WrapRepo | safe }}
+{% endif %}	record, err := svc.Create(r.crudContext(ctx), record)
+{% if entity.Hooks.Create.ErrorHandler %}	if err != nil {
+		err = {{ entity.Hooks.Create.ErrorHandler | safe }}
+	}
+{% endif %}	if err != nil {
 		return nil, err
 	}
 	return &record, nil
 }
 
 func (r *Resolver) Update{{ entity.Name }}(ctx context.Context, id string, input model.Update{{ entity.Name }}Input) (*model.{{ entity.Name }}, error) {
-	if err := r.guard(ctx, "{{ entity.Name }}", "update"); err != nil {
+{% if entity.Hooks.Update.AuthGuard %}	{{ entity.Hooks.Update.AuthGuard | safe }}
+{% endif %}	if err := r.guard(ctx, "{{ entity.Name }}", "update"); err != nil {
 		return nil, err
 	}
-	record, err := r.{{ entity.Name }}Service().Show(r.crudContext(ctx), id, nil)
-	if err != nil {
+{% if entity.Hooks.Update.ScopeGuard %}	if err := {{ entity.Hooks.Update.ScopeGuard | safe }}; err != nil {
+		return nil, err
+	}
+{% endif %}{% if entity.Hooks.Update.Preload %}	{{ entity.Hooks.Update.Preload | safe }}
+{% endif %}	svc := r.{{ entity.Name }}Service()
+{% if entity.Hooks.Update.WrapRepo %}	{{ entity.Hooks.Update.WrapRepo | safe }}
+{% endif %}	record, err := svc.Show(r.crudContext(ctx), id, nil)
+{% if entity.Hooks.Update.ErrorHandler %}	if err != nil {
+		err = {{ entity.Hooks.Update.ErrorHandler | safe }}
+	}
+{% endif %}	if err != nil {
 		return nil, err
 	}
 	setID(&record, id)
 	applyInput(&record, input)
-	record, err = r.{{ entity.Name }}Service().Update(r.crudContext(ctx), record)
-	if err != nil {
+	record, err = svc.Update(r.crudContext(ctx), record)
+{% if entity.Hooks.Update.ErrorHandler %}	if err != nil {
+		err = {{ entity.Hooks.Update.ErrorHandler | safe }}
+	}
+{% endif %}	if err != nil {
 		return nil, err
 	}
 	return &record, nil
 }
 
 func (r *Resolver) Delete{{ entity.Name }}(ctx context.Context, id string) (bool, error) {
-	if err := r.guard(ctx, "{{ entity.Name }}", "delete"); err != nil {
+{% if entity.Hooks.Delete.AuthGuard %}	{{ entity.Hooks.Delete.AuthGuard | safe }}
+{% endif %}	if err := r.guard(ctx, "{{ entity.Name }}", "delete"); err != nil {
 		return false, err
 	}
-	var record model.{{ entity.Name }}
-	setID(&record, id)
-	if err := r.{{ entity.Name }}Service().Delete(r.crudContext(ctx), record); err != nil {
+{% if entity.Hooks.Delete.ScopeGuard %}	if err := {{ entity.Hooks.Delete.ScopeGuard | safe }}; err != nil {
 		return false, err
+	}
+{% endif %}{% if entity.Hooks.Delete.Preload %}	{{ entity.Hooks.Delete.Preload | safe }}
+{% endif %}	svc := r.{{ entity.Name }}Service()
+{% if entity.Hooks.Delete.WrapRepo %}	{{ entity.Hooks.Delete.WrapRepo | safe }}
+{% endif %}	var record model.{{ entity.Name }}
+	setID(&record, id)
+	if err := svc.Delete(r.crudContext(ctx), record); err != nil {
+{% if entity.Hooks.Delete.ErrorHandler %}		err = {{ entity.Hooks.Delete.ErrorHandler | safe }}
+{% endif %}		return false, err
 	}
 	return true, nil
 }

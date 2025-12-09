@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"errors"
+	"github.com/goliatone/go-auth"
+
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
@@ -405,6 +408,11 @@ func (r *Resolver) PostService() crud.Service[model.Post] {
 }
 
 func (r *Resolver) GetPost(ctx context.Context, id string) (*model.Post, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Post", "show"); err != nil {
 		return nil, err
 	}
@@ -417,10 +425,16 @@ func (r *Resolver) GetPost(ctx context.Context, id string) (*model.Post, error) 
 }
 
 func (r *Resolver) ListPost(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PostConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Post", "index"); err != nil {
 		return nil, err
 	}
 	criteria := buildCriteria("Post", pagination, orderBy, filter)
+	criteria = append(criteria, repository.SelectRelation("Author"))
 	svc := r.PostService()
 	records, total, err := svc.Index(r.crudContext(ctx), criteria)
 	if err != nil {
@@ -445,6 +459,11 @@ func (r *Resolver) ListPost(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreatePost(ctx context.Context, input model.CreatePostInput) (*model.Post, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Post", "create"); err != nil {
 		return nil, err
 	}
@@ -459,6 +478,11 @@ func (r *Resolver) CreatePost(ctx context.Context, input model.CreatePostInput) 
 }
 
 func (r *Resolver) UpdatePost(ctx context.Context, id string, input model.UpdatePostInput) (*model.Post, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Post", "update"); err != nil {
 		return nil, err
 	}
@@ -477,6 +501,11 @@ func (r *Resolver) UpdatePost(ctx context.Context, id string, input model.Update
 }
 
 func (r *Resolver) DeletePost(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Post", "delete"); err != nil {
 		return false, err
 	}
@@ -497,6 +526,11 @@ func (r *Resolver) UserService() crud.Service[model.User] {
 }
 
 func (r *Resolver) GetUser(ctx context.Context, id string) (*model.User, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "User", "show"); err != nil {
 		return nil, err
 	}
@@ -509,6 +543,11 @@ func (r *Resolver) GetUser(ctx context.Context, id string) (*model.User, error) 
 }
 
 func (r *Resolver) ListUser(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.UserConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "User", "index"); err != nil {
 		return nil, err
 	}
@@ -537,6 +576,11 @@ func (r *Resolver) ListUser(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "User", "create"); err != nil {
 		return nil, err
 	}
@@ -551,6 +595,11 @@ func (r *Resolver) CreateUser(ctx context.Context, input model.CreateUserInput) 
 }
 
 func (r *Resolver) UpdateUser(ctx context.Context, id string, input model.UpdateUserInput) (*model.User, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "User", "update"); err != nil {
 		return nil, err
 	}
@@ -569,6 +618,11 @@ func (r *Resolver) UpdateUser(ctx context.Context, id string, input model.Update
 }
 
 func (r *Resolver) DeleteUser(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "User", "delete"); err != nil {
 		return false, err
 	}

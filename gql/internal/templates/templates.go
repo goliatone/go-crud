@@ -8,6 +8,7 @@ import (
 	gotemplate "github.com/goliatone/go-template"
 
 	"github.com/goliatone/go-crud/gql/internal/formatter"
+	"github.com/goliatone/go-crud/gql/internal/hooks"
 )
 
 const (
@@ -56,7 +57,6 @@ func NewRendererWithBaseDir(baseDir string) (gotemplate.Renderer, error) {
 type Context struct {
 	Notice            string
 	Entities          []formatter.Entity
-	ResolverEntities  []formatter.Entity
 	ModelPackage      string
 	ResolverPackage   string
 	DataloaderPackage string
@@ -72,6 +72,8 @@ type Context struct {
 	ModelEnums        []ModelEnum
 	ModelImports      []string
 	Criteria          map[string][]CriteriaField
+	Hooks             hooks.TemplateHooks
+	ResolverEntities  []ResolverEntity
 }
 
 type TemplateScalar struct {
@@ -145,9 +147,22 @@ type ModelEnum struct {
 
 // CriteriaField captures mapping between GraphQL field paths and database columns.
 type CriteriaField struct {
-	Field    string
-	Column   string
-	Relation string
+	Field        string
+	Column       string
+	Relation     string
+	RelationType string
+	PivotTable   string
+	SourceColumn string
+	TargetColumn string
+	SourcePivot  string
+	TargetPivot  string
+	TargetTable  string
+}
+
+// ResolverEntity bundles entity metadata with hook configuration for resolver templates.
+type ResolverEntity struct {
+	formatter.Entity
+	Hooks hooks.TemplateEntityHooks
 }
 
 // NewContext builds a default context from a formatted document.
