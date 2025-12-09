@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,7 +15,9 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/goliatone/go-auth"
 	"github.com/goliatone/go-router"
+	"github.com/google/uuid"
 
 	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
@@ -54,7 +58,17 @@ func run(ctx context.Context) error {
 	}
 
 	resolver := resolvers.NewResolver(repos)
+	resolver.ScopeGuard = func(ctx context.Context, entity, action string) error {
+		user, ok := auth.FromContext(ctx)
+		if !ok || user == nil {
+			return errors.New("unauthorized")
+		}
+		_ = entity
+		_ = action
+		return nil
+	}
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: resolver}))
+	secured := graphqlAuthMiddleware(srv)
 
 	app := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
@@ -68,7 +82,7 @@ func run(ctx context.Context) error {
 	_ = app.Router()
 
 	fiberApp := app.WrappedRouter()
-	fiberApp.Post("/graphql", adaptor.HTTPHandler(srv))
+	fiberApp.Post("/graphql", adaptor.HTTPHandler(secured))
 	fiberApp.Get("/playground", adaptor.HTTPHandler(playground.Handler("GraphQL playground", "/graphql")))
 	fiberApp.Get("/", func(c *fiber.Ctx) error {
 		return c.Redirect("/playground", fiber.StatusTemporaryRedirect)
@@ -96,4 +110,41 @@ func run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// graphqlAuthMiddleware attaches a demo auth user to the request context when a bearer token is present.
+func graphqlAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := authUserFromRequest(r)
+		if user != nil {
+			ctx := auth.WithContext(r.Context(), user)
+			ctx = auth.WithActorContext(ctx, &auth.ActorContext{
+				ActorID: user.ID.String(),
+				Subject: user.Username,
+				Role:    string(user.Role),
+			})
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func authUserFromRequest(r *http.Request) *auth.User {
+	header := strings.TrimSpace(r.Header.Get("Authorization"))
+	const bearer = "Bearer "
+	if header == "" || !strings.HasPrefix(header, bearer) {
+		return nil
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(header, bearer))
+	if token == "" {
+		return nil
+	}
+
+	return &auth.User{
+		ID:       uuid.NewSHA1(uuid.Nil, []byte(token)),
+		Username: token,
+		Role:     auth.RoleMember,
+		Status:   auth.UserStatusActive,
+	}
 }
