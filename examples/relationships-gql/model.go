@@ -9,7 +9,7 @@ import (
 
 // Regenerate the GraphQL schema/config/resolvers for the relationships example
 // using the live models/relations registered in registrar (no metadata.json).
-//go:generate go run ../../gql/cmd/graphqlgen --schema-package ./registrar --out ./graph --config ./gqlgen.yml
+//go:generate go run ../../gql/cmd/graphqlgen --schema-package ./registrar --out ./graph --config ./gqlgen.yml --emit-subscriptions --emit-dataloader
 
 // PublishingHouse demonstrates has-one (Headquarters) and has-many (Authors, Books) relations.
 type PublishingHouse struct {

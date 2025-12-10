@@ -627,7 +627,7 @@ func (l *Loader) fetchTagAuthors(ctx context.Context, keys []string) (map[string
 		return nil, fmt.Errorf("dataloader: db is required to load relation Tag.authors")
 	}
 
-	links, err := fetchPivotLinks(ctx, l.db, "tag_authors", "tag_id", "author_id", dedup)
+	links, err := fetchPivotLinks(ctx, l.db, "author_tags", "tag_id", "author_id", dedup)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +675,7 @@ func (l *Loader) fetchTagBooks(ctx context.Context, keys []string) (map[string][
 		return nil, fmt.Errorf("dataloader: db is required to load relation Tag.books")
 	}
 
-	links, err := fetchPivotLinks(ctx, l.db, "tag_books", "tag_id", "book_id", dedup)
+	links, err := fetchPivotLinks(ctx, l.db, "book_tags", "tag_id", "book_id", dedup)
 	if err != nil {
 		return nil, err
 	}
