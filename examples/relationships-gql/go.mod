@@ -5,13 +5,16 @@ go 1.24.0
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
+	github.com/gofiber/contrib/websocket v1.3.4
+	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-auth v0.21.0
 	github.com/goliatone/go-crud v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-persistence-bun v0.6.0
-	github.com/goliatone/go-repository-bun v0.9.0
+	github.com/goliatone/go-persistence-bun v0.7.0
+	github.com/goliatone/go-repository-bun v0.10.0
 	github.com/goliatone/go-router v0.32.0
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.14
@@ -38,8 +41,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
-	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/gofiber/fiber/v2 v2.52.6 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.13 // indirect
 	github.com/gofiber/utils v1.1.0 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/goliatone/go-template v0.3.1 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
-	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
