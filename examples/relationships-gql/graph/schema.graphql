@@ -415,3 +415,27 @@ type Mutation {
   updateTag(id: UUID!, input: UpdateTagInput!): Tag!
   deleteTag(id: UUID!): Boolean!
 }
+
+type Subscription {
+  authorCreated: Author!
+  authorUpdated: Author!
+  authorDeleted: Author!
+  authorProfileCreated: AuthorProfile!
+  authorProfileUpdated: AuthorProfile!
+  authorProfileDeleted: AuthorProfile!
+  bookCreated: Book!
+  bookUpdated: Book!
+  bookDeleted: Book!
+  chapterCreated: Chapter!
+  chapterUpdated: Chapter!
+  chapterDeleted: Chapter!
+  headquartersCreated: Headquarters!
+  headquartersUpdated: Headquarters!
+  headquartersDeleted: Headquarters!
+  publishingHouseCreated: PublishingHouse!
+  publishingHouseUpdated: PublishingHouse!
+  publishingHouseDeleted: PublishingHouse!
+  tagCreated: Tag!
+  tagUpdated: Tag!
+  tagDeleted: Tag!
+}
