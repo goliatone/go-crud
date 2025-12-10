@@ -12,10 +12,59 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 ./taskfile metadata     # optional: emit metadata.json snapshot for fixtures/docs
 ```
 
-GraphQL endpoint: `http://localhost:9091/graphql`  
+GraphQL endpoint: `http://localhost:9091/graphql` (HTTP + WebSocket)  
 Playground: `http://localhost:9091/playground`
 
 All list operations return Relay connections (`edges { node cursor }` + `pageInfo`) so clients can page using cursors while still seeing total counts.
+
+### Dataloaders
+- Requests automatically wrap the gqlgen handler with a per-request dataloader (see `internal/loader/loader.go`). It batches relation lookups (including many-to-many pivots) and is discovered in resolvers via `dataloader.FromContext`.
+- The generated loader lives in `graph/dataloader/dataloader_gen.go`; keep it in sync with `./taskfile graphqlgen --emit-dataloader`.
+- Sanity check the batching/grouping logic with `go test ./graph/dataloader -run TestLoader_GroupsDeterministically`.
+
+### Subscriptions (websocket)
+- Websocket endpoint shares `/graphql` (`graphql-transport-ws`), configured in `cmd/server/main.go` via go-router’s Fiber adapter and the gqlgen websocket transport ported onto `router.WebSocketContext`.
+- An in-memory event bus in `graph/resolvers/resolver_custom.go` drives `tagCreated/tagUpdated/tagDeleted` (and equivalents for every entity). Example subscription:
+```graphql
+subscription {
+  tagCreated {
+    id
+    name
+    category
+  }
+}
+```
+- Trigger events with mutations (e.g., `createTag`). A smoke test covers websocket upgrade + event flow: `go test ./graph/resolvers -run WebSocketFlow`.
+
+## Hooks (optional auth/scope snippets)
+- Inject an auth guard into generated resolvers:
+```
+go run ./gql/cmd/graphqlgen \
+  --schema-package ./registrar \
+  --out graph --config gqlgen.yml \
+  --auth-guard "auth.FromContext(ctx)" \
+  --auth-package github.com/goliatone/go-auth
+```
+- Or pass a hooks overlay (example):
+```yaml
+hooks:
+  imports: [github.com/goliatone/go-auth]
+  default:
+    auth_guard: |
+      user, ok := auth.FromContext(ctx)
+      if !ok || user == nil { return nil, errors.New("unauthorized") }
+```
+
+## Auth tokens (demo)
+- The server currently trusts any bearer token string; there is no signing/verification step.
+- Send any token you like via `Authorization: Bearer <token>` and it will be accepted for auth checks:
+```
+curl -X POST http://localhost:9091/graphql \
+  -H 'Authorization: Bearer demo-user-123' \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"{ listAuthor { edges { node { id fullName } } } }"}'
+```
+- To use real signed tokens, wire go-auth’s JWT issuance/verification into `cmd/server/main.go` and replace the demo middleware.
 
 ## Seeded IDs (hashid)
 - Publisher Aurora: `ddfe89a9-c118-334b-ad2f-941166ef26f4`
