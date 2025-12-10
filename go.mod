@@ -8,7 +8,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/goliatone/go-errors v0.9.0
 	github.com/goliatone/go-repository-bun v0.9.0
-	github.com/goliatone/go-router v0.25.0
+	github.com/goliatone/go-router v0.32.0
 	github.com/goliatone/go-users v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
