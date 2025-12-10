@@ -71,6 +71,7 @@ function graphqlgen {
     --out ./graph \
     --config ./gqlgen.yml \
     --emit-subscriptions \
+    --emit-dataloader \
     "$@"
 }
 
