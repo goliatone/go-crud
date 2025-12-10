@@ -15,6 +15,8 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 GraphQL endpoint: `http://localhost:9091/graphql` (HTTP + WebSocket)  
 Playground: `http://localhost:9091/playground`
 
+`graphqlgen` runs with `--emit-subscriptions` and `--emit-dataloader`, so the generated schema includes Subscription fields and resolver field loaders by default (see `graph/resolvers/resolver_gen.go` and `graph/dataloader/dataloader_gen.go`).
+
 All list operations return Relay connections (`edges { node cursor }` + `pageInfo`) so clients can page using cursors while still seeing total counts.
 
 ### Dataloaders
@@ -34,6 +36,7 @@ subscription {
   }
 }
 ```
+- Topics use `<entity>.<event>` keys (e.g., `tag.created`, `book.updated`); the websocket smoke test (`go test ./graph/resolvers -run WebSocketFlow`) asserts the same topics are used for subscribe/publish.
 - Trigger events with mutations (e.g., `createTag`). A smoke test covers websocket upgrade + event flow: `go test ./graph/resolvers -run WebSocketFlow`.
 
 ## Hooks (optional auth/scope snippets)
