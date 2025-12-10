@@ -46,6 +46,7 @@ type ResolverRoot interface {
 	Mutation() MutationResolver
 	PublishingHouse() PublishingHouseResolver
 	Query() QueryResolver
+	Subscription() SubscriptionResolver
 	Tag() TagResolver
 	CreateAuthorInput() CreateAuthorInputResolver
 	CreateAuthorProfileInput() CreateAuthorProfileInputResolver
@@ -250,6 +251,30 @@ type ComplexityRoot struct {
 		ListTag             func(childComplexity int, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) int
 	}
 
+	Subscription struct {
+		AuthorCreated          func(childComplexity int) int
+		AuthorDeleted          func(childComplexity int) int
+		AuthorProfileCreated   func(childComplexity int) int
+		AuthorProfileDeleted   func(childComplexity int) int
+		AuthorProfileUpdated   func(childComplexity int) int
+		AuthorUpdated          func(childComplexity int) int
+		BookCreated            func(childComplexity int) int
+		BookDeleted            func(childComplexity int) int
+		BookUpdated            func(childComplexity int) int
+		ChapterCreated         func(childComplexity int) int
+		ChapterDeleted         func(childComplexity int) int
+		ChapterUpdated         func(childComplexity int) int
+		HeadquartersCreated    func(childComplexity int) int
+		HeadquartersDeleted    func(childComplexity int) int
+		HeadquartersUpdated    func(childComplexity int) int
+		PublishingHouseCreated func(childComplexity int) int
+		PublishingHouseDeleted func(childComplexity int) int
+		PublishingHouseUpdated func(childComplexity int) int
+		TagCreated             func(childComplexity int) int
+		TagDeleted             func(childComplexity int) int
+		TagUpdated             func(childComplexity int) int
+	}
+
 	Tag struct {
 		Authors     func(childComplexity int) int
 		Books       func(childComplexity int) int
@@ -354,6 +379,29 @@ type QueryResolver interface {
 	ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error)
 	GetTag(ctx context.Context, id model.UUID) (*model.Tag, error)
 	ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error)
+}
+type SubscriptionResolver interface {
+	AuthorCreated(ctx context.Context) (<-chan *model.Author, error)
+	AuthorUpdated(ctx context.Context) (<-chan *model.Author, error)
+	AuthorDeleted(ctx context.Context) (<-chan *model.Author, error)
+	AuthorProfileCreated(ctx context.Context) (<-chan *model.AuthorProfile, error)
+	AuthorProfileUpdated(ctx context.Context) (<-chan *model.AuthorProfile, error)
+	AuthorProfileDeleted(ctx context.Context) (<-chan *model.AuthorProfile, error)
+	BookCreated(ctx context.Context) (<-chan *model.Book, error)
+	BookUpdated(ctx context.Context) (<-chan *model.Book, error)
+	BookDeleted(ctx context.Context) (<-chan *model.Book, error)
+	ChapterCreated(ctx context.Context) (<-chan *model.Chapter, error)
+	ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, error)
+	ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, error)
+	HeadquartersCreated(ctx context.Context) (<-chan *model.Headquarters, error)
+	HeadquartersUpdated(ctx context.Context) (<-chan *model.Headquarters, error)
+	HeadquartersDeleted(ctx context.Context) (<-chan *model.Headquarters, error)
+	PublishingHouseCreated(ctx context.Context) (<-chan *model.PublishingHouse, error)
+	PublishingHouseUpdated(ctx context.Context) (<-chan *model.PublishingHouse, error)
+	PublishingHouseDeleted(ctx context.Context) (<-chan *model.PublishingHouse, error)
+	TagCreated(ctx context.Context) (<-chan *model.Tag, error)
+	TagUpdated(ctx context.Context) (<-chan *model.Tag, error)
+	TagDeleted(ctx context.Context) (<-chan *model.Tag, error)
 }
 type TagResolver interface {
 	ID(ctx context.Context, obj *model.Tag) (model.UUID, error)
@@ -1370,6 +1418,133 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.ListTag(childComplexity, args["pagination"].(*model.PaginationInput), args["orderBy"].([]*model.OrderByInput), args["filter"].([]*model.FilterInput)), true
 
+	case "Subscription.authorCreated":
+		if e.complexity.Subscription.AuthorCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorCreated(childComplexity), true
+	case "Subscription.authorDeleted":
+		if e.complexity.Subscription.AuthorDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorDeleted(childComplexity), true
+	case "Subscription.authorProfileCreated":
+		if e.complexity.Subscription.AuthorProfileCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorProfileCreated(childComplexity), true
+	case "Subscription.authorProfileDeleted":
+		if e.complexity.Subscription.AuthorProfileDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorProfileDeleted(childComplexity), true
+	case "Subscription.authorProfileUpdated":
+		if e.complexity.Subscription.AuthorProfileUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorProfileUpdated(childComplexity), true
+	case "Subscription.authorUpdated":
+		if e.complexity.Subscription.AuthorUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.AuthorUpdated(childComplexity), true
+	case "Subscription.bookCreated":
+		if e.complexity.Subscription.BookCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BookCreated(childComplexity), true
+	case "Subscription.bookDeleted":
+		if e.complexity.Subscription.BookDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BookDeleted(childComplexity), true
+	case "Subscription.bookUpdated":
+		if e.complexity.Subscription.BookUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.BookUpdated(childComplexity), true
+	case "Subscription.chapterCreated":
+		if e.complexity.Subscription.ChapterCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.ChapterCreated(childComplexity), true
+	case "Subscription.chapterDeleted":
+		if e.complexity.Subscription.ChapterDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.ChapterDeleted(childComplexity), true
+	case "Subscription.chapterUpdated":
+		if e.complexity.Subscription.ChapterUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.ChapterUpdated(childComplexity), true
+	case "Subscription.headquartersCreated":
+		if e.complexity.Subscription.HeadquartersCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.HeadquartersCreated(childComplexity), true
+	case "Subscription.headquartersDeleted":
+		if e.complexity.Subscription.HeadquartersDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.HeadquartersDeleted(childComplexity), true
+	case "Subscription.headquartersUpdated":
+		if e.complexity.Subscription.HeadquartersUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.HeadquartersUpdated(childComplexity), true
+	case "Subscription.publishingHouseCreated":
+		if e.complexity.Subscription.PublishingHouseCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.PublishingHouseCreated(childComplexity), true
+	case "Subscription.publishingHouseDeleted":
+		if e.complexity.Subscription.PublishingHouseDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.PublishingHouseDeleted(childComplexity), true
+	case "Subscription.publishingHouseUpdated":
+		if e.complexity.Subscription.PublishingHouseUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.PublishingHouseUpdated(childComplexity), true
+	case "Subscription.tagCreated":
+		if e.complexity.Subscription.TagCreated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.TagCreated(childComplexity), true
+	case "Subscription.tagDeleted":
+		if e.complexity.Subscription.TagDeleted == nil {
+			break
+		}
+
+		return e.complexity.Subscription.TagDeleted(childComplexity), true
+	case "Subscription.tagUpdated":
+		if e.complexity.Subscription.TagUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.TagUpdated(childComplexity), true
+
 	case "Tag.authors":
 		if e.complexity.Tag.Authors == nil {
 			break
@@ -1507,6 +1682,23 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
 			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
 			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
+	case ast.Subscription:
+		next := ec._Subscription(ctx, opCtx.Operation.SelectionSet)
+
+		var buf bytes.Buffer
+		return func(ctx context.Context) *graphql.Response {
+			buf.Reset()
+			data := next(ctx)
+
+			if data == nil {
+				return nil
+			}
 			data.MarshalGQL(&buf)
 
 			return &graphql.Response{
@@ -1977,6 +2169,30 @@ type Mutation {
   createTag(input: CreateTagInput!): Tag!
   updateTag(id: UUID!, input: UpdateTagInput!): Tag!
   deleteTag(id: UUID!): Boolean!
+}
+
+type Subscription {
+  authorCreated: Author!
+  authorUpdated: Author!
+  authorDeleted: Author!
+  authorProfileCreated: AuthorProfile!
+  authorProfileUpdated: AuthorProfile!
+  authorProfileDeleted: AuthorProfile!
+  bookCreated: Book!
+  bookUpdated: Book!
+  bookDeleted: Book!
+  chapterCreated: Chapter!
+  chapterUpdated: Chapter!
+  chapterDeleted: Chapter!
+  headquartersCreated: Headquarters!
+  headquartersUpdated: Headquarters!
+  headquartersDeleted: Headquarters!
+  publishingHouseCreated: PublishingHouse!
+  publishingHouseUpdated: PublishingHouse!
+  publishingHouseDeleted: PublishingHouse!
+  tagCreated: Tag!
+  tagUpdated: Tag!
+  tagDeleted: Tag!
 }
 `, BuiltIn: false},
 }
@@ -7553,6 +7769,1035 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Subscription_authorCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorCreated(ctx)
+		},
+		nil,
+		ec.marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Author_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Author_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Author_updatedAt(ctx, field)
+			case "active":
+				return ec.fieldContext_Author_active(ctx, field)
+			case "books":
+				return ec.fieldContext_Author_books(ctx, field)
+			case "email":
+				return ec.fieldContext_Author_email(ctx, field)
+			case "fullName":
+				return ec.fieldContext_Author_fullName(ctx, field)
+			case "hiredAt":
+				return ec.fieldContext_Author_hiredAt(ctx, field)
+			case "penName":
+				return ec.fieldContext_Author_penName(ctx, field)
+			case "profile":
+				return ec.fieldContext_Author_profile(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Author_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Author_publisherId(ctx, field)
+			case "tags":
+				return ec.fieldContext_Author_tags(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_authorUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorUpdated(ctx)
+		},
+		nil,
+		ec.marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Author_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Author_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Author_updatedAt(ctx, field)
+			case "active":
+				return ec.fieldContext_Author_active(ctx, field)
+			case "books":
+				return ec.fieldContext_Author_books(ctx, field)
+			case "email":
+				return ec.fieldContext_Author_email(ctx, field)
+			case "fullName":
+				return ec.fieldContext_Author_fullName(ctx, field)
+			case "hiredAt":
+				return ec.fieldContext_Author_hiredAt(ctx, field)
+			case "penName":
+				return ec.fieldContext_Author_penName(ctx, field)
+			case "profile":
+				return ec.fieldContext_Author_profile(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Author_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Author_publisherId(ctx, field)
+			case "tags":
+				return ec.fieldContext_Author_tags(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_authorDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorDeleted(ctx)
+		},
+		nil,
+		ec.marshalNAuthor2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthor,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Author_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Author_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Author_updatedAt(ctx, field)
+			case "active":
+				return ec.fieldContext_Author_active(ctx, field)
+			case "books":
+				return ec.fieldContext_Author_books(ctx, field)
+			case "email":
+				return ec.fieldContext_Author_email(ctx, field)
+			case "fullName":
+				return ec.fieldContext_Author_fullName(ctx, field)
+			case "hiredAt":
+				return ec.fieldContext_Author_hiredAt(ctx, field)
+			case "penName":
+				return ec.fieldContext_Author_penName(ctx, field)
+			case "profile":
+				return ec.fieldContext_Author_profile(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Author_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Author_publisherId(ctx, field)
+			case "tags":
+				return ec.fieldContext_Author_tags(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Author", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_authorProfileCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorProfileCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorProfileCreated(ctx)
+		},
+		nil,
+		ec.marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorProfileCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_AuthorProfile_id(ctx, field)
+			case "author":
+				return ec.fieldContext_AuthorProfile_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_AuthorProfile_authorId(ctx, field)
+			case "biography":
+				return ec.fieldContext_AuthorProfile_biography(ctx, field)
+			case "favoriteGenre":
+				return ec.fieldContext_AuthorProfile_favoriteGenre(ctx, field)
+			case "writingStyle":
+				return ec.fieldContext_AuthorProfile_writingStyle(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfile", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_authorProfileUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorProfileUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorProfileUpdated(ctx)
+		},
+		nil,
+		ec.marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorProfileUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_AuthorProfile_id(ctx, field)
+			case "author":
+				return ec.fieldContext_AuthorProfile_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_AuthorProfile_authorId(ctx, field)
+			case "biography":
+				return ec.fieldContext_AuthorProfile_biography(ctx, field)
+			case "favoriteGenre":
+				return ec.fieldContext_AuthorProfile_favoriteGenre(ctx, field)
+			case "writingStyle":
+				return ec.fieldContext_AuthorProfile_writingStyle(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfile", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_authorProfileDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_authorProfileDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().AuthorProfileDeleted(ctx)
+		},
+		nil,
+		ec.marshalNAuthorProfile2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐAuthorProfile,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_authorProfileDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_AuthorProfile_id(ctx, field)
+			case "author":
+				return ec.fieldContext_AuthorProfile_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_AuthorProfile_authorId(ctx, field)
+			case "biography":
+				return ec.fieldContext_AuthorProfile_biography(ctx, field)
+			case "favoriteGenre":
+				return ec.fieldContext_AuthorProfile_favoriteGenre(ctx, field)
+			case "writingStyle":
+				return ec.fieldContext_AuthorProfile_writingStyle(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AuthorProfile", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_bookCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_bookCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().BookCreated(ctx)
+		},
+		nil,
+		ec.marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_bookCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Book_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Book_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Book_updatedAt(ctx, field)
+			case "author":
+				return ec.fieldContext_Book_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_Book_authorId(ctx, field)
+			case "chapters":
+				return ec.fieldContext_Book_chapters(ctx, field)
+			case "isbn":
+				return ec.fieldContext_Book_isbn(ctx, field)
+			case "lastReprintAt":
+				return ec.fieldContext_Book_lastReprintAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Book_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Book_publisherId(ctx, field)
+			case "releaseDate":
+				return ec.fieldContext_Book_releaseDate(ctx, field)
+			case "status":
+				return ec.fieldContext_Book_status(ctx, field)
+			case "tags":
+				return ec.fieldContext_Book_tags(ctx, field)
+			case "title":
+				return ec.fieldContext_Book_title(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_bookUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_bookUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().BookUpdated(ctx)
+		},
+		nil,
+		ec.marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_bookUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Book_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Book_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Book_updatedAt(ctx, field)
+			case "author":
+				return ec.fieldContext_Book_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_Book_authorId(ctx, field)
+			case "chapters":
+				return ec.fieldContext_Book_chapters(ctx, field)
+			case "isbn":
+				return ec.fieldContext_Book_isbn(ctx, field)
+			case "lastReprintAt":
+				return ec.fieldContext_Book_lastReprintAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Book_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Book_publisherId(ctx, field)
+			case "releaseDate":
+				return ec.fieldContext_Book_releaseDate(ctx, field)
+			case "status":
+				return ec.fieldContext_Book_status(ctx, field)
+			case "tags":
+				return ec.fieldContext_Book_tags(ctx, field)
+			case "title":
+				return ec.fieldContext_Book_title(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_bookDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_bookDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().BookDeleted(ctx)
+		},
+		nil,
+		ec.marshalNBook2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐBook,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_bookDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Book_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Book_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Book_updatedAt(ctx, field)
+			case "author":
+				return ec.fieldContext_Book_author(ctx, field)
+			case "authorId":
+				return ec.fieldContext_Book_authorId(ctx, field)
+			case "chapters":
+				return ec.fieldContext_Book_chapters(ctx, field)
+			case "isbn":
+				return ec.fieldContext_Book_isbn(ctx, field)
+			case "lastReprintAt":
+				return ec.fieldContext_Book_lastReprintAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Book_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Book_publisherId(ctx, field)
+			case "releaseDate":
+				return ec.fieldContext_Book_releaseDate(ctx, field)
+			case "status":
+				return ec.fieldContext_Book_status(ctx, field)
+			case "tags":
+				return ec.fieldContext_Book_tags(ctx, field)
+			case "title":
+				return ec.fieldContext_Book_title(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Book", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_chapterCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_chapterCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().ChapterCreated(ctx)
+		},
+		nil,
+		ec.marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_chapterCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Chapter_id(ctx, field)
+			case "book":
+				return ec.fieldContext_Chapter_book(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Chapter_bookId(ctx, field)
+			case "chapterIndex":
+				return ec.fieldContext_Chapter_chapterIndex(ctx, field)
+			case "title":
+				return ec.fieldContext_Chapter_title(ctx, field)
+			case "wordCount":
+				return ec.fieldContext_Chapter_wordCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Chapter", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_chapterUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_chapterUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().ChapterUpdated(ctx)
+		},
+		nil,
+		ec.marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_chapterUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Chapter_id(ctx, field)
+			case "book":
+				return ec.fieldContext_Chapter_book(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Chapter_bookId(ctx, field)
+			case "chapterIndex":
+				return ec.fieldContext_Chapter_chapterIndex(ctx, field)
+			case "title":
+				return ec.fieldContext_Chapter_title(ctx, field)
+			case "wordCount":
+				return ec.fieldContext_Chapter_wordCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Chapter", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_chapterDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_chapterDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().ChapterDeleted(ctx)
+		},
+		nil,
+		ec.marshalNChapter2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐChapter,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_chapterDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Chapter_id(ctx, field)
+			case "book":
+				return ec.fieldContext_Chapter_book(ctx, field)
+			case "bookId":
+				return ec.fieldContext_Chapter_bookId(ctx, field)
+			case "chapterIndex":
+				return ec.fieldContext_Chapter_chapterIndex(ctx, field)
+			case "title":
+				return ec.fieldContext_Chapter_title(ctx, field)
+			case "wordCount":
+				return ec.fieldContext_Chapter_wordCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Chapter", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_headquartersCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_headquartersCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().HeadquartersCreated(ctx)
+		},
+		nil,
+		ec.marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_headquartersCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Headquarters_id(ctx, field)
+			case "addressLine1":
+				return ec.fieldContext_Headquarters_addressLine1(ctx, field)
+			case "addressLine2":
+				return ec.fieldContext_Headquarters_addressLine2(ctx, field)
+			case "city":
+				return ec.fieldContext_Headquarters_city(ctx, field)
+			case "country":
+				return ec.fieldContext_Headquarters_country(ctx, field)
+			case "openedAt":
+				return ec.fieldContext_Headquarters_openedAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Headquarters_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Headquarters_publisherId(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Headquarters", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_headquartersUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_headquartersUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().HeadquartersUpdated(ctx)
+		},
+		nil,
+		ec.marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_headquartersUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Headquarters_id(ctx, field)
+			case "addressLine1":
+				return ec.fieldContext_Headquarters_addressLine1(ctx, field)
+			case "addressLine2":
+				return ec.fieldContext_Headquarters_addressLine2(ctx, field)
+			case "city":
+				return ec.fieldContext_Headquarters_city(ctx, field)
+			case "country":
+				return ec.fieldContext_Headquarters_country(ctx, field)
+			case "openedAt":
+				return ec.fieldContext_Headquarters_openedAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Headquarters_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Headquarters_publisherId(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Headquarters", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_headquartersDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_headquartersDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().HeadquartersDeleted(ctx)
+		},
+		nil,
+		ec.marshalNHeadquarters2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐHeadquarters,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_headquartersDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Headquarters_id(ctx, field)
+			case "addressLine1":
+				return ec.fieldContext_Headquarters_addressLine1(ctx, field)
+			case "addressLine2":
+				return ec.fieldContext_Headquarters_addressLine2(ctx, field)
+			case "city":
+				return ec.fieldContext_Headquarters_city(ctx, field)
+			case "country":
+				return ec.fieldContext_Headquarters_country(ctx, field)
+			case "openedAt":
+				return ec.fieldContext_Headquarters_openedAt(ctx, field)
+			case "publisher":
+				return ec.fieldContext_Headquarters_publisher(ctx, field)
+			case "publisherId":
+				return ec.fieldContext_Headquarters_publisherId(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Headquarters", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_publishingHouseCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_publishingHouseCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().PublishingHouseCreated(ctx)
+		},
+		nil,
+		ec.marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_publishingHouseCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_PublishingHouse_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_PublishingHouse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_PublishingHouse_updatedAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_PublishingHouse_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_PublishingHouse_books(ctx, field)
+			case "establishedAt":
+				return ec.fieldContext_PublishingHouse_establishedAt(ctx, field)
+			case "headquarters":
+				return ec.fieldContext_PublishingHouse_headquarters(ctx, field)
+			case "imprintPrefix":
+				return ec.fieldContext_PublishingHouse_imprintPrefix(ctx, field)
+			case "name":
+				return ec.fieldContext_PublishingHouse_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_publishingHouseUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_publishingHouseUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().PublishingHouseUpdated(ctx)
+		},
+		nil,
+		ec.marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_publishingHouseUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_PublishingHouse_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_PublishingHouse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_PublishingHouse_updatedAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_PublishingHouse_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_PublishingHouse_books(ctx, field)
+			case "establishedAt":
+				return ec.fieldContext_PublishingHouse_establishedAt(ctx, field)
+			case "headquarters":
+				return ec.fieldContext_PublishingHouse_headquarters(ctx, field)
+			case "imprintPrefix":
+				return ec.fieldContext_PublishingHouse_imprintPrefix(ctx, field)
+			case "name":
+				return ec.fieldContext_PublishingHouse_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_publishingHouseDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_publishingHouseDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().PublishingHouseDeleted(ctx)
+		},
+		nil,
+		ec.marshalNPublishingHouse2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐPublishingHouse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_publishingHouseDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_PublishingHouse_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_PublishingHouse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_PublishingHouse_updatedAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_PublishingHouse_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_PublishingHouse_books(ctx, field)
+			case "establishedAt":
+				return ec.fieldContext_PublishingHouse_establishedAt(ctx, field)
+			case "headquarters":
+				return ec.fieldContext_PublishingHouse_headquarters(ctx, field)
+			case "imprintPrefix":
+				return ec.fieldContext_PublishingHouse_imprintPrefix(ctx, field)
+			case "name":
+				return ec.fieldContext_PublishingHouse_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PublishingHouse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_tagCreated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_tagCreated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().TagCreated(ctx)
+		},
+		nil,
+		ec.marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_tagCreated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Tag_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Tag_createdAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_Tag_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_Tag_books(ctx, field)
+			case "category":
+				return ec.fieldContext_Tag_category(ctx, field)
+			case "description":
+				return ec.fieldContext_Tag_description(ctx, field)
+			case "name":
+				return ec.fieldContext_Tag_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_tagUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_tagUpdated,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().TagUpdated(ctx)
+		},
+		nil,
+		ec.marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_tagUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Tag_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Tag_createdAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_Tag_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_Tag_books(ctx, field)
+			case "category":
+				return ec.fieldContext_Tag_category(ctx, field)
+			case "description":
+				return ec.fieldContext_Tag_description(ctx, field)
+			case "name":
+				return ec.fieldContext_Tag_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_tagDeleted(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_tagDeleted,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Subscription().TagDeleted(ctx)
+		},
+		nil,
+		ec.marshalNTag2ᚖgithubᚗcomᚋgoliatoneᚋgoᚑcrudᚋexamplesᚋrelationshipsᚑgqlᚋgraphᚋmodelᚐTag,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_tagDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Tag_id(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Tag_createdAt(ctx, field)
+			case "authors":
+				return ec.fieldContext_Tag_authors(ctx, field)
+			case "books":
+				return ec.fieldContext_Tag_books(ctx, field)
+			case "category":
+				return ec.fieldContext_Tag_category(ctx, field)
+			case "description":
+				return ec.fieldContext_Tag_description(ctx, field)
+			case "name":
+				return ec.fieldContext_Tag_name(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Tag", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Tag_id(ctx context.Context, field graphql.CollectedField, obj *model.Tag) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12669,6 +13914,66 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	}
 
 	return out
+}
+
+var subscriptionImplementors = []string{"Subscription"}
+
+func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Subscription",
+	})
+	if len(fields) != 1 {
+		graphql.AddErrorf(ctx, "must subscribe to exactly one stream")
+		return nil
+	}
+
+	switch fields[0].Name {
+	case "authorCreated":
+		return ec._Subscription_authorCreated(ctx, fields[0])
+	case "authorUpdated":
+		return ec._Subscription_authorUpdated(ctx, fields[0])
+	case "authorDeleted":
+		return ec._Subscription_authorDeleted(ctx, fields[0])
+	case "authorProfileCreated":
+		return ec._Subscription_authorProfileCreated(ctx, fields[0])
+	case "authorProfileUpdated":
+		return ec._Subscription_authorProfileUpdated(ctx, fields[0])
+	case "authorProfileDeleted":
+		return ec._Subscription_authorProfileDeleted(ctx, fields[0])
+	case "bookCreated":
+		return ec._Subscription_bookCreated(ctx, fields[0])
+	case "bookUpdated":
+		return ec._Subscription_bookUpdated(ctx, fields[0])
+	case "bookDeleted":
+		return ec._Subscription_bookDeleted(ctx, fields[0])
+	case "chapterCreated":
+		return ec._Subscription_chapterCreated(ctx, fields[0])
+	case "chapterUpdated":
+		return ec._Subscription_chapterUpdated(ctx, fields[0])
+	case "chapterDeleted":
+		return ec._Subscription_chapterDeleted(ctx, fields[0])
+	case "headquartersCreated":
+		return ec._Subscription_headquartersCreated(ctx, fields[0])
+	case "headquartersUpdated":
+		return ec._Subscription_headquartersUpdated(ctx, fields[0])
+	case "headquartersDeleted":
+		return ec._Subscription_headquartersDeleted(ctx, fields[0])
+	case "publishingHouseCreated":
+		return ec._Subscription_publishingHouseCreated(ctx, fields[0])
+	case "publishingHouseUpdated":
+		return ec._Subscription_publishingHouseUpdated(ctx, fields[0])
+	case "publishingHouseDeleted":
+		return ec._Subscription_publishingHouseDeleted(ctx, fields[0])
+	case "tagCreated":
+		return ec._Subscription_tagCreated(ctx, fields[0])
+	case "tagUpdated":
+		return ec._Subscription_tagUpdated(ctx, fields[0])
+	case "tagDeleted":
+		return ec._Subscription_tagDeleted(ctx, fields[0])
+	default:
+		panic("unknown field " + strconv.Quote(fields[0].Name))
+	}
 }
 
 var tagImplementors = []string{"Tag"}

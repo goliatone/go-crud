@@ -2,49 +2,112 @@ package resolvers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
+	fiberws "github.com/gofiber/contrib/websocket"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
+	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
+	"github.com/goliatone/go-crud/examples/relationships-gql/graph/dataloader"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
+	"github.com/goliatone/go-crud/examples/relationships-gql/internal/routerws"
+	"github.com/goliatone/go-router"
+	"github.com/uptrace/bun"
 )
 
 func TestSubscriptions_WebSocketFlow(t *testing.T) {
-	resolver, _, cleanup := setupResolver(t)
-	defer cleanup()
+	ctx := context.Background()
+	client, err := relationships.SetupDatabase(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+	t.Cleanup(func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	})
 
-	srv := handler.New(generated.NewExecutableSchema(generated.Config{Resolvers: resolver}))
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
-	srv.AddTransport(&transport.Websocket{
+	db := client.DB()
+	require.NoError(t, relationships.MigrateSchema(ctx, db))
+	require.NoError(t, relationships.SeedDatabase(ctx, client))
+
+	resolver := NewResolver(relationships.RegisterRepositories(db))
+
+	executableSchema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
+	httpSrv := handler.New(executableSchema)
+	httpSrv.AddTransport(transport.Options{})
+	httpSrv.AddTransport(transport.POST{})
+
+	wsExec := executor.New(executableSchema)
+	wsTransport := routerws.Websocket{
 		KeepAlivePingInterval: 5 * time.Second,
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
-		},
+		MissingPongOk:         true,
+	}
+	wsHandler := wsTransport.Handler(wsExec)
+
+	app := router.NewFiberAdapter()
+	_ = app.Router()
+	wsConfig := router.DefaultWebSocketConfig()
+	wsConfig.Subprotocols = []string{"graphql-transport-ws", "graphql-ws"}
+	wsConfig.PingPeriod = 5 * time.Second
+	wsConfig.PongWait = 10 * time.Second
+	wsConfig.CheckOrigin = func(origin string) bool { return true }
+	wsConfig.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
+		return router.UpgradeData{
+			"authorization": c.Header("Authorization"),
+		}, nil
+	}
+
+	wsFiberHandler := router.FiberWebSocketHandler(wsConfig, func(ws router.WebSocketContext) error {
+		ctx := context.Background()
+		if ldr := newTestLoader(resolver, db); ldr != nil {
+			ctx = dataloader.Inject(ctx, ldr)
+		}
+		ws.SetContext(ctx)
+		return wsHandler(ws)
+	})
+
+	secured := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ldr := newTestLoader(resolver, db); ldr != nil {
+			r = r.WithContext(dataloader.Inject(r.Context(), ldr))
+		}
+		httpSrv.ServeHTTP(w, r)
+	})
+	app.Init()
+
+	fiberApp := app.WrappedRouter()
+	fiberApp.All("/graphql", func(c *fiber.Ctx) error {
+		if fiberws.IsWebSocketUpgrade(c) {
+			return wsFiberHandler(c)
+		}
+		return adaptor.HTTPHandler(secured)(c)
 	})
 
 	ln, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Skipf("skipping websocket smoke test; cannot bind listener: %v", err)
-	}
-	ts := httptest.NewUnstartedServer(srv)
-	ts.Listener = ln
-	ts.Start()
-	defer ts.Close()
+	require.NoError(t, err, "cannot bind listener for websocket smoke test")
 
-	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/graphql"
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- fiberApp.Listener(ln)
+	}()
+	defer func() {
+		_ = app.Shutdown(context.Background())
+		select {
+		case <-errCh:
+		default:
+		}
+	}()
+
+	wsURL := "ws://" + ln.Addr().String() + "/graphql"
 	dialer := websocket.Dialer{Subprotocols: []string{"graphql-transport-ws"}}
 	conn, _, err := dialer.Dial(wsURL, nil)
 	require.NoError(t, err, "websocket upgrade failed")
@@ -70,7 +133,7 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	mutation := `mutation { createTag(input: { name: "sub-demo", category: "demo" }) { id name } }`
 	body, err := json.Marshal(map[string]string{"query": mutation})
 	require.NoError(t, err)
-	resp, err := ts.Client().Post(ts.URL+"/graphql", "application/json", bytes.NewBuffer(body))
+	resp, err := http.Post("http://"+ln.Addr().String()+"/graphql", "application/json", bytes.NewBuffer(body))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
@@ -96,6 +159,32 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 
 	require.NoError(t, conn.WriteJSON(map[string]any{"id": "1", "type": "complete"}))
 	require.NoError(t, conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")))
+}
+
+func newTestLoader(resolver *Resolver, db bun.IDB) *dataloader.Loader {
+	if resolver == nil {
+		return nil
+	}
+
+	services := dataloader.Services{
+		Author:          resolver.AuthorSvc,
+		AuthorProfile:   resolver.AuthorProfileSvc,
+		Book:            resolver.BookSvc,
+		Chapter:         resolver.ChapterSvc,
+		Headquarters:    resolver.HeadquartersSvc,
+		PublishingHouse: resolver.PublishingHouseSvc,
+		Tag:             resolver.TagSvc,
+	}
+
+	opts := []dataloader.Option{}
+	if db != nil {
+		opts = append(opts, dataloader.WithDB(db))
+	}
+	if resolver.ContextFactory != nil {
+		opts = append(opts, dataloader.WithContextFactory(resolver.ContextFactory))
+	}
+
+	return dataloader.New(services, opts...)
 }
 
 func readWithTimeout(t *testing.T, conn *websocket.Conn, match func(map[string]any) bool) {

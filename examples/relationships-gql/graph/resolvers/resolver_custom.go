@@ -3,6 +3,7 @@ package resolvers
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"sync"
 
@@ -95,6 +96,7 @@ func NewEventBus() *InMemoryEventBus {
 
 // Publish fan-outs payloads to topic subscribers (best effort).
 func (b *InMemoryEventBus) Publish(ctx context.Context, topic string, payload any) error {
+	log.Printf("[events] publish topic=%s payload_type=%T", topic, payload)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if b.closed {
@@ -115,6 +117,7 @@ func (b *InMemoryEventBus) Subscribe(ctx context.Context, topic string) (<-chan 
 	if strings.TrimSpace(topic) == "" {
 		return nil, errors.New("topic is required")
 	}
+	log.Printf("[events] subscribe topic=%s", topic)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.closed {
@@ -137,6 +140,7 @@ func (b *InMemoryEventBus) Subscribe(ctx context.Context, topic string) (<-chan 
 			}
 		}
 		close(ch)
+		log.Printf("[events] unsubscribe topic=%s", topic)
 	}()
 
 	return ch, nil

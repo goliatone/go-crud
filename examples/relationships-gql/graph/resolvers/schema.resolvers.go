@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
@@ -200,16 +201,30 @@ func (r *mutationResolver) DeletePublishingHouse(ctx context.Context, id model.U
 
 // CreateTag is the resolver for the createTag field.
 func (r *mutationResolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	return r.Resolver.CreateTag(ctx, input)
+	tag, err := r.Resolver.CreateTag(ctx, input)
+	if err == nil && tag != nil {
+		_ = r.Events.Publish(ctx, tagCreatedTopic, *tag)
+	}
+	return tag, err
 }
 
 // UpdateTag is the resolver for the updateTag field.
 func (r *mutationResolver) UpdateTag(ctx context.Context, id model.UUID, input model.UpdateTagInput) (*model.Tag, error) {
-	return r.Resolver.UpdateTag(ctx, string(id), input)
+	tag, err := r.Resolver.UpdateTag(ctx, string(id), input)
+	if err == nil && tag != nil {
+		_ = r.Events.Publish(ctx, tagUpdatedTopic, *tag)
+	}
+	return tag, err
 }
 
 // DeleteTag is the resolver for the deleteTag field.
 func (r *mutationResolver) DeleteTag(ctx context.Context, id model.UUID) (bool, error) {
+	if err := r.guard(ctx, "Tag", "delete"); err != nil {
+		return false, err
+	}
+	if tag, err := r.TagService().Show(r.crudContext(ctx), string(id), nil); err == nil {
+		_ = r.Events.Publish(ctx, tagDeletedTopic, tag)
+	}
 	return r.Resolver.DeleteTag(ctx, string(id))
 }
 
@@ -395,17 +410,17 @@ func (r *subscriptionResolver) PublishingHouseDeleted(ctx context.Context) (<-ch
 
 // TagCreated is the resolver for the tagCreated field.
 func (r *subscriptionResolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagCreated - tagCreated"))
+	return r.subscribeTag(ctx, tagCreatedTopic)
 }
 
 // TagUpdated is the resolver for the tagUpdated field.
 func (r *subscriptionResolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagUpdated - tagUpdated"))
+	return r.subscribeTag(ctx, tagUpdatedTopic)
 }
 
 // TagDeleted is the resolver for the tagDeleted field.
 func (r *subscriptionResolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagDeleted - tagDeleted"))
+	return r.subscribeTag(ctx, tagDeletedTopic)
 }
 
 // ID is the resolver for the id field.
@@ -428,6 +443,44 @@ func (r *createAuthorInputResolver) PublisherID(ctx context.Context, obj *model.
 func (r *createAuthorInputResolver) CreatedAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
 	setTimePtr(&obj.CreatedAt, data)
 	return nil
+}
+
+const (
+	tagCreatedTopic = "tag:created"
+	tagUpdatedTopic = "tag:updated"
+	tagDeletedTopic = "tag:deleted"
+)
+
+func (r *subscriptionResolver) subscribeTag(ctx context.Context, topic string) (<-chan *model.Tag, error) {
+	if r.Events == nil {
+		return nil, errors.New("event bus not configured")
+	}
+
+	raw, err := r.Events.Subscribe(ctx, topic)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(chan *model.Tag, 1)
+	go func() {
+		defer close(out)
+		for msg := range raw {
+			if msg.Err != nil {
+				continue
+			}
+			switch payload := msg.Payload.(type) {
+			case *model.Tag:
+				if payload != nil {
+					out <- payload
+				}
+			case model.Tag:
+				tag := payload
+				out <- &tag
+			}
+		}
+	}()
+
+	return out, nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
