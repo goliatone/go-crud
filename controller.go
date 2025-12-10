@@ -39,6 +39,24 @@ var operationDefaultMethods = map[CrudOperation]string{
 	OpDeleteBatch: http.MethodDelete,
 }
 
+// MergePolicy controls how partial updates are interpreted.
+type MergePolicy struct {
+	PutReplace     bool
+	PatchMerge     bool
+	DeleteWithNull bool
+	// Per-field overrides keyed by source map name (e.g., "Metadata") and merge strategy ("deep", "shallow", "replace").
+	FieldMergeStrategy map[string]string
+}
+
+func defaultMergePolicy() MergePolicy {
+	return MergePolicy{
+		PutReplace:         true,
+		PatchMerge:         true,
+		DeleteWithNull:     true,
+		FieldMergeStrategy: map[string]string{},
+	}
+}
+
 type optionItem struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
@@ -79,6 +97,10 @@ type Controller[T any] struct {
 	routeNames           map[CrudOperation]string
 	relationProvider     router.RelationMetadataProvider
 	scopeGuard           ScopeGuardFunc[T]
+	virtualFieldsEnabled bool
+	virtualFieldConfig   VirtualFieldHandlerConfig
+	mergePolicy          MergePolicy
+	virtualFieldDefs     []VirtualFieldDef
 }
 
 // NewController creates a new Controller with functional options.
@@ -97,6 +119,7 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		routePaths:       make(map[CrudOperation]string),
 		routeNames:       make(map[CrudOperation]string),
 		relationProvider: router.NewDefaultRelationProvider(),
+		mergePolicy:      defaultMergePolicy(),
 	}
 
 	for _, opt := range opts {
@@ -111,6 +134,11 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		if provider := newFieldMapProviderFromRepo(controller.Repo, controller.resourceType); provider != nil {
 			controller.fieldMapProvider = provider
 		}
+	}
+	controller.attachVirtualFieldHooks()
+
+	if controller.virtualFieldsEnabled {
+		controller.fieldMapProvider = wrapFieldMapProviderWithVirtuals(controller.fieldMapProvider, controller.virtualFieldDefs, controller.virtualFieldConfig)
 	}
 
 	if controller.relationProvider == nil {
@@ -495,18 +523,82 @@ func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation, meta guard
 	}
 }
 
-func (c *Controller[T]) runHook(ctx Context, op CrudOperation, hook HookFunc[T], record T, meta guardRequestContext) error {
-	if hook == nil || isNil(record) {
+func (c *Controller[T]) runHooks(ctx Context, op CrudOperation, hooks []HookFunc[T], record T, meta guardRequestContext) error {
+	if len(hooks) == 0 || isNil(record) {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op, meta), record)
+	hctx := c.newHookContext(ctx, op, meta)
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(hctx, record); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBatchFunc[T], records []T, meta guardRequestContext) error {
-	if hook == nil || len(records) == 0 {
+func (c *Controller[T]) runBatchHooks(ctx Context, op CrudOperation, hooks []HookBatchFunc[T], records []T, meta guardRequestContext) error {
+	if len(hooks) == 0 || len(records) == 0 {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op, meta), records)
+	hctx := c.newHookContext(ctx, op, meta)
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(hctx, records); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller[T]) attachVirtualFieldHooks() {
+	if !c.virtualFieldsEnabled {
+		return
+	}
+	handler := NewVirtualFieldHandlerWithConfig[T](c.virtualFieldConfig)
+	c.virtualFieldDefs = handler.FieldDefs()
+	if len(c.virtualFieldDefs) == 0 {
+		return
+	}
+	virtualHooks := LifecycleHooks[T]{
+		BeforeCreate: []HookFunc[T]{handler.BeforeSave},
+		BeforeUpdate: []HookFunc[T]{handler.BeforeSave},
+		AfterCreate:  []HookFunc[T]{handler.AfterLoad},
+		AfterUpdate:  []HookFunc[T]{handler.AfterLoad},
+		AfterRead:    []HookFunc[T]{handler.AfterLoad},
+		AfterList:    []HookBatchFunc[T]{handler.AfterLoadBatch},
+	}
+	c.hooks = mergeLifecycleHooks(c.hooks, virtualHooks)
+}
+
+func wrapFieldMapProviderWithVirtuals(base FieldMapProvider, defs []VirtualFieldDef, cfg VirtualFieldHandlerConfig) FieldMapProvider {
+	if len(defs) == 0 {
+		return base
+	}
+	return func(t reflect.Type) map[string]string {
+		var out map[string]string
+		if base != nil {
+			out = base(t)
+		}
+		if len(out) == 0 {
+			out = map[string]string{}
+		} else {
+			copied := make(map[string]string, len(out)+len(defs))
+			for k, v := range out {
+				copied[k] = v
+			}
+			out = copied
+		}
+		virtuals := buildVirtualFieldMapExpressions(defs, cfg)
+		for k, v := range virtuals {
+			out[k] = v
+		}
+		return out
+	}
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
@@ -520,6 +612,7 @@ func (c *Controller[T]) Schema(ctx Context) error {
 	return ctx.JSON(doc)
 }
 
+// TODO: See if we can refactor this out of the core and make it a "mixin" or added behavior
 func (c *Controller[T]) applyAdminExtensions(doc map[string]any, meta router.ResourceMetadata) {
 	if doc == nil {
 		return
@@ -592,6 +685,7 @@ func (c *Controller[T]) compileSchemaDocument() (router.ResourceMetadata, map[st
 		return meta, nil
 	}
 
+	annotateVirtualFieldsInSchema(doc, meta.Name, c.resourceType)
 	c.applyAdminExtensions(doc, meta)
 	return meta, doc
 }
@@ -632,6 +726,9 @@ func (c *Controller[T]) Show(ctx Context) error {
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
 	}
+	if err := c.runHooks(ctx, OpRead, c.hooks.AfterRead, record, meta); err != nil {
+		return c.resp.OnError(ctx, err, OpRead)
+	}
 	applyFieldPolicyToRecord(record, policy)
 	return c.resp.OnData(ctx, record, OpRead, filters)
 }
@@ -669,6 +766,10 @@ func (c *Controller[T]) Index(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpList)
 	}
 
+	if err := c.runBatchHooks(ctx, OpList, c.hooks.AfterList, records, meta); err != nil {
+		return c.resp.OnError(ctx, err, OpList)
+	}
+
 	filters.Count = count
 	applyFieldPolicyToSlice(records, policy)
 
@@ -698,7 +799,7 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
 	}
 
-	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
+	if err := c.runHooks(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
 		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
@@ -709,7 +810,7 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
-	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
+	if err := c.runHooks(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
 		c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
@@ -736,7 +837,7 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
+	if err := c.runBatchHooks(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
 		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
@@ -747,7 +848,7 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
+	if err := c.runBatchHooks(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
 		c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
@@ -804,8 +905,10 @@ func (c *Controller[T]) Update(ctx Context) error {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
+	// Apply virtual map merge semantics (merge vs replace, delete-with-null).
+	record = mergeVirtualMaps(existingRecord, record, c.virtualFieldDefs, c.mergePolicy)
 
-	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
+	if err := c.runHooks(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
@@ -816,7 +919,7 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
-	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
+	if err := c.runHooks(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
@@ -843,7 +946,25 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
+	criteria := c.applyScopeCriteria(nil, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+	for i, rec := range records {
+		id := c.Repo.Handlers().GetID(rec)
+		existing, err := c.service.Show(ctx, id.String(), criteria)
+		if err != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
+			return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdateBatch)
+		}
+		merged, err := mergeRecordWithExisting(rec, existing)
+		if err != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
+			return c.resp.OnError(ctx, err, OpUpdateBatch)
+		}
+		merged = mergeVirtualMaps(existing, merged, c.virtualFieldDefs, c.mergePolicy)
+		records[i] = merged
+	}
+
+	if err := c.runBatchHooks(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
 		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
@@ -854,7 +975,7 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
+	if err := c.runBatchHooks(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
 		c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
@@ -893,7 +1014,7 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
+	if err := c.runHooks(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
@@ -904,7 +1025,7 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
+	if err := c.runHooks(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
@@ -931,7 +1052,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
+	if err := c.runBatchHooks(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
@@ -942,7 +1063,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
+	if err := c.runBatchHooks(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
