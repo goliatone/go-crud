@@ -430,6 +430,13 @@ func buildDataloaderEntities(doc formatter.Document, models []ModelStruct) []Dat
 		modelFields[m.Name] = fields
 	}
 
+	entityByName := make(map[string]formatter.Entity, len(doc.Entities))
+	entityByRaw := make(map[string]formatter.Entity, len(doc.Entities))
+	for _, ent := range doc.Entities {
+		entityByName[ent.Name] = ent
+		entityByRaw[strings.ToLower(ent.RawName)] = ent
+	}
+
 	pkByEntity := make(map[string]DataloaderField, len(doc.Entities))
 	for _, ent := range doc.Entities {
 		pk := findPrimaryKey(ent, modelFields[ent.Name])
@@ -449,7 +456,7 @@ func buildDataloaderEntities(doc formatter.Document, models []ModelStruct) []Dat
 			Name:      ent.Name,
 			ModelName: ent.Name,
 			PK:        pk,
-			Relations: buildDataloaderRelations(ent, pk, modelFields, pkByEntity),
+			Relations: buildDataloaderRelations(ent, pk, modelFields, pkByEntity, entityByName, entityByRaw),
 			Resolver:  lowerFirst(ent.Name),
 		}
 		entities = append(entities, entity)
@@ -492,7 +499,7 @@ func toDataloaderField(f formatter.Field, fields map[string]ModelField) Dataload
 	}
 }
 
-func buildDataloaderRelations(entity formatter.Entity, pk DataloaderField, modelFields map[string]map[string]ModelField, pkByEntity map[string]DataloaderField) []DataloaderRelation {
+func buildDataloaderRelations(entity formatter.Entity, pk DataloaderField, modelFields map[string]map[string]ModelField, pkByEntity map[string]DataloaderField, entityByName map[string]formatter.Entity, entityByRaw map[string]formatter.Entity) []DataloaderRelation {
 	sourceFields := modelFields[entity.Name]
 	relations := make([]DataloaderRelation, 0, len(entity.Fields))
 	for _, f := range entity.Fields {
@@ -501,6 +508,7 @@ func buildDataloaderRelations(entity formatter.Entity, pk DataloaderField, model
 		}
 		targetFields := modelFields[f.Relation.Type]
 		targetPK := pkByEntity[f.Relation.Type]
+		join := relationJoinDetails(entity, f, pk.Column, entityByName, entityByRaw, true)
 		relation := DataloaderRelation{
 			Name:         f.Name,
 			FieldName:    structFieldName(f.OriginalName, sourceFields),
@@ -508,37 +516,16 @@ func buildDataloaderRelations(entity formatter.Entity, pk DataloaderField, model
 			TargetField:  structFieldName(f.Relation.Type, targetFields),
 			RelationType: normalizeRelationType(f.Relation),
 			IsList:       f.Relation.IsList,
-			SourceColumn: firstNonEmpty(f.Relation.SourceColumn, f.Relation.SourceField, pk.Column),
-			TargetColumn: firstNonEmpty(f.Relation.TargetColumn, "id"),
+			SourceColumn: join.SourceColumn,
+			TargetColumn: join.TargetColumn,
 			SourceField:  f.Relation.SourceField,
-			PivotTable:   f.Relation.PivotTable,
-			SourcePivot:  f.Relation.SourcePivotField,
-			TargetPivot:  f.Relation.TargetPivotField,
-			TargetTable:  firstNonEmpty(f.Relation.TargetTable, f.Relation.OriginalName, f.Relation.RelatedSchema),
+			PivotTable:   join.PivotTable,
+			SourcePivot:  join.SourcePivot,
+			TargetPivot:  join.TargetPivot,
+			TargetTable:  join.TargetTable,
 		}
-		if relation.RelationType == "manyToMany" {
-			if relation.SourcePivot == "" {
-				relation.SourcePivot = fmt.Sprintf("%s_id", strcase.ToSnake(entity.RawName))
-			}
-			if relation.TargetPivot == "" {
-				relation.TargetPivot = fmt.Sprintf("%s_id", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)))
-			}
-			if relation.TargetTable == "" {
-				relation.TargetTable = strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName))
-			}
-			if relation.PivotTable == "" {
-				targetName := relation.TargetTable
-				if targetName == "" {
-					targetName = strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName))
-				}
-				relation.PivotTable = fmt.Sprintf("%s_%s", strcase.ToSnake(entity.RawName), targetName)
-			}
-		}
-		if relation.SourceColumn == "" {
-			relation.SourceColumn = pk.Column
-		}
-		relation.SourceFieldKey = findModelField(firstNonEmpty(f.Relation.SourceField, f.Relation.SourceColumn), sourceFields, pk)
-		relation.TargetFieldKey = findModelField(relation.TargetColumn, targetFields, targetPK)
+		relation.SourceFieldKey = findModelField(firstNonEmpty(f.Relation.SourceField, relation.SourceColumn), sourceFields, pk)
+		relation.TargetFieldKey = findModelField(join.TargetColumn, targetFields, targetPK)
 		relations = append(relations, relation)
 	}
 	return relations
@@ -568,6 +555,189 @@ func findModelField(name string, fields map[string]ModelField, fallback Dataload
 		}
 	}
 	return fallback
+}
+
+type relationJoin struct {
+	RelationType string
+	SourceColumn string
+	TargetColumn string
+	PivotTable   string
+	SourcePivot  string
+	TargetPivot  string
+	TargetTable  string
+	SourceTable  string
+
+	pivotTableExplicit  bool
+	sourcePivotExplicit bool
+	targetPivotExplicit bool
+	targetTableExplicit bool
+}
+
+func relationJoinDetails(entity formatter.Entity, field formatter.Field, sourceColumnDefault string, entityByName map[string]formatter.Entity, entityByRaw map[string]formatter.Entity, allowReciprocal bool) relationJoin {
+	if field.Relation == nil {
+		return relationJoin{}
+	}
+
+	sourceTable := strcase.ToSnake(entity.RawName)
+	targetTable := strcase.ToSnake(firstNonEmpty(field.Relation.TargetTable, field.Relation.OriginalName, field.Relation.RelatedSchema))
+	join := relationJoin{
+		RelationType: normalizeRelationType(field.Relation),
+		SourceColumn: firstNonEmpty(field.Relation.SourceColumn, field.Relation.SourceField, sourceColumnDefault),
+		TargetColumn: firstNonEmpty(field.Relation.TargetColumn, "id"),
+		PivotTable:   field.Relation.PivotTable,
+		SourcePivot:  field.Relation.SourcePivotField,
+		TargetPivot:  field.Relation.TargetPivotField,
+		TargetTable:  targetTable,
+		SourceTable:  sourceTable,
+
+		pivotTableExplicit:  field.Relation.PivotTable != "",
+		sourcePivotExplicit: field.Relation.SourcePivotField != "",
+		targetPivotExplicit: field.Relation.TargetPivotField != "",
+		targetTableExplicit: field.Relation.TargetTable != "",
+	}
+
+	if join.RelationType != "manyToMany" {
+		return join
+	}
+
+	return fillManyToManyJoin(entity, field, join, entityByName, entityByRaw, allowReciprocal)
+}
+
+func fillManyToManyJoin(entity formatter.Entity, field formatter.Field, join relationJoin, entityByName map[string]formatter.Entity, entityByRaw map[string]formatter.Entity, allowReciprocal bool) relationJoin {
+	if join.TargetTable == "" {
+		join.TargetTable = strcase.ToSnake(firstNonEmpty(field.Relation.RelatedSchema, field.Relation.OriginalName))
+	}
+
+	if allowReciprocal && (join.PivotTable == "" || join.SourcePivot == "" || join.TargetPivot == "") {
+		if target, ok := lookupEntity(field.Relation, entityByName, entityByRaw); ok {
+			if counterpart := findCounterpartRelation(entity, target); counterpart != nil {
+				if counterpart.Relation != nil {
+					if join.PivotTable == "" && counterpart.Relation.PivotTable != "" {
+						join.PivotTable = counterpart.Relation.PivotTable
+						join.pivotTableExplicit = true
+					}
+					if join.SourcePivot == "" && counterpart.Relation.TargetPivotField != "" {
+						join.SourcePivot = counterpart.Relation.TargetPivotField
+						join.sourcePivotExplicit = true
+					}
+					if join.TargetPivot == "" && counterpart.Relation.SourcePivotField != "" {
+						join.TargetPivot = counterpart.Relation.SourcePivotField
+						join.targetPivotExplicit = true
+					}
+					if join.TargetTable == "" && counterpart.Relation.TargetTable != "" {
+						join.TargetTable = strcase.ToSnake(counterpart.Relation.TargetTable)
+						join.targetTableExplicit = true
+					}
+				}
+				other := relationJoinDetails(target, *counterpart, primaryColumn(target), entityByName, entityByRaw, false)
+				if join.PivotTable == "" && other.PivotTable != "" && other.pivotTableExplicit {
+					join.PivotTable = other.PivotTable
+					join.pivotTableExplicit = true
+				}
+				if join.SourcePivot == "" && other.TargetPivot != "" && other.targetPivotExplicit {
+					join.SourcePivot = other.TargetPivot
+				}
+				if join.TargetPivot == "" && other.SourcePivot != "" && other.sourcePivotExplicit {
+					join.TargetPivot = other.SourcePivot
+				}
+				if join.TargetTable == "" && other.TargetTable != "" && other.targetTableExplicit {
+					join.TargetTable = other.TargetTable
+					join.targetTableExplicit = other.targetTableExplicit
+				}
+
+				if join.PivotTable == "" {
+					pivotFromSource := defaultPivotName(join.SourceTable, join.TargetTable)
+					pivotFromTarget := defaultPivotName(other.SourceTable, other.TargetTable)
+					join.PivotTable = pickPivotName(pivotFromSource, pivotFromTarget)
+				}
+				if join.SourcePivot == "" {
+					join.SourcePivot = other.TargetPivot
+				}
+				if join.TargetPivot == "" {
+					join.TargetPivot = other.SourcePivot
+				}
+				if join.TargetTable == "" {
+					join.TargetTable = other.TargetTable
+				}
+			}
+		}
+	}
+
+	if join.PivotTable == "" {
+		join.PivotTable = defaultPivotName(join.SourceTable, join.TargetTable)
+	}
+	if join.SourcePivot == "" {
+		source := join.SourceTable
+		if source == "" {
+			source = strcase.ToSnake(entity.RawName)
+		}
+		join.SourcePivot = fmt.Sprintf("%s_id", source)
+	}
+	if join.TargetPivot == "" {
+		targetName := firstNonEmpty(field.Relation.RelatedSchema, field.Relation.OriginalName, join.TargetTable)
+		join.TargetPivot = fmt.Sprintf("%s_id", strcase.ToSnake(targetName))
+	}
+	if join.TargetTable == "" {
+		join.TargetTable = strcase.ToSnake(firstNonEmpty(field.Relation.RelatedSchema, field.Relation.OriginalName))
+	}
+
+	return join
+}
+
+func defaultPivotName(source, target string) string {
+	source = strcase.ToSnake(strings.TrimSpace(source))
+	target = strcase.ToSnake(strings.TrimSpace(target))
+	if source == "" || target == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s_%s", source, target)
+}
+
+func pickPivotName(candidateA, candidateB string) string {
+	switch {
+	case candidateA == "" && candidateB == "":
+		return ""
+	case candidateA == "":
+		return candidateB
+	case candidateB == "":
+		return candidateA
+	case candidateA == candidateB:
+		return candidateA
+	default:
+		if candidateA < candidateB {
+			return candidateA
+		}
+		return candidateB
+	}
+}
+
+func lookupEntity(rel *formatter.Relation, entityByName map[string]formatter.Entity, entityByRaw map[string]formatter.Entity) (formatter.Entity, bool) {
+	if rel == nil {
+		return formatter.Entity{}, false
+	}
+	if target, ok := entityByName[rel.Type]; ok {
+		return target, true
+	}
+	if target, ok := entityByRaw[strings.ToLower(rel.RelatedSchema)]; ok {
+		return target, true
+	}
+	return formatter.Entity{}, false
+}
+
+func findCounterpartRelation(entity formatter.Entity, target formatter.Entity) *formatter.Field {
+	for i := range target.Fields {
+		tf := &target.Fields[i]
+		if tf.Relation == nil {
+			continue
+		}
+		if normalizeRelationType(tf.Relation) != "manyToMany" {
+			continue
+		}
+		if strings.EqualFold(tf.Relation.Type, entity.Name) || strings.EqualFold(tf.Relation.RelatedSchema, entity.RawName) || strings.EqualFold(tf.Relation.OriginalName, entity.RawName) {
+			return tf
+		}
+	}
+	return nil
 }
 
 func normalizeRelationType(rel *formatter.Relation) string {
@@ -657,6 +827,22 @@ func isEntity(entities []formatter.Entity, name string) bool {
 		}
 	}
 	return false
+}
+
+func primaryColumn(entity formatter.Entity) string {
+	var pk string
+	for _, f := range entity.Fields {
+		if f.Relation != nil {
+			continue
+		}
+		if pk == "" || strings.EqualFold(f.OriginalName, "id") {
+			pk = f.OriginalName
+		}
+		if strings.EqualFold(f.OriginalName, "id") {
+			break
+		}
+	}
+	return pk
 }
 
 func relOrDefault(base, target string) string {
@@ -800,6 +986,7 @@ func buildCriteriaConfig(doc formatter.Document) map[string][]CriteriaField {
 
 func collectCriteriaFields(entity formatter.Entity, byName, byRaw map[string]formatter.Entity) []CriteriaField {
 	result := make([]CriteriaField, 0, len(entity.Fields))
+	sourcePK := primaryColumn(entity)
 	for _, f := range entity.Fields {
 		if f.Relation != nil {
 			target, ok := byName[f.Relation.Type]
@@ -809,37 +996,22 @@ func collectCriteriaFields(entity formatter.Entity, byName, byRaw map[string]for
 			if !ok {
 				continue
 			}
+			join := relationJoinDetails(entity, f, sourcePK, byName, byRaw, true)
 			for _, tf := range target.Fields {
 				if tf.Relation != nil {
 					continue
 				}
-				rt := strings.ToLower(strings.ReplaceAll(f.Relation.RelationType, "-", ""))
-				rt = strings.ReplaceAll(rt, "_", "")
-				pivotTable := f.Relation.PivotTable
-				if pivotTable == "" && (rt == "manytomany" || rt == "m2m") {
-					pivotTable = fmt.Sprintf("%s_%s", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)), strcase.ToSnake(entity.RawName))
-				}
-				sourcePivot := f.Relation.SourcePivotField
-				if sourcePivot == "" && (rt == "manytomany" || rt == "m2m") {
-					sourcePivot = fmt.Sprintf("%s_id", strcase.ToSnake(entity.RawName))
-				}
-				targetPivot := f.Relation.TargetPivotField
-				if targetPivot == "" && (rt == "manytomany" || rt == "m2m") {
-					targetPivot = fmt.Sprintf("%s_id", strcase.ToSnake(firstNonEmpty(f.Relation.RelatedSchema, f.Relation.OriginalName)))
-				}
-				targetTable := firstNonEmpty(f.Relation.TargetTable, f.Relation.OriginalName, f.Relation.RelatedSchema)
-
 				result = append(result, CriteriaField{
 					Field:        fmt.Sprintf("%s.%s", f.Name, tf.Name),
 					Column:       fmt.Sprintf("%s.%s", f.OriginalName, tf.OriginalName),
 					Relation:     strcase.ToPascal(f.Name),
-					RelationType: f.Relation.RelationType,
-					PivotTable:   pivotTable,
-					SourceColumn: firstNonEmpty(f.Relation.SourceColumn, "id"),
-					TargetColumn: firstNonEmpty(f.Relation.TargetColumn, "id"),
-					SourcePivot:  sourcePivot,
-					TargetPivot:  targetPivot,
-					TargetTable:  targetTable,
+					RelationType: join.RelationType,
+					PivotTable:   join.PivotTable,
+					SourceColumn: join.SourceColumn,
+					TargetColumn: join.TargetColumn,
+					SourcePivot:  join.SourcePivot,
+					TargetPivot:  join.TargetPivot,
+					TargetTable:  join.TargetTable,
 				})
 			}
 			continue
