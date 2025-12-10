@@ -5,12 +5,14 @@ go 1.24.0
 toolchain go1.24.11
 
 require (
+	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
 	github.com/goliatone/go-crud v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-repository-bun v0.9.0
-	github.com/goliatone/go-router v0.25.0
+	github.com/goliatone/go-repository-bun v0.10.0
+	github.com/goliatone/go-router v0.32.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
+	github.com/uptrace/bun v1.2.14
 	golang.org/x/mod v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -46,16 +48,17 @@ require (
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
+	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
-	github.com/uptrace/bun v1.2.14 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.54.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.31 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
