@@ -1822,19 +1822,19 @@ func TestLifecycleHooks_Create(t *testing.T) {
 	var beforeMeta, afterMeta HookMetadata
 
 	hooks := LifecycleHooks[*TestUser]{
-		BeforeCreate: func(hctx HookContext, user *TestUser) error {
+		BeforeCreate: []HookFunc[*TestUser]{func(hctx HookContext, user *TestUser) error {
 			beforeCalled = true
 			beforeMeta = hctx.Metadata
 			user.Name = "mutated-before"
 			user.Age = 21
 			return nil
-		},
-		AfterCreate: func(hctx HookContext, user *TestUser) error {
+		}},
+		AfterCreate: []HookFunc[*TestUser]{func(hctx HookContext, user *TestUser) error {
 			afterCalled = true
 			afterMeta = hctx.Metadata
 			user.Age = 99
 			return nil
-		},
+		}},
 	}
 
 	app, repo, db := setupAppWithHooks(t, hooks)
@@ -2111,10 +2111,10 @@ func TestController_HookContextIncludesGuardMetadata(t *testing.T) {
 	var captured HookContext
 
 	hooks := LifecycleHooks[*TestUser]{
-		BeforeCreate: func(hctx HookContext, record *TestUser) error {
+		BeforeCreate: []HookFunc[*TestUser]{func(hctx HookContext, record *TestUser) error {
 			captured = hctx
 			return nil
-		},
+		}},
 	}
 
 	guard := func(ctx Context, op CrudOperation) (ActorContext, ScopeFilter, error) {
@@ -2273,13 +2273,13 @@ func TestController_ActionCollectionRouteExecutesHandler(t *testing.T) {
 func TestSendNotificationHelperEmitsEvents(t *testing.T) {
 	emitter := &testNotificationEmitter{}
 	hooks := LifecycleHooks[*TestUser]{
-		AfterUpdate: func(hctx HookContext, user *TestUser) error {
+		AfterUpdate: []HookFunc[*TestUser]{func(hctx HookContext, user *TestUser) error {
 			return SendNotification(hctx, ActivityPhaseAfter, user,
 				WithNotificationChannel("email"),
 				WithNotificationTemplate("user-updated"),
 				WithNotificationRecipients("ops@example.com"),
 			)
-		},
+		}},
 	}
 
 	app, db := setupApp(t,
