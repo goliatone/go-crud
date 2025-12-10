@@ -36,20 +36,23 @@ type HookBatchFunc[T any] func(HookContext, []T) error
 
 // LifecycleHooks groups all supported CRUD lifecycle hooks.
 type LifecycleHooks[T any] struct {
-	BeforeCreate      HookFunc[T]
-	AfterCreate       HookFunc[T]
-	BeforeCreateBatch HookBatchFunc[T]
-	AfterCreateBatch  HookBatchFunc[T]
+	BeforeCreate      []HookFunc[T]
+	AfterCreate       []HookFunc[T]
+	BeforeCreateBatch []HookBatchFunc[T]
+	AfterCreateBatch  []HookBatchFunc[T]
 
-	BeforeUpdate      HookFunc[T]
-	AfterUpdate       HookFunc[T]
-	BeforeUpdateBatch HookBatchFunc[T]
-	AfterUpdateBatch  HookBatchFunc[T]
+	BeforeUpdate      []HookFunc[T]
+	AfterUpdate       []HookFunc[T]
+	BeforeUpdateBatch []HookBatchFunc[T]
+	AfterUpdateBatch  []HookBatchFunc[T]
 
-	BeforeDelete      HookFunc[T]
-	AfterDelete       HookFunc[T]
-	BeforeDeleteBatch HookBatchFunc[T]
-	AfterDeleteBatch  HookBatchFunc[T]
+	AfterRead []HookFunc[T]
+	AfterList []HookBatchFunc[T]
+
+	BeforeDelete      []HookFunc[T]
+	AfterDelete       []HookFunc[T]
+	BeforeDeleteBatch []HookBatchFunc[T]
+	AfterDeleteBatch  []HookBatchFunc[T]
 }
 
 // ActivityHooks returns the v2 activity emitter constructed from pkg/activity.
@@ -86,6 +89,36 @@ func HookBatchFromContext[T any](hook func(Context, []T) error) HookBatchFunc[T]
 	}
 	return func(hctx HookContext, records []T) error {
 		return hook(hctx.Context, records)
+	}
+}
+
+// ChainHooks composes multiple single-record hooks in order.
+func ChainHooks[T any](hooks ...HookFunc[T]) HookFunc[T] {
+	return func(hctx HookContext, record T) error {
+		for _, h := range hooks {
+			if h == nil {
+				continue
+			}
+			if err := h(hctx, record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// ChainBatchHooks composes multiple batch hooks in order.
+func ChainBatchHooks[T any](hooks ...HookBatchFunc[T]) HookBatchFunc[T] {
+	return func(hctx HookContext, records []T) error {
+		for _, h := range hooks {
+			if h == nil {
+				continue
+			}
+			if err := h(hctx, records); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }
 
