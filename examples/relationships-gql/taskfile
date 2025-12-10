@@ -70,6 +70,7 @@ function graphqlgen {
     --schema-package ./registrar \
     --out ./graph \
     --config ./gqlgen.yml \
+    --emit-subscriptions \
     "$@"
 }
 
