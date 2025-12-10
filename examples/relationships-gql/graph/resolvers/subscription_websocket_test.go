@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	fiberws "github.com/gofiber/contrib/websocket"
+	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -41,6 +43,8 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	require.NoError(t, relationships.SeedDatabase(ctx, client))
 
 	resolver := NewResolver(relationships.RegisterRepositories(db))
+	bus := &recordingBus{EventBus: NewEventBus()}
+	resolver.Events = bus
 
 	executableSchema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
 	httpSrv := handler.New(executableSchema)
@@ -159,6 +163,13 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 
 	require.NoError(t, conn.WriteJSON(map[string]any{"id": "1", "type": "complete"}))
 	require.NoError(t, conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")))
+
+	bus.mu.Lock()
+	subscribed := append([]string(nil), bus.subscribed...)
+	published := append([]string(nil), bus.published...)
+	bus.mu.Unlock()
+	require.Contains(t, subscribed, "tag.created")
+	require.Contains(t, published, "tag.created")
 }
 
 func newTestLoader(resolver *Resolver, db bun.IDB) *dataloader.Loader {
@@ -207,4 +218,33 @@ func readWithTimeout(t *testing.T, conn *websocket.Conn, match func(map[string]a
 			}
 		}
 	}
+}
+
+type recordingBus struct {
+	EventBus
+	mu         sync.Mutex
+	published  []string
+	subscribed []string
+}
+
+func (b *recordingBus) Publish(ctx context.Context, topic string, payload any) error {
+	b.mu.Lock()
+	b.published = append(b.published, topic)
+	b.mu.Unlock()
+	if b.EventBus == nil {
+		return nil
+	}
+	return b.EventBus.Publish(ctx, topic, payload)
+}
+
+func (b *recordingBus) Subscribe(ctx context.Context, topic string) (<-chan EventMessage, error) {
+	b.mu.Lock()
+	b.subscribed = append(b.subscribed, topic)
+	b.mu.Unlock()
+	if b.EventBus == nil {
+		ch := make(chan EventMessage)
+		close(ch)
+		return ch, nil
+	}
+	return b.EventBus.Subscribe(ctx, topic)
 }
