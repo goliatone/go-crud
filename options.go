@@ -38,6 +38,11 @@ func BoolPtr(v bool) *bool {
 	return &v
 }
 
+// StringPtr returns a pointer to a string value.
+func StringPtr(v string) *string {
+	return &v
+}
+
 func (rc RouteConfig) merge(other RouteConfig) RouteConfig {
 	switch {
 	case len(rc.Operations) == 0 && len(other.Operations) == 0:
@@ -101,6 +106,7 @@ func DefaultOperatorMap() map[string]string {
 		"lt":    "<",
 		"gte":   ">=",
 		"lte":   "<=",
+		"in":    "IN",
 		"ilike": "ILIKE",
 		"like":  "LIKE",
 		"and":   "and",
@@ -207,7 +213,39 @@ func WithRouteConfig[T any](config RouteConfig) Option[T] {
 
 func WithLifecycleHooks[T any](hooks LifecycleHooks[T]) Option[T] {
 	return func(c *Controller[T]) {
-		c.hooks = hooks
+		c.hooks = mergeLifecycleHooks(c.hooks, hooks)
+	}
+}
+
+func mergeLifecycleHooks[T any](base, add LifecycleHooks[T]) LifecycleHooks[T] {
+	base.BeforeCreate = append(base.BeforeCreate, add.BeforeCreate...)
+	base.AfterCreate = append(base.AfterCreate, add.AfterCreate...)
+	base.BeforeCreateBatch = append(base.BeforeCreateBatch, add.BeforeCreateBatch...)
+	base.AfterCreateBatch = append(base.AfterCreateBatch, add.AfterCreateBatch...)
+
+	base.BeforeUpdate = append(base.BeforeUpdate, add.BeforeUpdate...)
+	base.AfterUpdate = append(base.AfterUpdate, add.AfterUpdate...)
+	base.BeforeUpdateBatch = append(base.BeforeUpdateBatch, add.BeforeUpdateBatch...)
+	base.AfterUpdateBatch = append(base.AfterUpdateBatch, add.AfterUpdateBatch...)
+
+	base.AfterRead = append(base.AfterRead, add.AfterRead...)
+	base.AfterList = append(base.AfterList, add.AfterList...)
+
+	base.BeforeDelete = append(base.BeforeDelete, add.BeforeDelete...)
+	base.AfterDelete = append(base.AfterDelete, add.AfterDelete...)
+	base.BeforeDeleteBatch = append(base.BeforeDeleteBatch, add.BeforeDeleteBatch...)
+	base.AfterDeleteBatch = append(base.AfterDeleteBatch, add.AfterDeleteBatch...)
+
+	return base
+}
+
+// WithVirtualFields enables virtual field handling with optional config.
+func WithVirtualFields[T any](cfg ...VirtualFieldHandlerConfig) Option[T] {
+	return func(c *Controller[T]) {
+		c.virtualFieldsEnabled = true
+		if len(cfg) > 0 {
+			c.virtualFieldConfig = cfg[0]
+		}
 	}
 }
 
