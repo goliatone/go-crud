@@ -30,6 +30,8 @@ func TestTemplates_RenderGolden(t *testing.T) {
 	})
 	require.NotEmpty(t, ctx.Scalars, "expected default scalars")
 	require.Equal(t, "UUID", ctx.Scalars[0].Name)
+	require.False(t, ctx.AuthEnabled, "auth should default to disabled")
+	require.False(t, ctx.HasAuthGuard, "auth guard should be absent by default")
 
 	assertRenderMatches(t, renderer, SchemaTemplate, ctx, "schema.graphql.golden")
 	assertRenderMatches(t, renderer, GQLGenConfigTemplate, ctx, "gqlgen.yml.golden")
@@ -51,8 +53,10 @@ func TestTemplates_RenderWithHooks(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := BuildContext(doc, ContextOptions{
-		ConfigPath: "gqlgen.yml",
-		OutDir:     "graph",
+		ConfigPath:  "gqlgen.yml",
+		OutDir:      "graph",
+		AuthPackage: "github.com/goliatone/go-auth",
+		AuthGuard:   "auth.FromContext(ctx)",
 		HookOptions: hooks.Options{
 			AuthPackage: "github.com/goliatone/go-auth",
 			AuthGuard:   "auth.FromContext(ctx)",
@@ -69,6 +73,9 @@ func TestTemplates_RenderWithHooks(t *testing.T) {
 	})
 
 	require.Contains(t, ctx.Hooks.Imports, "github.com/goliatone/go-auth")
+	require.True(t, ctx.AuthEnabled, "auth should be enabled when auth package is provided")
+	require.True(t, ctx.HasAuthGuard, "auth guard should be detected from options")
+	require.False(t, ctx.AuthImportRequired, "auth import should be deduped when hooks already include it")
 	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen_hooks.go.golden")
 }
 

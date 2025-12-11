@@ -64,6 +64,11 @@ type Context struct {
 	PolicyHook         string
 	EmitDataloader     bool
 	EmitSubscriptions  bool
+	AuthPackage        string
+	AuthEnabled        bool
+	HasAuthGuard       bool
+	AuthImportRequired bool
+	NeedsErrorsImport  bool
 	Scalars            []TemplateScalar
 	Enums              []TemplateEnum
 	Inputs             []TemplateInput

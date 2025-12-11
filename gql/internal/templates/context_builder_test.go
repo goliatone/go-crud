@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/goliatone/go-router"
 
 	"github.com/goliatone/go-crud/gql/internal/formatter"
+	"github.com/goliatone/go-crud/gql/internal/metadata"
 )
 
 func TestBuildContext_UsesPivotMetadataForManyToMany(t *testing.T) {
@@ -152,4 +154,22 @@ func assertLoaderPivot(t *testing.T, relations []DataloaderRelation, name, pivot
 		}
 	}
 	require.Failf(t, "relation not found", "missing relation %s", name)
+}
+
+func TestBuildContext_AuthFlags(t *testing.T) {
+	schemas, err := metadata.FromFile(filepath.Join("testdata", "metadata.json"))
+	require.NoError(t, err)
+
+	doc, err := formatter.Format(schemas)
+	require.NoError(t, err)
+
+	ctx := BuildContext(doc, ContextOptions{
+		ConfigPath:  "gqlgen.yml",
+		OutDir:      "graph",
+		AuthPackage: "github.com/goliatone/go-auth",
+	})
+
+	require.True(t, ctx.AuthEnabled, "auth should be enabled when auth package is set")
+	require.False(t, ctx.HasAuthGuard, "guard should be false when no auth guard expression is provided")
+	require.True(t, ctx.AuthImportRequired, "auth import should be required when hooks did not add it")
 }

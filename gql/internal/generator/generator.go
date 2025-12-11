@@ -132,6 +132,8 @@ func Generate(ctx context.Context, opts Options) (Result, error) {
 		EmitSubscriptions:  opts.EmitSubscriptions,
 		SubscriptionEvents: opts.SubscriptionEvents,
 		Overlay:            ol,
+		AuthPackage:        opts.AuthPackage,
+		AuthGuard:          opts.AuthGuard,
 		HookOptions: hooks.Options{
 			Overlay:     ol.Hooks,
 			AuthPackage: opts.AuthPackage,

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-crud/gql/helpers"
+
 	"errors"
 	"github.com/goliatone/go-auth"
 
@@ -72,11 +74,46 @@ func findOriginalNameForJoinKey(entity, joinKey string) string {
 	return base
 }
 
+func GraphQLContext(ctx context.Context) crud.Context {
+	crudCtx := helpers.GraphQLToCrudContext(ctx)
+	if crudCtx == nil {
+		return nil
+	}
+
+	base := crudCtx.UserContext()
+	if existing := crud.ActorFromContext(base); !existing.IsZero() {
+		return crudCtx
+	}
+
+	actor, ok := auth.ActorFromContext(base)
+	if !ok || actor == nil {
+		return crudCtx
+	}
+
+	mapped := crud.ActorContext{
+		ActorID:        actor.ActorID,
+		Subject:        actor.Subject,
+		Role:           actor.Role,
+		ResourceRoles:  actor.ResourceRoles,
+		TenantID:       actor.TenantID,
+		OrganizationID: actor.OrganizationID,
+		Metadata:       actor.Metadata,
+		ImpersonatorID: actor.ImpersonatorID,
+		IsImpersonated: actor.IsImpersonated,
+	}
+
+	updated := crud.ContextWithActor(base, mapped)
+	if setter, ok := crudCtx.(interface{ SetUserContext(context.Context) }); ok && updated != nil {
+		setter.SetUserContext(updated)
+	}
+	return crudCtx
+}
+
 func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
 	}
-	return nil
+	return GraphQLContext(ctx)
 }
 
 func (r *Resolver) guard(ctx context.Context, entity, action string) error {

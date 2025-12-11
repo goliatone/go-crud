@@ -9,7 +9,11 @@ import (
 	"reflect"
 	"strings"
 	"time"
-{% if Subscriptions %}	"errors"
+{% if NeedsErrorsImport %}	"errors"
+{% endif %}
+{% if AuthEnabled and AuthImportRequired %}	auth "{{ AuthPackage }}"
+{% endif %}
+{% if AuthEnabled %}	"github.com/goliatone/go-crud/gql/helpers"
 {% endif %}
 
 {% for imp in Hooks.Imports %}	"{{ imp }}"
@@ -100,11 +104,46 @@ func hasSubscription(entity, event string) bool {
 }
 {% endif %}
 
-func (r *Resolver) crudContext(ctx context.Context) crud.Context {
+{% if AuthEnabled %}func GraphQLContext(ctx context.Context) crud.Context {
+	crudCtx := helpers.GraphQLToCrudContext(ctx)
+	if crudCtx == nil {
+		return nil
+	}
+
+	base := crudCtx.UserContext()
+	if existing := crud.ActorFromContext(base); !existing.IsZero() {
+		return crudCtx
+	}
+
+	actor, ok := auth.ActorFromContext(base)
+	if !ok || actor == nil {
+		return crudCtx
+	}
+
+	mapped := crud.ActorContext{
+		ActorID:        actor.ActorID,
+		Subject:        actor.Subject,
+		Role:           actor.Role,
+		ResourceRoles:  actor.ResourceRoles,
+		TenantID:       actor.TenantID,
+		OrganizationID: actor.OrganizationID,
+		Metadata:       actor.Metadata,
+		ImpersonatorID: actor.ImpersonatorID,
+		IsImpersonated: actor.IsImpersonated,
+	}
+
+	updated := crud.ContextWithActor(base, mapped)
+	if setter, ok := crudCtx.(interface{ SetUserContext(context.Context) }); ok && updated != nil {
+		setter.SetUserContext(updated)
+	}
+	return crudCtx
+}
+
+{% endif %}func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
 	}
-	return nil
+	{% if AuthEnabled %}return GraphQLContext(ctx){% else %}return nil{% endif %}
 }
 
 func (r *Resolver) guard(ctx context.Context, entity, action string) error {

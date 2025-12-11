@@ -26,6 +26,8 @@ type ContextOptions struct {
 	SubscriptionEvents []string
 	Overlay            overlay.Overlay
 	HookOptions        hooks.Options
+	AuthPackage        string
+	AuthGuard          string
 }
 
 // BuildContext produces a template Context with defaults plus overlay additions.
@@ -51,6 +53,9 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	ctx.PolicyHook = opts.PolicyHook
 	ctx.EmitDataloader = opts.EmitDataloader
 	ctx.EmitSubscriptions = opts.EmitSubscriptions
+	ctx.AuthPackage = strings.TrimSpace(opts.AuthPackage)
+	ctx.AuthEnabled = ctx.AuthPackage != ""
+	ctx.HasAuthGuard = strings.TrimSpace(opts.AuthGuard) != ""
 
 	events := normalizeSubscriptionEvents(opts.SubscriptionEvents, opts.EmitSubscriptions)
 	defaultOverlay := buildDefaultOverlay(doc, events)
@@ -71,6 +76,8 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	ctx.ModelStructs, ctx.ModelEnums, ctx.ModelImports = buildModels(ctx)
 	ctx.Criteria = buildCriteriaConfig(doc)
 	ctx.Hooks = hooks.Build(doc, opts.HookOptions)
+	ctx.AuthImportRequired = ctx.AuthEnabled && !containsString(ctx.Hooks.Imports, ctx.AuthPackage)
+	ctx.NeedsErrorsImport = ctx.EmitSubscriptions && !containsString(ctx.Hooks.Imports, "errors")
 	ctx.ResolverEntities = make([]ResolverEntity, 0, len(doc.Entities))
 	for _, ent := range doc.Entities {
 		ctx.ResolverEntities = append(ctx.ResolverEntities, ResolverEntity{
@@ -82,6 +89,18 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 	ctx.DataloaderEntities = buildDataloaderEntities(doc, ctx.ModelStructs)
 
 	return ctx
+}
+
+func containsString(values []string, target string) bool {
+	if target == "" || len(values) == 0 {
+		return false
+	}
+	for _, v := range values {
+		if strings.TrimSpace(v) == strings.TrimSpace(target) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildDefaultOverlay(doc formatter.Document, subscriptionEvents []string) overlay.Overlay {
