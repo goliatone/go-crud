@@ -1877,6 +1877,65 @@ func TestLifecycleHooks_Create(t *testing.T) {
 	assert.Equal(t, "mutated-before", saved.Name)
 }
 
+func TestControllerWithService_UsesServiceHooksAndMetadata(t *testing.T) {
+	app := fiber.New()
+
+	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	require.NoError(t, err)
+
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+	defer db.Close()
+
+	ctx := context.Background()
+	require.NoError(t, createSchema(ctx, db))
+
+	repo := newTestUserRepository(db)
+
+	var beforeMeta, afterMeta HookMetadata
+	hooks := LifecycleHooks[*TestUser]{
+		BeforeCreate: []HookFunc[*TestUser]{func(hctx HookContext, user *TestUser) error {
+			beforeMeta = hctx.Metadata
+			user.Name = "service-before"
+			return nil
+		}},
+		AfterCreate: []HookFunc[*TestUser]{func(hctx HookContext, user *TestUser) error {
+			afterMeta = hctx.Metadata
+			user.Age = 77
+			return nil
+		}},
+	}
+
+	service := NewService(ServiceConfig[*TestUser]{
+		Repository: repo,
+		Hooks:      hooks,
+	})
+
+	controller := NewControllerWithService(repo, service, WithDeserializer(testUserDeserializer))
+
+	router := NewFiberAdapter(app)
+	controller.RegisterRoutes(router)
+
+	body := `{"name":"original","email":"hooks-service@example.com","password":"secret","age":10}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var created TestUser
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
+
+	assert.Equal(t, "service-before", created.Name)
+	assert.Equal(t, 77, created.Age)
+
+	assert.Equal(t, OpCreate, beforeMeta.Operation)
+	assert.Equal(t, beforeMeta, afterMeta)
+	assert.Equal(t, http.MethodPost, beforeMeta.Method)
+	assert.Equal(t, "/test-user", beforeMeta.Path)
+	assert.Equal(t, "test-user:create", beforeMeta.RouteName)
+}
+
 func Test_ParseFieldOperator(t *testing.T) {
 	tests := []struct {
 		name          string
