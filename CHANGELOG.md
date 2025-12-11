@@ -2,10 +2,64 @@
 
 # [unreleased]
 
+## <!-- 1 -->🐛 Bug Fixes
+
+- Resolve OR operators ([773d571](https://github.com/goliatone/go-crud/commit/773d571563928a8ca0e87241f97ac699170fadec))  - (goliatone)
+- M2m and pivot tables for generated code ([d41523b](https://github.com/goliatone/go-crud/commit/d41523bf549aad6938262bae87d8679ac2f57680))  - (goliatone)
+- Use pivot tables to handle many to many rels ([0fbc603](https://github.com/goliatone/go-crud/commit/0fbc603ae38d2e92bba30288cab24021315af0af))  - (goliatone)
+- Handle empty rels ([b1afdb1](https://github.com/goliatone/go-crud/commit/b1afdb188203d43d1cc595cf1cbf1c0b06db4e28))  - (goliatone)
+- Update filename for generated resolver ([70b8922](https://github.com/goliatone/go-crud/commit/70b89224f28f1fc78627fddc861d6d26996999cd))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Request context adapter ([c7b1181](https://github.com/goliatone/go-crud/commit/c7b11819936ebefc7772df57df9288ffd224a867))  - (goliatone)
+- Service factory ([b1c9d1a](https://github.com/goliatone/go-crud/commit/b1c9d1a0217ee6beea8e9b3febc753655bd68a04))  - (goliatone)
+- Gql service implementation ([bf60127](https://github.com/goliatone/go-crud/commit/bf6012778afbfc56e638ec73b1134437da196025))  - (goliatone)
+- Virtual field support ([2c6aaf8](https://github.com/goliatone/go-crud/commit/2c6aaf812edc1aba1456e1bb512720c34dad4e9d))  - (goliatone)
+- Merge lifecycle hooks ([7fab918](https://github.com/goliatone/go-crud/commit/7fab91818098e4f095b9b48b4bab040cc53eb9dd))  - (goliatone)
+- Implement virtual fields ([b83e8f9](https://github.com/goliatone/go-crud/commit/b83e8f9c0f3d5a6a9cf812dc9b7741e47ff25b4f))  - (goliatone)
+- Updated templates for dataloader and subscriptions ([11ce443](https://github.com/goliatone/go-crud/commit/11ce4431f983d28b6344d50a86165e500d9efc52))  - (goliatone)
+- Hook file and auth setup ([f34f094](https://github.com/goliatone/go-crud/commit/f34f094397f69fc83a7a1cebfb3c3a8812c7720f))  - (goliatone)
+- Hooks for auth ([e138e45](https://github.com/goliatone/go-crud/commit/e138e45a64f0e710051052a351b7f143c2cd6430))  - (goliatone)
+- New templates to override functionality ([a626608](https://github.com/goliatone/go-crud/commit/a626608f89aa73ddfc01319ac89d0a72527f200f))  - (goliatone)
+- Gql registrar ([68dbb87](https://github.com/goliatone/go-crud/commit/68dbb87b09da7b62c8914bec77bee862f98d69b0))  - (goliatone)
+- Internal implementation for gql gen ([7ab55b5](https://github.com/goliatone/go-crud/commit/7ab55b5dbc2751cf4fc86ce5aa2d9ddb21e59625))  - (goliatone)
+- Gql generator command ([de5eadb](https://github.com/goliatone/go-crud/commit/de5eadb9f5445c842dbdcf1bede6e16d099c5623))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Use services to generate gql ([65b7efc](https://github.com/goliatone/go-crud/commit/65b7efc019ff92ca6dfbe9a9e0952f8055dd39c3))  - (goliatone)
+- Move service out of controller ([29cdcc8](https://github.com/goliatone/go-crud/commit/29cdcc89615fe9f28298a781adfbfe0310e2414d))  - (goliatone)
+- Hook chains ([de5762e](https://github.com/goliatone/go-crud/commit/de5762e07ca4bb645f31c68fd9fe4f4e7a78c404))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#4](https://github.com/goliatone/go-crud/pull/4): gql gen hooks ([3628b06](https://github.com/goliatone/go-crud/commit/3628b06a817b166b5d3dbde7ec2b303c1ffa2c3c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([bbeff07](https://github.com/goliatone/go-crud/commit/bbeff07804d3bcabfb4ee2ee722ae645f9c21fe7))  - (goliatone)
+- Update example ([c6b1424](https://github.com/goliatone/go-crud/commit/c6b14240df89fde33f0854c453f667944c2d8bb1))  - (goliatone)
+- Update deps ([b33f753](https://github.com/goliatone/go-crud/commit/b33f75350fe22e36c147526b0c159d18488012df))  - (goliatone)
+- Add tests ([e37c1fd](https://github.com/goliatone/go-crud/commit/e37c1fd2cb80aecb802b8584995c76a4f8d15f04))  - (goliatone)
+- Update tests ([aeb62c6](https://github.com/goliatone/go-crud/commit/aeb62c6063d5a0c5dc4c8a013873b6aec3fc8cec))  - (goliatone)
+- Update gitignore ([99418ea](https://github.com/goliatone/go-crud/commit/99418ea229b34128f001e3fa622691af907cd1f6))  - (goliatone)
+- Update tasks ([0dc8e49](https://github.com/goliatone/go-crud/commit/0dc8e499bf1aab21f2afba9f4cfa4b2a85d04438))  - (goliatone)
+- Udpate style ([487aa3c](https://github.com/goliatone/go-crud/commit/487aa3c87ec621c68386ad4df5675bd7e346b669))  - (goliatone)
+- Update seed example ([5b53ce0](https://github.com/goliatone/go-crud/commit/5b53ce06362303a158e3ca17d9c1dc115d0df567))  - (goliatone)
+- Update examples ([cfc2ead](https://github.com/goliatone/go-crud/commit/cfc2ead6cab7b942db45923b7f63483fc4fdf23f))  - (goliatone)
+- Udpate deps ([06b7452](https://github.com/goliatone/go-crud/commit/06b74520f8e373691fcd54c964e7af0662e511b5))  - (goliatone)
+- Refactor code layout ([937bdeb](https://github.com/goliatone/go-crud/commit/937bdebc69fcd6a26b6018f7cb2907d981c83474))  - (goliatone)
+
+# [0.13.0](https://github.com/goliatone/go-crud/compare/v0.12.0...v0.13.0) - (2025-12-03)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.13.0 ([9230d5f](https://github.com/goliatone/go-crud/commit/9230d5f93994aa06971524d5f64eefa2f4fe6967))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Activity adapter ([c73cfc5](https://github.com/goliatone/go-crud/commit/c73cfc5338210832c4e74053d1f8c69cb56a9258))  - (goliatone)
-- GraphQL generator submodule (CRUD-first gqlgen scaffolding, no DB introspection)  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
