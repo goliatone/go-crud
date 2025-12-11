@@ -20,6 +20,8 @@ type VirtualFieldProcessor[T any] interface {
 }
 
 // ServiceConfig holds all optional business logic layers applied by NewService.
+// ResourceName/ResourceType help field policies resolve friendly names when
+// reflection on the model type is not sufficient or needs overriding.
 type ServiceConfig[T any] struct {
 	Repository          repository.Repository[T]
 	Hooks               LifecycleHooks[T]
@@ -103,6 +105,8 @@ func hooksEmpty[T any](hooks LifecycleHooks[T]) bool {
 		len(hooks.AfterDeleteBatch) == 0
 }
 
+// hookContextFor builds a HookContext populated with request metadata, actor,
+// scope, and correlation IDs gathered from the incoming crud.Context.
 func hookContextFor(ctx Context, op CrudOperation) HookContext {
 	uc := context.Background()
 	if ctx != nil && ctx.UserContext() != nil {
@@ -122,6 +126,7 @@ func hookContextFor(ctx Context, op CrudOperation) HookContext {
 	}
 }
 
+// mergeHookMetadata prefers override metadata fields when they are non-empty.
 func mergeHookMetadata(base, override HookMetadata) HookMetadata {
 	if override.Operation != "" {
 		base.Operation = override.Operation
@@ -143,26 +148,34 @@ func mergeHookMetadata(base, override HookMetadata) HookMetadata {
 
 // --- wrappers ---
 
+// virtualFieldService injects virtual field processing before persisting and
+// after loading records to keep metadata/virtuals in sync.
 type virtualFieldService[T any] struct {
 	next    Service[T]
 	handler VirtualFieldProcessor[T]
 }
 
+// validationService runs ValidatorFunc before delegating to the next service.
 type validationService[T any] struct {
 	next     Service[T]
 	validate ValidatorFunc[T]
 }
 
+// hooksService wraps lifecycle hooks around the downstream service calls.
 type hooksService[T any] struct {
 	next  Service[T]
 	hooks LifecycleHooks[T]
 }
 
+// scopeGuardService resolves actor/scope and annotates the request context once
+// per operation before invoking the next service.
 type scopeGuardService[T any] struct {
 	next  Service[T]
 	guard ScopeGuardFunc[T]
 }
 
+// fieldPolicyService enforces row/column level policies returned by the
+// provider before returning data to callers.
 type fieldPolicyService[T any] struct {
 	next         Service[T]
 	provider     FieldPolicyProvider[T]
@@ -170,6 +183,7 @@ type fieldPolicyService[T any] struct {
 	resourceType reflect.Type
 }
 
+// activityService emits activity and notifications after successful mutations.
 type activityService[T any] struct {
 	next                Service[T]
 	emitter             *activity.Emitter
