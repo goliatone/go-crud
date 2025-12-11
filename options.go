@@ -186,22 +186,14 @@ func WithCommandService[T any](factory CommandServiceFactory[T]) Option[T] {
 		if factory == nil {
 			return
 		}
-		base := c.service
-		if base == nil {
-			base = NewRepositoryService(c.Repo)
-		}
-		if wrapped := factory(base); wrapped != nil {
-			c.service = wrapped
-			return
-		}
-		c.service = base
+		c.commandServiceFactory = factory
 	}
 }
 
 func WithServiceFuncs[T any](overrides ServiceFuncs[T]) Option[T] {
 	return func(c *Controller[T]) {
-		base := NewRepositoryService(c.Repo)
-		c.service = ComposeService(base, overrides)
+		ov := overrides
+		c.serviceOverrides = &ov
 	}
 }
 
