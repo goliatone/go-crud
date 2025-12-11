@@ -3,6 +3,8 @@ package crud
 import (
 	"context"
 	"strings"
+
+	"github.com/goliatone/go-crud/pkg/activity"
 )
 
 type requestContextKey string
@@ -12,6 +14,9 @@ const (
 	ctxKeyRequestID   requestContextKey = "crud.request_id"
 	ctxKeyCorrelation requestContextKey = "crud.correlation_id"
 	ctxKeyScope       requestContextKey = "crud.scope_filter"
+	ctxKeyHookMeta    requestContextKey = "crud.hook_metadata"
+	ctxKeyActivity    requestContextKey = "crud.activity_emitter"
+	ctxKeyNotify      requestContextKey = "crud.notification_emitter"
 )
 
 // ContextWithActor stores the provided actor metadata on the standard context.
@@ -177,4 +182,59 @@ func resolveCorrelationID(ctx Context) string {
 		}
 	}
 	return ""
+}
+
+// ContextWithHookMetadata attaches hook metadata to the context.
+func ContextWithHookMetadata(ctx context.Context, meta HookMetadata) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxKeyHookMeta, meta)
+}
+
+// HookMetadataFromContext retrieves hook metadata stored on the context.
+func HookMetadataFromContext(ctx context.Context) HookMetadata {
+	if ctx == nil {
+		return HookMetadata{}
+	}
+	if meta, ok := ctx.Value(ctxKeyHookMeta).(HookMetadata); ok {
+		return meta
+	}
+	return HookMetadata{}
+}
+
+// ContextWithActivityEmitter stores the activity emitter used by hooks.
+func ContextWithActivityEmitter(ctx context.Context, emitter *activity.Emitter) context.Context {
+	if ctx == nil || emitter == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxKeyActivity, emitter)
+}
+
+// ActivityEmitterFromContext returns the hook activity emitter stored on the context.
+func ActivityEmitterFromContext(ctx context.Context) *activity.Emitter {
+	if ctx == nil {
+		return nil
+	}
+	emitter, _ := ctx.Value(ctxKeyActivity).(*activity.Emitter)
+	return emitter
+}
+
+// ContextWithNotificationEmitter stores the notification emitter for hooks.
+func ContextWithNotificationEmitter(ctx context.Context, emitter NotificationEmitter) context.Context {
+	if ctx == nil || emitter == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxKeyNotify, emitter)
+}
+
+// NotificationEmitterFromContext extracts the notification emitter from the context.
+func NotificationEmitterFromContext(ctx context.Context) NotificationEmitter {
+	if ctx == nil {
+		return nil
+	}
+	if emitter, ok := ctx.Value(ctxKeyNotify).(NotificationEmitter); ok {
+		return emitter
+	}
+	return nil
 }

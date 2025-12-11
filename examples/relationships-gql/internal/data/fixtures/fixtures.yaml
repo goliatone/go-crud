@@ -1,0 +1,172 @@
+- model: PublishingHouse
+  rows:
+    - id: '{{ hashid "publisher:aurora" }}'
+      name: "Aurora Press"
+      established_at: 1998-03-14T00:00:00Z
+      imprint_prefix: "AUR"
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "publisher:nimbus" }}'
+      name: "Nimbus Editorial"
+      established_at: 2005-07-02T00:00:00Z
+      imprint_prefix: "NIM"
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+
+- model: Headquarters
+  rows:
+    - id: '{{ hashid "hq:aurora" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      address_line1: "101 Skyline Ave"
+      city: "Seattle"
+      country: "USA"
+      opened_at: 2014-01-01T00:00:00Z
+    - id: '{{ hashid "hq:nimbus" }}'
+      publisher_id: '{{ hashid "publisher:nimbus" }}'
+      address_line1: "18 Harbour Road"
+      city: "Dublin"
+      country: "Ireland"
+      opened_at: 2018-01-01T00:00:00Z
+
+- model: Author
+  rows:
+    - id: '{{ hashid "author:lina" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      full_name: "Lina Ortiz"
+      pen_name: "L. Aurora"
+      email: "lina.ortiz@example.com"
+      active: true
+      hired_at: 2018-05-01T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "author:miles" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      full_name: "Miles Dorsey"
+      pen_name: "M. Gale"
+      email: "miles.dorsey@example.com"
+      active: true
+      hired_at: 2020-02-15T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "author:esha" }}'
+      publisher_id: '{{ hashid "publisher:nimbus" }}'
+      full_name: "Esha Kapur"
+      pen_name: "E. K. Shore"
+      email: "esha.kapur@example.com"
+      active: false
+      hired_at: 2021-03-10T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+
+- model: AuthorProfile
+  rows:
+    - id: '{{ hashid "profile:lina" }}'
+      author_id: '{{ hashid "author:lina" }}'
+      biography: "Award-winning sci-fi author exploring cosmic diplomacy and fractured futures."
+      writing_style: "Cinematic prose with grounded scientific detail"
+      favorite_genre: "Space Opera"
+    - id: '{{ hashid "profile:miles" }}'
+      author_id: '{{ hashid "author:miles" }}'
+      biography: "Former weather scientist crafting thrillers about climate-engineered cities."
+      writing_style: "Fast-paced investigative narratives"
+      favorite_genre: "Speculative Thriller"
+
+- model: Book
+  rows:
+    - id: '{{ hashid "book:contact-shadows" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      author_id: '{{ hashid "author:lina" }}'
+      title: "Contact Shadows"
+      isbn: "978-1-4028-9462-1"
+      status: "in_print"
+      release_date: 2021-05-04T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "book:exo-archive-accord" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      author_id: '{{ hashid "author:lina" }}'
+      title: "The Exo-Archive Accord"
+      isbn: "978-1-4028-9463-8"
+      status: "editing"
+      release_date: 2025-02-11T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "book:microburst-protocol" }}'
+      publisher_id: '{{ hashid "publisher:aurora" }}'
+      author_id: '{{ hashid "author:miles" }}'
+      title: "Microburst Protocol"
+      isbn: "978-1-4028-9464-5"
+      status: "in_print"
+      release_date: 2022-09-22T00:00:00Z
+      created_at: 2024-01-01T00:00:00Z
+      updated_at: 2024-01-01T00:00:00Z
+
+- model: Chapter
+  rows:
+    - id: '{{ hashid "chapter:cs-1" }}'
+      book_id: '{{ hashid "book:contact-shadows" }}'
+      title: "Signal Twelve"
+      word_count: 6400
+      chapter_index: 1
+    - id: '{{ hashid "chapter:cs-2" }}'
+      book_id: '{{ hashid "book:contact-shadows" }}'
+      title: "Embassy in Orbit"
+      word_count: 7200
+      chapter_index: 2
+    - id: '{{ hashid "chapter:mp-1" }}'
+      book_id: '{{ hashid "book:microburst-protocol" }}'
+      title: "Doppler Alarm"
+      word_count: 5800
+      chapter_index: 1
+
+- model: Tag
+  rows:
+    - id: '{{ hashid "tag:sci-fi" }}'
+      name: "Science Fiction"
+      category: "genre"
+      description: "Stories grounded in speculative science and technology."
+      created_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "tag:space-opera" }}'
+      name: "Space Opera"
+      category: "genre"
+      description: "Large-scale galactic adventures with political intrigue."
+      created_at: 2024-01-01T00:00:00Z
+    - id: '{{ hashid "tag:tech-thriller" }}'
+      name: "Tech Thriller"
+      category: "genre"
+      description: "High-stakes suspense fueled by emerging technology."
+      created_at: 2024-01-01T00:00:00Z
+
+- model: BookTag
+  rows:
+    - book_id: '{{ hashid "book:contact-shadows" }}'
+      tag_id: '{{ hashid "tag:sci-fi" }}'
+      link_strength: 9
+      linked_at: 2024-01-05T00:00:00Z
+    - book_id: '{{ hashid "book:contact-shadows" }}'
+      tag_id: '{{ hashid "tag:space-opera" }}'
+      link_strength: 8
+      linked_at: 2024-01-05T00:00:00Z
+    - book_id: '{{ hashid "book:exo-archive-accord" }}'
+      tag_id: '{{ hashid "tag:sci-fi" }}'
+      link_strength: 10
+      linked_at: 2024-01-06T00:00:00Z
+    - book_id: '{{ hashid "book:microburst-protocol" }}'
+      tag_id: '{{ hashid "tag:tech-thriller" }}'
+      link_strength: 8
+      linked_at: 2024-01-07T00:00:00Z
+
+- model: AuthorTag
+  rows:
+    - author_id: '{{ hashid "author:lina" }}'
+      tag_id: '{{ hashid "tag:sci-fi" }}'
+      associated_at: 2024-01-02T00:00:00Z
+    - author_id: '{{ hashid "author:lina" }}'
+      tag_id: '{{ hashid "tag:space-opera" }}'
+      associated_at: 2024-01-02T00:00:00Z
+    - author_id: '{{ hashid "author:miles" }}'
+      tag_id: '{{ hashid "tag:tech-thriller" }}'
+      associated_at: 2024-01-03T00:00:00Z
+    - author_id: '{{ hashid "author:miles" }}'
+      tag_id: '{{ hashid "tag:sci-fi" }}'
+      associated_at: 2024-01-03T00:00:00Z

@@ -39,34 +39,22 @@ var operationDefaultMethods = map[CrudOperation]string{
 	OpDeleteBatch: http.MethodDelete,
 }
 
-// Controller handles CRUD operations for a given model.
-type Controller[T any] struct {
-	Repo                 repository.Repository[T]
-	deserializer         func(op CrudOperation, ctx Context) (T, error)
-	deserialiMany        func(op CrudOperation, ctx Context) ([]T, error)
-	resp                 ResponseHandler[T]
-	service              Service[T]
-	resource             string
-	resourceType         reflect.Type
-	logger               Logger
-	fieldMapProvider     FieldMapProvider
-	queryLoggingEnabled  bool
-	routeConfig          RouteConfig
-	hooks                LifecycleHooks[T]
-	activityEmitterHooks *activity.Emitter
-	notificationEmitter  NotificationEmitter
-	fieldPolicyProvider  FieldPolicyProvider[T]
-	actions              []Action[T]
-	actionDescriptors    []ActionDescriptor
-	actionRouteDefs      []router.RouteDefinition
-	adminScopeMetadata   AdminScopeMetadata
-	adminMenuMetadata    AdminMenuMetadata
-	rowFilterHints       []RowFilterHint
-	routeMethods         map[CrudOperation]string
-	routePaths           map[CrudOperation]string
-	routeNames           map[CrudOperation]string
-	relationProvider     router.RelationMetadataProvider
-	scopeGuard           ScopeGuardFunc[T]
+// MergePolicy controls how partial updates are interpreted.
+type MergePolicy struct {
+	PutReplace     bool
+	PatchMerge     bool
+	DeleteWithNull bool
+	// Per-field overrides keyed by source map name (e.g., "Metadata") and merge strategy ("deep", "shallow", "replace").
+	FieldMergeStrategy map[string]string
+}
+
+func defaultMergePolicy() MergePolicy {
+	return MergePolicy{
+		PutReplace:         true,
+		PatchMerge:         true,
+		DeleteWithNull:     true,
+		FieldMergeStrategy: map[string]string{},
+	}
 }
 
 type optionItem struct {
@@ -79,6 +67,213 @@ type guardRequestContext struct {
 	scope         ScopeFilter
 	requestID     string
 	correlationID string
+}
+
+// Controller handles CRUD operations for a given model.
+type Controller[T any] struct {
+	Repo                  repository.Repository[T]
+	deserializer          func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany         func(op CrudOperation, ctx Context) ([]T, error)
+	resp                  ResponseHandler[T]
+	service               Service[T]
+	resource              string
+	resourceType          reflect.Type
+	logger                Logger
+	serviceOverrides      *ServiceFuncs[T]
+	commandServiceFactory CommandServiceFactory[T]
+	fieldMapProvider      FieldMapProvider
+	queryLoggingEnabled   bool
+	routeConfig           RouteConfig
+	hooks                 LifecycleHooks[T]
+	activityEmitterHooks  *activity.Emitter   // activity log events
+	notificationEmitter   NotificationEmitter // user facing notifications
+	fieldPolicyProvider   FieldPolicyProvider[T]
+	actions               []Action[T]
+	actionDescriptors     []ActionDescriptor
+	actionRouteDefs       []router.RouteDefinition
+	adminScopeMetadata    AdminScopeMetadata
+	adminMenuMetadata     AdminMenuMetadata
+	rowFilterHints        []RowFilterHint
+	routeMethods          map[CrudOperation]string
+	routePaths            map[CrudOperation]string
+	routeNames            map[CrudOperation]string
+	relationProvider      router.RelationMetadataProvider
+	scopeGuard            ScopeGuardFunc[T]
+	virtualFieldsEnabled  bool
+	virtualFieldConfig    VirtualFieldHandlerConfig
+	mergePolicy           MergePolicy
+	virtualFieldDefs      []VirtualFieldDef
+}
+
+// NewController creates a new Controller with functional options.
+func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
+	controller := newControllerBase(repo)
+
+	for _, opt := range opts {
+		opt(controller)
+	}
+
+	controller.initialize()
+
+	return controller
+}
+
+// NewControllerWithService builds a controller using the provided service while
+// still honoring controller options (deserializer, response handler, hooks, etc.).
+func NewControllerWithService[T any](repo repository.Repository[T], service Service[T], opts ...Option[T]) *Controller[T] {
+	controller := newControllerBase(repo)
+	controller.service = service
+
+	for _, opt := range opts {
+		opt(controller)
+	}
+
+	controller.initialize()
+
+	return controller
+}
+
+func newControllerBase[T any](repo repository.Repository[T]) *Controller[T] {
+	var t T
+	return &Controller[T]{
+		Repo:             repo,
+		deserializer:     DefaultDeserializer[T],
+		deserialiMany:    DefaultDeserializerMany[T],
+		resp:             NewDefaultResponseHandler[T](),
+		service:          nil,
+		resourceType:     reflect.TypeOf(t),
+		logger:           &defaultLogger{},
+		routeConfig:      DefaultRouteConfig(),
+		routeMethods:     make(map[CrudOperation]string),
+		routePaths:       make(map[CrudOperation]string),
+		routeNames:       make(map[CrudOperation]string),
+		relationProvider: router.NewDefaultRelationProvider(),
+		mergePolicy:      defaultMergePolicy(),
+	}
+}
+
+func (c *Controller[T]) initialize() {
+	c.attachVirtualFieldHooks()
+	c.buildService()
+
+	if c.fieldMapProvider == nil {
+		if provider := newFieldMapProviderFromRepo(c.Repo, c.resourceType); provider != nil {
+			c.fieldMapProvider = provider
+		}
+	}
+
+	if c.virtualFieldsEnabled {
+		c.fieldMapProvider = wrapFieldMapProviderWithVirtuals(c.fieldMapProvider, c.virtualFieldDefs, c.virtualFieldConfig)
+	}
+
+	if c.relationProvider == nil {
+		c.relationProvider = router.NewDefaultRelationProvider()
+	}
+
+	registerRelationProvider(c.resourceType, c.relationProvider)
+	registerQueryConfig(c.resourceType, c.fieldMapProvider)
+}
+
+func (c *Controller[T]) RegisterRoutes(r Router) {
+	resource, resources := GetResourceName(c.resourceType)
+
+	c.resource = resource
+
+	resolvedActions := resolveActions(c.actions, resource, resources)
+	c.setResolvedActions(resolvedActions)
+
+	metadata := c.GetMetadata()
+	routeMeta := map[string]router.RouteDefinition{}
+	for _, def := range metadata.Routes {
+		key := fmt.Sprintf("%s %s", string(def.Method), def.Path)
+		routeMeta[key] = def
+	}
+
+	// build metadata i.e. so we can show autogenerated docs
+	applyMeta := func(method, path string, info RouterRouteInfo) {
+		metaAware, ok := info.(MetadataRouterRouteInfo)
+		if !ok {
+			return
+		}
+		if def, ok := routeMeta[fmt.Sprintf("%s %s", method, path)]; ok {
+			if def.Description != "" {
+				metaAware.Description(def.Description)
+			}
+			if def.Summary != "" {
+				metaAware.Summary(def.Summary)
+			}
+			if len(def.Tags) > 0 {
+				metaAware.Tags(def.Tags...)
+			}
+			for _, p := range def.Parameters {
+				metaAware.Parameter(p.Name, p.In, p.Required, p.Schema)
+			}
+			if def.RequestBody != nil {
+				metaAware.RequestBody(def.RequestBody.Description, def.RequestBody.Required, def.RequestBody.Content)
+			}
+			for _, resp := range def.Responses {
+				metaAware.Response(resp.Code, resp.Description, resp.Content)
+			}
+		}
+	}
+
+	schemaPath := fmt.Sprintf("/%s/schema", resource)
+	schemaRoute := fmt.Sprintf("%s:%s", resource, "schema")
+	r.Get(schemaPath, c.Schema).
+		Name(schemaRoute)
+
+	registerRoute := func(op CrudOperation, defaultMethod, path string, handler func(Context) error, routeName string) {
+		enabled, method := c.routeConfig.resolve(op, defaultMethod)
+		if !enabled {
+			return
+		}
+		info := invokeRoute(r, method, path, handler)
+		if info == nil {
+			return
+		}
+		named := info.Name(routeName)
+		applyMeta(method, path, named)
+		c.recordRouteMetadata(op, method, path, routeName)
+	}
+
+	// /user/:id
+	showPath := fmt.Sprintf("/%s/:id", resource)
+	readRoute := fmt.Sprintf("%s:%s", resource, OpRead)
+	registerRoute(OpRead, http.MethodGet, showPath, c.Show, readRoute)
+
+	// /users
+	listPath := fmt.Sprintf("/%s", resources)
+	listRoute := fmt.Sprintf("%s:%s", resource, OpList)
+	registerRoute(OpList, http.MethodGet, listPath, c.Index, listRoute)
+
+	// /user/batch
+	createBatchPath := fmt.Sprintf("/%s/batch", resource)
+	createBatchRoute := fmt.Sprintf("%s:%s", resource, OpCreateBatch)
+	registerRoute(OpCreateBatch, http.MethodPost, createBatchPath, c.CreateBatch, createBatchRoute)
+
+	// /user
+	createPath := fmt.Sprintf("/%s", resource)
+	createRoute := fmt.Sprintf("%s:%s", resource, OpCreate)
+	registerRoute(OpCreate, http.MethodPost, createPath, c.Create, createRoute)
+
+	// /user/batch
+	updateBatchRoute := fmt.Sprintf("%s:%s", resource, OpUpdateBatch)
+	registerRoute(OpUpdateBatch, http.MethodPut, createBatchPath, c.UpdateBatch, updateBatchRoute)
+
+	// /user
+	updateRoute := fmt.Sprintf("%s:%s", resource, OpUpdate)
+	registerRoute(OpUpdate, http.MethodPut, showPath, c.Update, updateRoute)
+
+	// /user/batch
+	deleteBatchRoute := fmt.Sprintf("%s:%s", resource, OpDeleteBatch)
+	registerRoute(OpDeleteBatch, http.MethodDelete, createBatchPath, c.DeleteBatch, deleteBatchRoute)
+
+	// /user/:id
+	deleteRoute := fmt.Sprintf("%s:%s", resource, OpDelete)
+	registerRoute(OpDelete, http.MethodDelete, showPath, c.Delete, deleteRoute)
+
+	c.registerActionRoutes(r, resolvedActions, applyMeta)
+	c.refreshSchemaRegistration()
 }
 
 func mergeRecordWithExisting[T any](record, existing T) (T, error) {
@@ -222,141 +417,6 @@ func (c *Controller[T]) logFieldPolicyDecision(decision resolvedFieldPolicy) {
 	LogFieldPolicyDecision(c.logger, decision.auditEntry())
 }
 
-// NewController creates a new Controller with functional options.
-func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
-	var t T
-	controller := &Controller[T]{
-		Repo:             repo,
-		deserializer:     DefaultDeserializer[T],
-		deserialiMany:    DefaultDeserializerMany[T],
-		resp:             NewDefaultResponseHandler[T](),
-		service:          nil,
-		resourceType:     reflect.TypeOf(t),
-		logger:           &defaultLogger{},
-		routeConfig:      DefaultRouteConfig(),
-		routeMethods:     make(map[CrudOperation]string),
-		routePaths:       make(map[CrudOperation]string),
-		routeNames:       make(map[CrudOperation]string),
-		relationProvider: router.NewDefaultRelationProvider(),
-	}
-
-	for _, opt := range opts {
-		opt(controller)
-	}
-
-	if controller.service == nil {
-		controller.service = NewRepositoryService(controller.Repo)
-	}
-
-	if controller.fieldMapProvider == nil {
-		if provider := newFieldMapProviderFromRepo(controller.Repo, controller.resourceType); provider != nil {
-			controller.fieldMapProvider = provider
-		}
-	}
-
-	if controller.relationProvider == nil {
-		controller.relationProvider = router.NewDefaultRelationProvider()
-	}
-
-	registerRelationProvider(controller.resourceType, controller.relationProvider)
-	registerQueryConfig(controller.resourceType, controller.fieldMapProvider)
-
-	return controller
-}
-
-func (c *Controller[T]) RegisterRoutes(r Router) {
-	resource, resources := GetResourceName(c.resourceType)
-
-	c.resource = resource
-
-	resolvedActions := resolveActions(c.actions, resource, resources)
-	c.setResolvedActions(resolvedActions)
-
-	metadata := c.GetMetadata()
-	routeMeta := map[string]router.RouteDefinition{}
-	for _, def := range metadata.Routes {
-		key := fmt.Sprintf("%s %s", string(def.Method), def.Path)
-		routeMeta[key] = def
-	}
-
-	applyMeta := func(method, path string, info RouterRouteInfo) {
-		metaAware, ok := info.(MetadataRouterRouteInfo)
-		if !ok {
-			return
-		}
-		if def, ok := routeMeta[fmt.Sprintf("%s %s", method, path)]; ok {
-			if def.Description != "" {
-				metaAware.Description(def.Description)
-			}
-			if def.Summary != "" {
-				metaAware.Summary(def.Summary)
-			}
-			if len(def.Tags) > 0 {
-				metaAware.Tags(def.Tags...)
-			}
-			for _, p := range def.Parameters {
-				metaAware.Parameter(p.Name, p.In, p.Required, p.Schema)
-			}
-			if def.RequestBody != nil {
-				metaAware.RequestBody(def.RequestBody.Description, def.RequestBody.Required, def.RequestBody.Content)
-			}
-			for _, resp := range def.Responses {
-				metaAware.Response(resp.Code, resp.Description, resp.Content)
-			}
-		}
-	}
-
-	schemaPath := fmt.Sprintf("/%s/schema", resource)
-	schemaRoute := fmt.Sprintf("%s:%s", resource, "schema")
-	r.Get(schemaPath, c.Schema).
-		Name(schemaRoute)
-
-	registerRoute := func(op CrudOperation, defaultMethod, path string, handler func(Context) error, routeName string) {
-		enabled, method := c.routeConfig.resolve(op, defaultMethod)
-		if !enabled {
-			return
-		}
-		info := invokeRoute(r, method, path, handler)
-		if info == nil {
-			return
-		}
-		named := info.Name(routeName)
-		applyMeta(method, path, named)
-		c.recordRouteMetadata(op, method, path, routeName)
-	}
-
-	showPath := fmt.Sprintf("/%s/:id", resource)
-	readRoute := fmt.Sprintf("%s:%s", resource, OpRead)
-	registerRoute(OpRead, http.MethodGet, showPath, c.Show, readRoute)
-
-	listPath := fmt.Sprintf("/%s", resources)
-	listRoute := fmt.Sprintf("%s:%s", resource, OpList)
-	registerRoute(OpList, http.MethodGet, listPath, c.Index, listRoute)
-
-	createBatchPath := fmt.Sprintf("/%s/batch", resource)
-	createBatchRoute := fmt.Sprintf("%s:%s", resource, OpCreateBatch)
-	registerRoute(OpCreateBatch, http.MethodPost, createBatchPath, c.CreateBatch, createBatchRoute)
-
-	createPath := fmt.Sprintf("/%s", resource)
-	createRoute := fmt.Sprintf("%s:%s", resource, OpCreate)
-	registerRoute(OpCreate, http.MethodPost, createPath, c.Create, createRoute)
-
-	updateBatchRoute := fmt.Sprintf("%s:%s", resource, OpUpdateBatch)
-	registerRoute(OpUpdateBatch, http.MethodPut, createBatchPath, c.UpdateBatch, updateBatchRoute)
-
-	updateRoute := fmt.Sprintf("%s:%s", resource, OpUpdate)
-	registerRoute(OpUpdate, http.MethodPut, showPath, c.Update, updateRoute)
-
-	deleteBatchRoute := fmt.Sprintf("%s:%s", resource, OpDeleteBatch)
-	registerRoute(OpDeleteBatch, http.MethodDelete, createBatchPath, c.DeleteBatch, deleteBatchRoute)
-
-	deleteRoute := fmt.Sprintf("%s:%s", resource, OpDelete)
-	registerRoute(OpDelete, http.MethodDelete, showPath, c.Delete, deleteRoute)
-
-	c.registerActionRoutes(r, resolvedActions, applyMeta)
-	c.refreshSchemaRegistration()
-}
-
 func invokeRoute(r Router, method, path string, handler func(Context) error) RouterRouteInfo {
 	switch method {
 	case http.MethodGet:
@@ -486,18 +546,129 @@ func (c *Controller[T]) newHookContext(ctx Context, op CrudOperation, meta guard
 	}
 }
 
-func (c *Controller[T]) runHook(ctx Context, op CrudOperation, hook HookFunc[T], record T, meta guardRequestContext) error {
-	if hook == nil || isNil(record) {
+func (c *Controller[T]) runHooks(ctx Context, op CrudOperation, hooks []HookFunc[T], record T, meta guardRequestContext) error {
+	if len(hooks) == 0 || isNil(record) {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op, meta), record)
+	hctx := c.newHookContext(ctx, op, meta)
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(hctx, record); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (c *Controller[T]) runBatchHook(ctx Context, op CrudOperation, hook HookBatchFunc[T], records []T, meta guardRequestContext) error {
-	if hook == nil || len(records) == 0 {
+func (c *Controller[T]) runBatchHooks(ctx Context, op CrudOperation, hooks []HookBatchFunc[T], records []T, meta guardRequestContext) error {
+	if len(hooks) == 0 || len(records) == 0 {
 		return nil
 	}
-	return hook(c.newHookContext(ctx, op, meta), records)
+	hctx := c.newHookContext(ctx, op, meta)
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(hctx, records); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller[T]) attachHookContext(ctx Context, op CrudOperation) {
+	if ctx == nil {
+		return
+	}
+
+	base := ctx.UserContext()
+	meta := c.hookMetadata(op)
+	base = ContextWithHookMetadata(base, meta)
+	base = ContextWithActivityEmitter(base, c.activityEmitterHooks)
+	base = ContextWithNotificationEmitter(base, c.notificationEmitter)
+
+	if setter, ok := ctx.(userContextSetter); ok && base != nil {
+		setter.SetUserContext(base)
+	}
+}
+
+func (c *Controller[T]) buildService() {
+	svc := c.service
+
+	cfg := ServiceConfig[T]{
+		Repository:   c.Repo,
+		Hooks:        c.hooks,
+		ScopeGuard:   c.scopeGuard,
+		FieldPolicy:  c.fieldPolicyProvider,
+		ResourceName: c.resource,
+		ResourceType: c.resourceType,
+	}
+
+	if svc == nil {
+		svc = NewService(cfg)
+	} else if !hooksEmpty(cfg.Hooks) {
+		svc = &hooksService[T]{next: svc, hooks: cfg.Hooks}
+	}
+
+	if c.serviceOverrides != nil {
+		svc = ComposeService(svc, *c.serviceOverrides)
+	}
+
+	if c.commandServiceFactory != nil {
+		if wrapped := c.commandServiceFactory(svc); wrapped != nil {
+			svc = wrapped
+		}
+	}
+
+	c.service = svc
+}
+
+func (c *Controller[T]) attachVirtualFieldHooks() {
+	if !c.virtualFieldsEnabled {
+		return
+	}
+	handler := NewVirtualFieldHandlerWithConfig[T](c.virtualFieldConfig)
+	c.virtualFieldDefs = handler.FieldDefs()
+	if len(c.virtualFieldDefs) == 0 {
+		return
+	}
+	virtualHooks := LifecycleHooks[T]{
+		BeforeCreate: []HookFunc[T]{handler.BeforeSave},
+		BeforeUpdate: []HookFunc[T]{handler.BeforeSave},
+		AfterCreate:  []HookFunc[T]{handler.AfterLoad},
+		AfterUpdate:  []HookFunc[T]{handler.AfterLoad},
+		AfterRead:    []HookFunc[T]{handler.AfterLoad},
+		AfterList:    []HookBatchFunc[T]{handler.AfterLoadBatch},
+	}
+	c.hooks = mergeLifecycleHooks(c.hooks, virtualHooks)
+}
+
+func wrapFieldMapProviderWithVirtuals(base FieldMapProvider, defs []VirtualFieldDef, cfg VirtualFieldHandlerConfig) FieldMapProvider {
+	if len(defs) == 0 {
+		return base
+	}
+	return func(t reflect.Type) map[string]string {
+		var out map[string]string
+		if base != nil {
+			out = base(t)
+		}
+		if len(out) == 0 {
+			out = map[string]string{}
+		} else {
+			copied := make(map[string]string, len(out)+len(defs))
+			for k, v := range out {
+				copied[k] = v
+			}
+			out = copied
+		}
+		virtuals := buildVirtualFieldMapExpressions(defs, cfg)
+		for k, v := range virtuals {
+			out[k] = v
+		}
+		return out
+	}
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
@@ -511,6 +682,7 @@ func (c *Controller[T]) Schema(ctx Context) error {
 	return ctx.JSON(doc)
 }
 
+// TODO: See if we can refactor this out of the core and make it a "mixin" or added behavior
 func (c *Controller[T]) applyAdminExtensions(doc map[string]any, meta router.ResourceMetadata) {
 	if doc == nil {
 		return
@@ -583,6 +755,7 @@ func (c *Controller[T]) compileSchemaDocument() (router.ResourceMetadata, map[st
 		return meta, nil
 	}
 
+	annotateVirtualFieldsInSchema(doc, meta.Name, c.resourceType)
 	c.applyAdminExtensions(doc, meta)
 	return meta, doc
 }
@@ -609,6 +782,8 @@ func (c *Controller[T]) Show(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpRead)
 	}
 	c.logFieldPolicyDecision(policy)
+
+	c.attachHookContext(ctx, OpRead)
 
 	queryOpts := c.policyQueryOptions(policy)
 	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpRead, c.logger, c.queryLoggingEnabled, queryOpts...)
@@ -647,6 +822,8 @@ func (c *Controller[T]) Index(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpList)
+
 	queryOpts := c.policyQueryOptions(policy)
 	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled, queryOpts...)
 	if err != nil {
@@ -683,15 +860,12 @@ func (c *Controller[T]) Create(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpCreate)
+
 	record, err := c.deserializer(OpCreate, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
-	}
-
-	if err := c.runHook(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
 	createdRecord, err := c.service.Create(ctx, record)
@@ -700,10 +874,6 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
-	if err := c.runHook(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, err)
-		return c.resp.OnError(ctx, err, OpCreate)
-	}
 	c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, nil)
 	applyFieldPolicyToRecord(createdRecord, policy)
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
@@ -721,15 +891,12 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpCreateBatch)
+
 	records, err := c.deserialiMany(OpCreateBatch, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
-	}
-
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
 	createdRecords, err := c.service.CreateBatch(ctx, records)
@@ -738,10 +905,6 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, err)
-		return c.resp.OnError(ctx, err, OpCreateBatch)
-	}
 	c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, nil)
 	applyFieldPolicyToSlice(createdRecords, policy)
 
@@ -767,6 +930,8 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 	c.logFieldPolicyDecision(policy)
+
+	c.attachHookContext(ctx, OpUpdate)
 
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -795,11 +960,8 @@ func (c *Controller[T]) Update(ctx Context) error {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
-
-	if err := c.runHook(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpUpdate)
-	}
+	// Apply virtual map merge semantics (merge vs replace, delete-with-null).
+	record = mergeVirtualMaps(existingRecord, record, c.virtualFieldDefs, c.mergePolicy)
 
 	updatedRecord, err := c.service.Update(ctx, record)
 	if err != nil {
@@ -807,10 +969,6 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
-	if err := c.runHook(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, err)
-		return c.resp.OnError(ctx, err, OpUpdate)
-	}
 	c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, nil)
 	applyFieldPolicyToRecord(updatedRecord, policy)
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
@@ -828,15 +986,30 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpUpdateBatch)
+
 	records, err := c.deserialiMany(OpUpdateBatch, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpUpdateBatch)
+	criteria := c.applyScopeCriteria(nil, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+	for i, rec := range records {
+		id := c.Repo.Handlers().GetID(rec)
+		existing, err := c.service.Show(ctx, id.String(), criteria)
+		if err != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
+			return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdateBatch)
+		}
+		merged, err := mergeRecordWithExisting(rec, existing)
+		if err != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
+			return c.resp.OnError(ctx, err, OpUpdateBatch)
+		}
+		merged = mergeVirtualMaps(existing, merged, c.virtualFieldDefs, c.mergePolicy)
+		records[i] = merged
 	}
 
 	updatedRecords, err := c.service.UpdateBatch(ctx, records)
@@ -845,10 +1018,6 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, err)
-		return c.resp.OnError(ctx, err, OpUpdateBatch)
-	}
 	c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, nil)
 	applyFieldPolicyToSlice(updatedRecords, policy)
 
@@ -875,6 +1044,8 @@ func (c *Controller[T]) Delete(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpDelete)
+
 	id := ctx.Params("id")
 	criteria := c.applyScopeCriteria(nil, meta.scope)
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
@@ -884,21 +1055,12 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpDelete)
-	}
-
 	err = c.service.Delete(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
-	if err := c.runHook(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpDelete)
-	}
 	c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, nil)
 
 	return c.resp.OnEmpty(ctx, OpDelete)
@@ -916,15 +1078,12 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpDeleteBatch)
+
 	records, err := c.deserialiMany(OpDeleteBatch, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
-	}
-
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
 	err = c.service.DeleteBatch(ctx, records)
@@ -933,10 +1092,6 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHook(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpDeleteBatch)
-	}
 	c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, nil)
 
 	return c.resp.OnEmpty(ctx, OpDeleteBatch)

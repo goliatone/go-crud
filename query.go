@@ -178,7 +178,7 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 		criteria.order = append(criteria.order, func(q *bun.SelectQuery) *bun.SelectQuery {
 			for _, o := range filters.Order {
 				orderClause := fmt.Sprintf("%s %s", o.Field, o.Dir)
-				q = q.Order(orderClause)
+				q = q.OrderExpr(orderClause)
 			}
 			return q
 		})
@@ -240,6 +240,7 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 		}
 
 		operator = strings.ToLower(operator)
+		sqlOperator := resolveSQLOperator(operator)
 		switch operator {
 		case "and":
 			valuesList := strings.Split(values, ",")
@@ -271,12 +272,18 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 				continue
 			}
 
+			// OR always groups comparisons with the base equality operator.
+			orComparisonOp := resolveSQLOperator("eq")
+			if orComparisonOp == "" {
+				orComparisonOp = "="
+			}
+
 			orGroups = append(orGroups, func(q *bun.SelectQuery) *bun.SelectQuery {
 				for i, v := range cleaned {
 					if i == 0 {
-						q = q.Where(fmt.Sprintf("%s = ?", columnName), v)
+						q = q.Where(fmt.Sprintf("%s %s ?", columnName, orComparisonOp), v)
 					} else {
-						q = q.WhereOr(fmt.Sprintf("%s = ?", columnName), v)
+						q = q.WhereOr(fmt.Sprintf("%s %s ?", columnName, orComparisonOp), v)
 					}
 				}
 				return q
@@ -294,8 +301,12 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 			}
 
 			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
+				if operator == "in" {
+					q = q.Where(fmt.Sprintf("%s IN (?)", columnName), bun.In(cleaned))
+					return q
+				}
 				for _, v := range cleaned {
-					q = q.Where(fmt.Sprintf("%s %s ?", columnName, operator), v)
+					q = q.Where(fmt.Sprintf("%s %s ?", columnName, sqlOperator), v)
 				}
 				return q
 			})
@@ -336,6 +347,13 @@ func getDirection(dir string) string {
 		return dir
 	}
 	return "ASC"
+}
+
+func resolveSQLOperator(op string) string {
+	if mapped, ok := operatorMap[strings.ToLower(op)]; ok && mapped != "" {
+		return mapped
+	}
+	return op
 }
 
 func buildIncludeTree(includeParam string, meta *relationMetadata) (map[string]*relationIncludeNode, error) {

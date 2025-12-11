@@ -1,0 +1,26 @@
+[
+  {
+    "entity_name": "post",
+    "description": "Post resource",
+    "required": ["id", "title"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "title": { "type": "string", "description": "Post title" },
+      "author": { "type": "object", "nullable": true }
+    },
+    "relationships": {
+      "author": {
+        "relation_type": "belongsTo",
+        "related_schema": "user",
+        "cardinality": "one",
+        "source_field": "author_id"
+      }
+    }
+  },
+  {
+    "entity_name": "user",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" }
+    }
+  }
+]

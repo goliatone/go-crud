@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# Lightweight task runner for the relationships-gql example.
+# Usage: ./taskfile <task> [args]
+
+set -e
+[[ $* == *-debug* ]] && set -x
+
+PROJECT="relationships-gql"
+GOCACHE="${PWD}/.cache/go-build"
+export GOCACHE
+mkdir -p "${GOCACHE}"
+unset GOROOT
+
+GOSUMDB=${GOSUMDB:-off}
+export GOSUMDB
+GOPROXY=${GOPROXY:-off}
+export GOPROXY
+GOTOOLCHAIN=${GOTOOLCHAIN:-local}
+export GOTOOLCHAIN
+
+# Choose a Go toolchain that satisfies go >= 1.24.
+GO_BIN="${GO_BIN:-$(command -v go)}"
+GO_VERSION="$($GO_BIN version 2>/dev/null | awk '{print $3}')"
+GO_REAL_ROOT="$($GO_BIN env GOROOT 2>/dev/null)"
+
+needs24=true
+case "${GO_VERSION}" in
+  go1.2[4-9]*|go1.[3-9]*|go[2-9]*)
+    needs24=false
+    ;;
+esac
+
+if ${needs24}; then
+  ALT_GO_BIN="/Users/goliatone/.g/go/bin/go"
+  if command -v "${ALT_GO_BIN}" >/dev/null 2>&1; then
+    ALT_GO_VERSION="$(${ALT_GO_BIN} version 2>/dev/null | awk '{print $3}')"
+    ALT_GO_ROOT="$(${ALT_GO_BIN} env GOROOT 2>/dev/null)"
+    case "${ALT_GO_VERSION}" in
+      go1.2[4-9]*|go1.[3-9]*|go[2-9]*)
+        GO_BIN="${ALT_GO_BIN}"
+        GO_REAL_ROOT="${ALT_GO_ROOT}"
+        needs24=false
+        ;;
+    esac
+  fi
+fi
+
+if ${needs24}; then
+  echo "Go 1.24+ is required. Set GO_BIN to a Go 1.24+ binary (current: ${GO_BIN:-unset} ${GO_VERSION:-unknown})." >&2
+  exit 1
+fi
+
+# Ensure GOROOT matches the selected GO_BIN to avoid tool/version mismatches.
+if [ -n "${GO_REAL_ROOT}" ]; then
+  export GOROOT="${GO_REAL_ROOT}"
+fi
+
+function lgr {
+  if command -v lgr >/dev/null 2>&1; then
+    command lgr "$@"
+  else
+    printf '%s\n' "$*"
+  fi
+}
+
+function graphqlgen {
+  lgr I "Generating GraphQL assets from live models via registrar..."
+  env -u GOROOT "${GO_BIN}" run ../../gql/cmd/graphqlgen \
+    --schema-package ./registrar \
+    --out ./graph \
+    --config ./gqlgen.yml \
+    --emit-subscriptions \
+    --emit-dataloader \
+    --auth-package github.com/goliatone/go-auth \
+    --auth-guard "auth.FromContext(ctx)" \
+    "$@"
+}
+
+function gqlgen {
+  lgr I "Running gqlgen codegen..."
+  env -u GOROOT "${GO_BIN}" run github.com/99designs/gqlgen generate --config ./gqlgen.yml
+}
+
+function build {
+  graphqlgen "$@"
+  gqlgen "$@"
+}
+
+function metadata {
+  lgr I "Emitting registry metadata snapshot..."
+  env -u GOROOT "${GO_BIN}" run ./cmd/metadata --out ../../gql/examples/relationships/metadata.json
+}
+
+function gen {
+  lgr I "Running go generate (graphqlgen via model.go)..."
+  env -u GOROOT "${GO_BIN}" generate ./...
+}
+
+function clean {
+  lgr I "Removing generated files..."
+  rm -rf graph/generated graph/model/models_gen.go graph/resolvers/resolver_gen.go
+  # Remove legacy resolver stub placed at module root by older generator runs.
+  rm -f resolver_custom.go
+}
+
+function serve {
+  lgr I "Starting relationships-gql example..."
+  env -u GOROOT "${GO_BIN}" run ./cmd/server
+}
+
+function dev:serve {
+  clean
+  build "$@"
+  serve
+}
+
+function help {
+  echo ""
+  echo "$0 <task> [...arguments]"
+  echo ""
+  echo "Project: ${PROJECT}"
+  echo ""
+  echo "Tasks:"
+  compgen -A function | grep -v '^_' | cat -n
+  echo ""
+}
+
+TIMEFORMAT="Task completed in %3lR"
+time "${@:-help}"
