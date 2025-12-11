@@ -7,595 +7,685 @@ package resolvers
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
 )
 
+func uuidValue(id string) model.UUID {
+	return model.UUID(id)
+}
+
+func uuidString(id model.UUID) string {
+	return string(id)
+}
+
+func toModelTime(t *time.Time) *model.Time {
+	if t == nil {
+		return nil
+	}
+	mt := model.Time(*t)
+	return &mt
+}
+
+func toStdTime(t *model.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	std := time.Time(*t)
+	return &std
+}
+
 // ID is the resolver for the id field.
-func (r *authorResolver) ID(ctx context.Context, obj *model.Author) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *authorResolver) ID(_ context.Context, obj *model.Author) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *authorResolver) CreatedAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *authorResolver) CreatedAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *authorResolver) UpdatedAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *authorResolver) UpdatedAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+	return toModelTime(obj.UpdatedAt), nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *authorResolver) HiredAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: HiredAt - hiredAt"))
+func (r *authorResolver) HiredAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+	return toModelTime(obj.HiredAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *authorResolver) PublisherID(ctx context.Context, obj *model.Author) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *authorResolver) PublisherID(_ context.Context, obj *model.Author) (model.UUID, error) {
+	return uuidValue(obj.PublisherId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *authorProfileResolver) ID(ctx context.Context, obj *model.AuthorProfile) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *authorProfileResolver) ID(_ context.Context, obj *model.AuthorProfile) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *authorProfileResolver) AuthorID(ctx context.Context, obj *model.AuthorProfile) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *authorProfileResolver) AuthorID(_ context.Context, obj *model.AuthorProfile) (model.UUID, error) {
+	return uuidValue(obj.AuthorId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *bookResolver) ID(ctx context.Context, obj *model.Book) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *bookResolver) ID(_ context.Context, obj *model.Book) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *bookResolver) CreatedAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *bookResolver) CreatedAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *bookResolver) UpdatedAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *bookResolver) UpdatedAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+	return toModelTime(obj.UpdatedAt), nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *bookResolver) AuthorID(ctx context.Context, obj *model.Book) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *bookResolver) AuthorID(_ context.Context, obj *model.Book) (model.UUID, error) {
+	return uuidValue(obj.AuthorId), nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *bookResolver) LastReprintAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: LastReprintAt - lastReprintAt"))
+func (r *bookResolver) LastReprintAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+	return toModelTime(obj.LastReprintAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *bookResolver) PublisherID(ctx context.Context, obj *model.Book) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *bookResolver) PublisherID(_ context.Context, obj *model.Book) (model.UUID, error) {
+	return uuidValue(obj.PublisherId), nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *bookResolver) ReleaseDate(ctx context.Context, obj *model.Book) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: ReleaseDate - releaseDate"))
+func (r *bookResolver) ReleaseDate(_ context.Context, obj *model.Book) (*model.Time, error) {
+	return toModelTime(obj.ReleaseDate), nil
 }
 
 // ID is the resolver for the id field.
-func (r *chapterResolver) ID(ctx context.Context, obj *model.Chapter) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *chapterResolver) ID(_ context.Context, obj *model.Chapter) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *chapterResolver) BookID(ctx context.Context, obj *model.Chapter) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: BookID - bookId"))
+func (r *chapterResolver) BookID(_ context.Context, obj *model.Chapter) (model.UUID, error) {
+	return uuidValue(obj.BookId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *headquartersResolver) ID(ctx context.Context, obj *model.Headquarters) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *headquartersResolver) ID(_ context.Context, obj *model.Headquarters) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *headquartersResolver) OpenedAt(ctx context.Context, obj *model.Headquarters) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: OpenedAt - openedAt"))
+func (r *headquartersResolver) OpenedAt(_ context.Context, obj *model.Headquarters) (*model.Time, error) {
+	return toModelTime(obj.OpenedAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *headquartersResolver) PublisherID(ctx context.Context, obj *model.Headquarters) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *headquartersResolver) PublisherID(_ context.Context, obj *model.Headquarters) (model.UUID, error) {
+	return uuidValue(obj.PublisherId), nil
 }
 
 // CreateAuthor is the resolver for the createAuthor field.
 func (r *mutationResolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInput) (*model.Author, error) {
-	panic(fmt.Errorf("not implemented: CreateAuthor - createAuthor"))
+	return r.Resolver.CreateAuthor(ctx, input)
 }
 
 // UpdateAuthor is the resolver for the updateAuthor field.
 func (r *mutationResolver) UpdateAuthor(ctx context.Context, id model.UUID, input model.UpdateAuthorInput) (*model.Author, error) {
-	panic(fmt.Errorf("not implemented: UpdateAuthor - updateAuthor"))
+	return r.Resolver.UpdateAuthor(ctx, string(id), input)
 }
 
 // DeleteAuthor is the resolver for the deleteAuthor field.
 func (r *mutationResolver) DeleteAuthor(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteAuthor - deleteAuthor"))
+	return r.Resolver.DeleteAuthor(ctx, string(id))
 }
 
 // CreateAuthorProfile is the resolver for the createAuthorProfile field.
 func (r *mutationResolver) CreateAuthorProfile(ctx context.Context, input model.CreateAuthorProfileInput) (*model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: CreateAuthorProfile - createAuthorProfile"))
+	return r.Resolver.CreateAuthorProfile(ctx, input)
 }
 
 // UpdateAuthorProfile is the resolver for the updateAuthorProfile field.
 func (r *mutationResolver) UpdateAuthorProfile(ctx context.Context, id model.UUID, input model.UpdateAuthorProfileInput) (*model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: UpdateAuthorProfile - updateAuthorProfile"))
+	return r.Resolver.UpdateAuthorProfile(ctx, string(id), input)
 }
 
 // DeleteAuthorProfile is the resolver for the deleteAuthorProfile field.
 func (r *mutationResolver) DeleteAuthorProfile(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteAuthorProfile - deleteAuthorProfile"))
+	return r.Resolver.DeleteAuthorProfile(ctx, string(id))
 }
 
 // CreateBook is the resolver for the createBook field.
 func (r *mutationResolver) CreateBook(ctx context.Context, input model.CreateBookInput) (*model.Book, error) {
-	panic(fmt.Errorf("not implemented: CreateBook - createBook"))
+	return r.Resolver.CreateBook(ctx, input)
 }
 
 // UpdateBook is the resolver for the updateBook field.
 func (r *mutationResolver) UpdateBook(ctx context.Context, id model.UUID, input model.UpdateBookInput) (*model.Book, error) {
-	panic(fmt.Errorf("not implemented: UpdateBook - updateBook"))
+	return r.Resolver.UpdateBook(ctx, string(id), input)
 }
 
 // DeleteBook is the resolver for the deleteBook field.
 func (r *mutationResolver) DeleteBook(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteBook - deleteBook"))
+	return r.Resolver.DeleteBook(ctx, string(id))
 }
 
 // CreateChapter is the resolver for the createChapter field.
 func (r *mutationResolver) CreateChapter(ctx context.Context, input model.CreateChapterInput) (*model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: CreateChapter - createChapter"))
+	return r.Resolver.CreateChapter(ctx, input)
 }
 
 // UpdateChapter is the resolver for the updateChapter field.
 func (r *mutationResolver) UpdateChapter(ctx context.Context, id model.UUID, input model.UpdateChapterInput) (*model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: UpdateChapter - updateChapter"))
+	return r.Resolver.UpdateChapter(ctx, string(id), input)
 }
 
 // DeleteChapter is the resolver for the deleteChapter field.
 func (r *mutationResolver) DeleteChapter(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteChapter - deleteChapter"))
+	return r.Resolver.DeleteChapter(ctx, string(id))
 }
 
 // CreateHeadquarters is the resolver for the createHeadquarters field.
 func (r *mutationResolver) CreateHeadquarters(ctx context.Context, input model.CreateHeadquartersInput) (*model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: CreateHeadquarters - createHeadquarters"))
+	return r.Resolver.CreateHeadquarters(ctx, input)
 }
 
 // UpdateHeadquarters is the resolver for the updateHeadquarters field.
 func (r *mutationResolver) UpdateHeadquarters(ctx context.Context, id model.UUID, input model.UpdateHeadquartersInput) (*model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: UpdateHeadquarters - updateHeadquarters"))
+	return r.Resolver.UpdateHeadquarters(ctx, string(id), input)
 }
 
 // DeleteHeadquarters is the resolver for the deleteHeadquarters field.
 func (r *mutationResolver) DeleteHeadquarters(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteHeadquarters - deleteHeadquarters"))
+	return r.Resolver.DeleteHeadquarters(ctx, string(id))
 }
 
 // CreatePublishingHouse is the resolver for the createPublishingHouse field.
 func (r *mutationResolver) CreatePublishingHouse(ctx context.Context, input model.CreatePublishingHouseInput) (*model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: CreatePublishingHouse - createPublishingHouse"))
+	return r.Resolver.CreatePublishingHouse(ctx, input)
 }
 
 // UpdatePublishingHouse is the resolver for the updatePublishingHouse field.
 func (r *mutationResolver) UpdatePublishingHouse(ctx context.Context, id model.UUID, input model.UpdatePublishingHouseInput) (*model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: UpdatePublishingHouse - updatePublishingHouse"))
+	return r.Resolver.UpdatePublishingHouse(ctx, string(id), input)
 }
 
 // DeletePublishingHouse is the resolver for the deletePublishingHouse field.
 func (r *mutationResolver) DeletePublishingHouse(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeletePublishingHouse - deletePublishingHouse"))
+	return r.Resolver.DeletePublishingHouse(ctx, string(id))
 }
 
 // CreateTag is the resolver for the createTag field.
 func (r *mutationResolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: CreateTag - createTag"))
+	return r.Resolver.CreateTag(ctx, input)
 }
 
 // UpdateTag is the resolver for the updateTag field.
 func (r *mutationResolver) UpdateTag(ctx context.Context, id model.UUID, input model.UpdateTagInput) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: UpdateTag - updateTag"))
+	return r.Resolver.UpdateTag(ctx, string(id), input)
 }
 
 // DeleteTag is the resolver for the deleteTag field.
 func (r *mutationResolver) DeleteTag(ctx context.Context, id model.UUID) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteTag - deleteTag"))
+	return r.Resolver.DeleteTag(ctx, string(id))
 }
 
 // ID is the resolver for the id field.
-func (r *publishingHouseResolver) ID(ctx context.Context, obj *model.PublishingHouse) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *publishingHouseResolver) ID(_ context.Context, obj *model.PublishingHouse) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *publishingHouseResolver) CreatedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *publishingHouseResolver) CreatedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *publishingHouseResolver) UpdatedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *publishingHouseResolver) UpdatedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+	return toModelTime(obj.UpdatedAt), nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *publishingHouseResolver) EstablishedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: EstablishedAt - establishedAt"))
+func (r *publishingHouseResolver) EstablishedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+	return toModelTime(obj.EstablishedAt), nil
 }
 
 // GetAuthor is the resolver for the getAuthor field.
 func (r *queryResolver) GetAuthor(ctx context.Context, id model.UUID) (*model.Author, error) {
-	panic(fmt.Errorf("not implemented: GetAuthor - getAuthor"))
+	return r.Resolver.GetAuthor(ctx, string(id))
 }
 
 // ListAuthor is the resolver for the listAuthor field.
 func (r *queryResolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error) {
-	panic(fmt.Errorf("not implemented: ListAuthor - listAuthor"))
+	return r.Resolver.ListAuthor(ctx, pagination, orderBy, filter)
 }
 
 // GetAuthorProfile is the resolver for the getAuthorProfile field.
 func (r *queryResolver) GetAuthorProfile(ctx context.Context, id model.UUID) (*model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: GetAuthorProfile - getAuthorProfile"))
+	return r.Resolver.GetAuthorProfile(ctx, string(id))
 }
 
 // ListAuthorProfile is the resolver for the listAuthorProfile field.
 func (r *queryResolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error) {
-	panic(fmt.Errorf("not implemented: ListAuthorProfile - listAuthorProfile"))
+	return r.Resolver.ListAuthorProfile(ctx, pagination, orderBy, filter)
 }
 
 // GetBook is the resolver for the getBook field.
 func (r *queryResolver) GetBook(ctx context.Context, id model.UUID) (*model.Book, error) {
-	panic(fmt.Errorf("not implemented: GetBook - getBook"))
+	return r.Resolver.GetBook(ctx, string(id))
 }
 
 // ListBook is the resolver for the listBook field.
 func (r *queryResolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error) {
-	panic(fmt.Errorf("not implemented: ListBook - listBook"))
+	return r.Resolver.ListBook(ctx, pagination, orderBy, filter)
 }
 
 // GetChapter is the resolver for the getChapter field.
 func (r *queryResolver) GetChapter(ctx context.Context, id model.UUID) (*model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: GetChapter - getChapter"))
+	return r.Resolver.GetChapter(ctx, string(id))
 }
 
 // ListChapter is the resolver for the listChapter field.
 func (r *queryResolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error) {
-	panic(fmt.Errorf("not implemented: ListChapter - listChapter"))
+	return r.Resolver.ListChapter(ctx, pagination, orderBy, filter)
 }
 
 // GetHeadquarters is the resolver for the getHeadquarters field.
 func (r *queryResolver) GetHeadquarters(ctx context.Context, id model.UUID) (*model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: GetHeadquarters - getHeadquarters"))
+	return r.Resolver.GetHeadquarters(ctx, string(id))
 }
 
 // ListHeadquarters is the resolver for the listHeadquarters field.
 func (r *queryResolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error) {
-	panic(fmt.Errorf("not implemented: ListHeadquarters - listHeadquarters"))
+	return r.Resolver.ListHeadquarters(ctx, pagination, orderBy, filter)
 }
 
 // GetPublishingHouse is the resolver for the getPublishingHouse field.
 func (r *queryResolver) GetPublishingHouse(ctx context.Context, id model.UUID) (*model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: GetPublishingHouse - getPublishingHouse"))
+	return r.Resolver.GetPublishingHouse(ctx, string(id))
 }
 
 // ListPublishingHouse is the resolver for the listPublishingHouse field.
 func (r *queryResolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error) {
-	panic(fmt.Errorf("not implemented: ListPublishingHouse - listPublishingHouse"))
+	return r.Resolver.ListPublishingHouse(ctx, pagination, orderBy, filter)
 }
 
 // GetTag is the resolver for the getTag field.
 func (r *queryResolver) GetTag(ctx context.Context, id model.UUID) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: GetTag - getTag"))
+	return r.Resolver.GetTag(ctx, string(id))
 }
 
 // ListTag is the resolver for the listTag field.
 func (r *queryResolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error) {
-	panic(fmt.Errorf("not implemented: ListTag - listTag"))
+	return r.Resolver.ListTag(ctx, pagination, orderBy, filter)
 }
 
 // AuthorCreated is the resolver for the authorCreated field.
 func (r *subscriptionResolver) AuthorCreated(ctx context.Context) (<-chan *model.Author, error) {
-	panic(fmt.Errorf("not implemented: AuthorCreated - authorCreated"))
+	return r.Resolver.AuthorCreated(ctx)
 }
 
 // AuthorUpdated is the resolver for the authorUpdated field.
 func (r *subscriptionResolver) AuthorUpdated(ctx context.Context) (<-chan *model.Author, error) {
-	panic(fmt.Errorf("not implemented: AuthorUpdated - authorUpdated"))
+	return r.Resolver.AuthorUpdated(ctx)
 }
 
 // AuthorDeleted is the resolver for the authorDeleted field.
 func (r *subscriptionResolver) AuthorDeleted(ctx context.Context) (<-chan *model.Author, error) {
-	panic(fmt.Errorf("not implemented: AuthorDeleted - authorDeleted"))
+	return r.Resolver.AuthorDeleted(ctx)
 }
 
 // AuthorProfileCreated is the resolver for the authorProfileCreated field.
 func (r *subscriptionResolver) AuthorProfileCreated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: AuthorProfileCreated - authorProfileCreated"))
+	return r.Resolver.AuthorProfileCreated(ctx)
 }
 
 // AuthorProfileUpdated is the resolver for the authorProfileUpdated field.
 func (r *subscriptionResolver) AuthorProfileUpdated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: AuthorProfileUpdated - authorProfileUpdated"))
+	return r.Resolver.AuthorProfileUpdated(ctx)
 }
 
 // AuthorProfileDeleted is the resolver for the authorProfileDeleted field.
 func (r *subscriptionResolver) AuthorProfileDeleted(ctx context.Context) (<-chan *model.AuthorProfile, error) {
-	panic(fmt.Errorf("not implemented: AuthorProfileDeleted - authorProfileDeleted"))
+	return r.Resolver.AuthorProfileDeleted(ctx)
 }
 
 // BookCreated is the resolver for the bookCreated field.
 func (r *subscriptionResolver) BookCreated(ctx context.Context) (<-chan *model.Book, error) {
-	panic(fmt.Errorf("not implemented: BookCreated - bookCreated"))
+	return r.Resolver.BookCreated(ctx)
 }
 
 // BookUpdated is the resolver for the bookUpdated field.
 func (r *subscriptionResolver) BookUpdated(ctx context.Context) (<-chan *model.Book, error) {
-	panic(fmt.Errorf("not implemented: BookUpdated - bookUpdated"))
+	return r.Resolver.BookUpdated(ctx)
 }
 
 // BookDeleted is the resolver for the bookDeleted field.
 func (r *subscriptionResolver) BookDeleted(ctx context.Context) (<-chan *model.Book, error) {
-	panic(fmt.Errorf("not implemented: BookDeleted - bookDeleted"))
+	return r.Resolver.BookDeleted(ctx)
 }
 
 // ChapterCreated is the resolver for the chapterCreated field.
 func (r *subscriptionResolver) ChapterCreated(ctx context.Context) (<-chan *model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: ChapterCreated - chapterCreated"))
+	return r.Resolver.ChapterCreated(ctx)
 }
 
 // ChapterUpdated is the resolver for the chapterUpdated field.
 func (r *subscriptionResolver) ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: ChapterUpdated - chapterUpdated"))
+	return r.Resolver.ChapterUpdated(ctx)
 }
 
 // ChapterDeleted is the resolver for the chapterDeleted field.
 func (r *subscriptionResolver) ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, error) {
-	panic(fmt.Errorf("not implemented: ChapterDeleted - chapterDeleted"))
+	return r.Resolver.ChapterDeleted(ctx)
 }
 
 // HeadquartersCreated is the resolver for the headquartersCreated field.
 func (r *subscriptionResolver) HeadquartersCreated(ctx context.Context) (<-chan *model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: HeadquartersCreated - headquartersCreated"))
+	return r.Resolver.HeadquartersCreated(ctx)
 }
 
 // HeadquartersUpdated is the resolver for the headquartersUpdated field.
 func (r *subscriptionResolver) HeadquartersUpdated(ctx context.Context) (<-chan *model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: HeadquartersUpdated - headquartersUpdated"))
+	return r.Resolver.HeadquartersUpdated(ctx)
 }
 
 // HeadquartersDeleted is the resolver for the headquartersDeleted field.
 func (r *subscriptionResolver) HeadquartersDeleted(ctx context.Context) (<-chan *model.Headquarters, error) {
-	panic(fmt.Errorf("not implemented: HeadquartersDeleted - headquartersDeleted"))
+	return r.Resolver.HeadquartersDeleted(ctx)
 }
 
 // PublishingHouseCreated is the resolver for the publishingHouseCreated field.
 func (r *subscriptionResolver) PublishingHouseCreated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: PublishingHouseCreated - publishingHouseCreated"))
+	return r.Resolver.PublishingHouseCreated(ctx)
 }
 
 // PublishingHouseUpdated is the resolver for the publishingHouseUpdated field.
 func (r *subscriptionResolver) PublishingHouseUpdated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: PublishingHouseUpdated - publishingHouseUpdated"))
+	return r.Resolver.PublishingHouseUpdated(ctx)
 }
 
 // PublishingHouseDeleted is the resolver for the publishingHouseDeleted field.
 func (r *subscriptionResolver) PublishingHouseDeleted(ctx context.Context) (<-chan *model.PublishingHouse, error) {
-	panic(fmt.Errorf("not implemented: PublishingHouseDeleted - publishingHouseDeleted"))
+	return r.Resolver.PublishingHouseDeleted(ctx)
 }
 
 // TagCreated is the resolver for the tagCreated field.
 func (r *subscriptionResolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagCreated - tagCreated"))
+	return r.Resolver.TagCreated(ctx)
 }
 
 // TagUpdated is the resolver for the tagUpdated field.
 func (r *subscriptionResolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagUpdated - tagUpdated"))
+	return r.Resolver.TagUpdated(ctx)
 }
 
 // TagDeleted is the resolver for the tagDeleted field.
 func (r *subscriptionResolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagDeleted - tagDeleted"))
+	return r.Resolver.TagDeleted(ctx)
 }
 
 // ID is the resolver for the id field.
-func (r *tagResolver) ID(ctx context.Context, obj *model.Tag) (model.UUID, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
+func (r *tagResolver) ID(_ context.Context, obj *model.Tag) (model.UUID, error) {
+	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *tagResolver) CreatedAt(ctx context.Context, obj *model.Tag) (*model.Time, error) {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *tagResolver) CreatedAt(_ context.Context, obj *model.Tag) (*model.Time, error) {
+	return toModelTime(obj.CreatedAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createAuthorInputResolver) PublisherID(ctx context.Context, obj *model.CreateAuthorInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *createAuthorInputResolver) PublisherID(_ context.Context, obj *model.CreateAuthorInput, data model.UUID) error {
+	obj.PublisherId = uuidString(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createAuthorInputResolver) CreatedAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *createAuthorInputResolver) CreatedAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *createAuthorInputResolver) HiredAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: HiredAt - hiredAt"))
+func (r *createAuthorInputResolver) HiredAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+	obj.HiredAt = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createAuthorInputResolver) UpdatedAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *createAuthorInputResolver) UpdatedAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *createAuthorProfileInputResolver) AuthorID(ctx context.Context, obj *model.CreateAuthorProfileInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *createAuthorProfileInputResolver) AuthorID(_ context.Context, obj *model.CreateAuthorProfileInput, data model.UUID) error {
+	obj.AuthorId = uuidString(data)
+	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *createBookInputResolver) AuthorID(ctx context.Context, obj *model.CreateBookInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *createBookInputResolver) AuthorID(_ context.Context, obj *model.CreateBookInput, data model.UUID) error {
+	obj.AuthorId = uuidString(data)
+	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createBookInputResolver) PublisherID(ctx context.Context, obj *model.CreateBookInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *createBookInputResolver) PublisherID(_ context.Context, obj *model.CreateBookInput, data model.UUID) error {
+	obj.PublisherId = uuidString(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createBookInputResolver) CreatedAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *createBookInputResolver) CreatedAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *createBookInputResolver) LastReprintAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: LastReprintAt - lastReprintAt"))
+func (r *createBookInputResolver) LastReprintAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+	obj.LastReprintAt = toStdTime(data)
+	return nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *createBookInputResolver) ReleaseDate(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: ReleaseDate - releaseDate"))
+func (r *createBookInputResolver) ReleaseDate(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+	obj.ReleaseDate = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createBookInputResolver) UpdatedAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *createBookInputResolver) UpdatedAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *createChapterInputResolver) BookID(ctx context.Context, obj *model.CreateChapterInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: BookID - bookId"))
+func (r *createChapterInputResolver) BookID(_ context.Context, obj *model.CreateChapterInput, data model.UUID) error {
+	obj.BookId = uuidString(data)
+	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createHeadquartersInputResolver) PublisherID(ctx context.Context, obj *model.CreateHeadquartersInput, data model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *createHeadquartersInputResolver) PublisherID(_ context.Context, obj *model.CreateHeadquartersInput, data model.UUID) error {
+	obj.PublisherId = uuidString(data)
+	return nil
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *createHeadquartersInputResolver) OpenedAt(ctx context.Context, obj *model.CreateHeadquartersInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: OpenedAt - openedAt"))
+func (r *createHeadquartersInputResolver) OpenedAt(_ context.Context, obj *model.CreateHeadquartersInput, data *model.Time) error {
+	obj.OpenedAt = toStdTime(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createPublishingHouseInputResolver) CreatedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *createPublishingHouseInputResolver) CreatedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *createPublishingHouseInputResolver) EstablishedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: EstablishedAt - establishedAt"))
+func (r *createPublishingHouseInputResolver) EstablishedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+	obj.EstablishedAt = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createPublishingHouseInputResolver) UpdatedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *createPublishingHouseInputResolver) UpdatedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createTagInputResolver) CreatedAt(ctx context.Context, obj *model.CreateTagInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *createTagInputResolver) CreatedAt(_ context.Context, obj *model.CreateTagInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateAuthorInputResolver) PublisherID(ctx context.Context, obj *model.UpdateAuthorInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *updateAuthorInputResolver) PublisherID(_ context.Context, obj *model.UpdateAuthorInput, data *model.UUID) error {
+	if data == nil {
+		obj.PublisherId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.PublisherId = &str
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateAuthorInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *updateAuthorInputResolver) CreatedAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *updateAuthorInputResolver) HiredAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: HiredAt - hiredAt"))
+func (r *updateAuthorInputResolver) HiredAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+	obj.HiredAt = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updateAuthorInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *updateAuthorInputResolver) UpdatedAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *updateAuthorProfileInputResolver) AuthorID(ctx context.Context, obj *model.UpdateAuthorProfileInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *updateAuthorProfileInputResolver) AuthorID(_ context.Context, obj *model.UpdateAuthorProfileInput, data *model.UUID) error {
+	if data == nil {
+		obj.AuthorId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.AuthorId = &str
+	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *updateBookInputResolver) AuthorID(ctx context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: AuthorID - authorId"))
+func (r *updateBookInputResolver) AuthorID(_ context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
+	if data == nil {
+		obj.AuthorId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.AuthorId = &str
+	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateBookInputResolver) PublisherID(ctx context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *updateBookInputResolver) PublisherID(_ context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
+	if data == nil {
+		obj.PublisherId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.PublisherId = &str
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateBookInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *updateBookInputResolver) CreatedAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *updateBookInputResolver) LastReprintAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: LastReprintAt - lastReprintAt"))
+func (r *updateBookInputResolver) LastReprintAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+	obj.LastReprintAt = toStdTime(data)
+	return nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *updateBookInputResolver) ReleaseDate(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: ReleaseDate - releaseDate"))
+func (r *updateBookInputResolver) ReleaseDate(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+	obj.ReleaseDate = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updateBookInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *updateBookInputResolver) UpdatedAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *updateChapterInputResolver) BookID(ctx context.Context, obj *model.UpdateChapterInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: BookID - bookId"))
+func (r *updateChapterInputResolver) BookID(_ context.Context, obj *model.UpdateChapterInput, data *model.UUID) error {
+	if data == nil {
+		obj.BookId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.BookId = &str
+	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateHeadquartersInputResolver) PublisherID(ctx context.Context, obj *model.UpdateHeadquartersInput, data *model.UUID) error {
-	panic(fmt.Errorf("not implemented: PublisherID - publisherId"))
+func (r *updateHeadquartersInputResolver) PublisherID(_ context.Context, obj *model.UpdateHeadquartersInput, data *model.UUID) error {
+	if data == nil {
+		obj.PublisherId = nil
+		return nil
+	}
+	str := uuidString(*data)
+	obj.PublisherId = &str
+	return nil
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *updateHeadquartersInputResolver) OpenedAt(ctx context.Context, obj *model.UpdateHeadquartersInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: OpenedAt - openedAt"))
+func (r *updateHeadquartersInputResolver) OpenedAt(_ context.Context, obj *model.UpdateHeadquartersInput, data *model.Time) error {
+	obj.OpenedAt = toStdTime(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updatePublishingHouseInputResolver) CreatedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *updatePublishingHouseInputResolver) CreatedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *updatePublishingHouseInputResolver) EstablishedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: EstablishedAt - establishedAt"))
+func (r *updatePublishingHouseInputResolver) EstablishedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+	obj.EstablishedAt = toStdTime(data)
+	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updatePublishingHouseInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: UpdatedAt - updatedAt"))
+func (r *updatePublishingHouseInputResolver) UpdatedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+	obj.UpdatedAt = toStdTime(data)
+	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateTagInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateTagInput, data *model.Time) error {
-	panic(fmt.Errorf("not implemented: CreatedAt - createdAt"))
+func (r *updateTagInputResolver) CreatedAt(_ context.Context, obj *model.UpdateTagInput, data *model.Time) error {
+	obj.CreatedAt = toStdTime(data)
+	return nil
 }
 
 // Author returns generated.AuthorResolver implementation.

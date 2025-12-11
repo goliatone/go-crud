@@ -2,806 +2,17 @@ package resolvers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/goliatone/go-crud"
-	"github.com/goliatone/go-crud/examples/relationships-gql"
+	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
+	"github.com/goliatone/go-crud/pkg/activity"
 	repository "github.com/goliatone/go-repository-bun"
 )
-
-func baseContext(ctx crud.Context) context.Context {
-	if ctx == nil || ctx.UserContext() == nil {
-		return context.Background()
-	}
-	return ctx.UserContext()
-}
-
-func appendRelations(relations []string, criteria []repository.SelectCriteria) []repository.SelectCriteria {
-	out := make([]repository.SelectCriteria, 0, len(relations)+len(criteria))
-	for _, rel := range relations {
-		out = append(out, repository.SelectRelation(rel))
-	}
-	out = append(out, criteria...)
-	return out
-}
-
-type publishingHouseService struct {
-	repo      repository.Repository[*relationships.PublishingHouse]
-	relations []string
-}
-
-func newPublishingHouseService(repo repository.Repository[*relationships.PublishingHouse]) crud.Service[model.PublishingHouse] {
-	return &publishingHouseService{
-		repo:      repo,
-		relations: []string{"Headquarters", "Authors", "Books"},
-	}
-}
-
-func (s *publishingHouseService) Create(ctx crud.Context, record model.PublishingHouse) (model.PublishingHouse, error) {
-	domain, err := publishingHouseFromModel(record)
-	if err != nil {
-		return model.PublishingHouse{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.PublishingHouse{}, err
-	}
-	return *toModelPublishingHouse(created, true), nil
-}
-
-func (s *publishingHouseService) CreateBatch(ctx crud.Context, records []model.PublishingHouse) ([]model.PublishingHouse, error) {
-	domain := make([]*relationships.PublishingHouse, 0, len(records))
-	for _, record := range records {
-		item, err := publishingHouseFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.PublishingHouse, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelPublishingHouse(item, true))
-	}
-	return result, nil
-}
-
-func (s *publishingHouseService) Update(ctx crud.Context, record model.PublishingHouse) (model.PublishingHouse, error) {
-	domain, err := publishingHouseFromModel(record)
-	if err != nil {
-		return model.PublishingHouse{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.PublishingHouse{}, err
-	}
-	return *toModelPublishingHouse(updated, true), nil
-}
-
-func (s *publishingHouseService) UpdateBatch(ctx crud.Context, records []model.PublishingHouse) ([]model.PublishingHouse, error) {
-	domain := make([]*relationships.PublishingHouse, 0, len(records))
-	for _, record := range records {
-		item, err := publishingHouseFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.PublishingHouse, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelPublishingHouse(item, true))
-	}
-	return result, nil
-}
-
-func (s *publishingHouseService) Delete(ctx crud.Context, record model.PublishingHouse) error {
-	domain, err := publishingHouseFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *publishingHouseService) DeleteBatch(ctx crud.Context, records []model.PublishingHouse) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *publishingHouseService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.PublishingHouse, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return publishingHouseModels(records, true), total, nil
-}
-
-func (s *publishingHouseService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.PublishingHouse, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.PublishingHouse{}, err
-	}
-	return *toModelPublishingHouse(record, true), nil
-}
-
-type headquartersService struct {
-	repo      repository.Repository[*relationships.Headquarters]
-	relations []string
-}
-
-func newHeadquartersService(repo repository.Repository[*relationships.Headquarters]) crud.Service[model.Headquarters] {
-	return &headquartersService{
-		repo:      repo,
-		relations: []string{"Publisher"},
-	}
-}
-
-func (s *headquartersService) Create(ctx crud.Context, record model.Headquarters) (model.Headquarters, error) {
-	domain, err := headquartersFromModel(record)
-	if err != nil {
-		return model.Headquarters{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.Headquarters{}, err
-	}
-	return *toModelHeadquarters(created, true), nil
-}
-
-func (s *headquartersService) CreateBatch(ctx crud.Context, records []model.Headquarters) ([]model.Headquarters, error) {
-	domain := make([]*relationships.Headquarters, 0, len(records))
-	for _, record := range records {
-		item, err := headquartersFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Headquarters, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelHeadquarters(item, true))
-	}
-	return result, nil
-}
-
-func (s *headquartersService) Update(ctx crud.Context, record model.Headquarters) (model.Headquarters, error) {
-	domain, err := headquartersFromModel(record)
-	if err != nil {
-		return model.Headquarters{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.Headquarters{}, err
-	}
-	return *toModelHeadquarters(updated, true), nil
-}
-
-func (s *headquartersService) UpdateBatch(ctx crud.Context, records []model.Headquarters) ([]model.Headquarters, error) {
-	domain := make([]*relationships.Headquarters, 0, len(records))
-	for _, record := range records {
-		item, err := headquartersFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Headquarters, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelHeadquarters(item, true))
-	}
-	return result, nil
-}
-
-func (s *headquartersService) Delete(ctx crud.Context, record model.Headquarters) error {
-	domain, err := headquartersFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *headquartersService) DeleteBatch(ctx crud.Context, records []model.Headquarters) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *headquartersService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.Headquarters, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return headquartersModels(records, true), total, nil
-}
-
-func (s *headquartersService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.Headquarters, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.Headquarters{}, err
-	}
-	return *toModelHeadquarters(record, true), nil
-}
-
-type authorService struct {
-	repo      repository.Repository[*relationships.Author]
-	relations []string
-}
-
-func newAuthorService(repo repository.Repository[*relationships.Author]) crud.Service[model.Author] {
-	return &authorService{
-		repo:      repo,
-		relations: []string{"Publisher", "Profile", "Books", "Tags"},
-	}
-}
-
-func (s *authorService) Create(ctx crud.Context, record model.Author) (model.Author, error) {
-	domain, err := authorFromModel(record)
-	if err != nil {
-		return model.Author{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.Author{}, err
-	}
-	return *toModelAuthor(created, true), nil
-}
-
-func (s *authorService) CreateBatch(ctx crud.Context, records []model.Author) ([]model.Author, error) {
-	domain := make([]*relationships.Author, 0, len(records))
-	for _, record := range records {
-		item, err := authorFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Author, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelAuthor(item, true))
-	}
-	return result, nil
-}
-
-func (s *authorService) Update(ctx crud.Context, record model.Author) (model.Author, error) {
-	domain, err := authorFromModel(record)
-	if err != nil {
-		return model.Author{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.Author{}, err
-	}
-	return *toModelAuthor(updated, true), nil
-}
-
-func (s *authorService) UpdateBatch(ctx crud.Context, records []model.Author) ([]model.Author, error) {
-	domain := make([]*relationships.Author, 0, len(records))
-	for _, record := range records {
-		item, err := authorFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Author, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelAuthor(item, true))
-	}
-	return result, nil
-}
-
-func (s *authorService) Delete(ctx crud.Context, record model.Author) error {
-	domain, err := authorFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *authorService) DeleteBatch(ctx crud.Context, records []model.Author) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *authorService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.Author, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return authorModels(records, true), total, nil
-}
-
-func (s *authorService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.Author, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.Author{}, err
-	}
-	return *toModelAuthor(record, true), nil
-}
-
-type authorProfileService struct {
-	repo      repository.Repository[*relationships.AuthorProfile]
-	relations []string
-}
-
-func newAuthorProfileService(repo repository.Repository[*relationships.AuthorProfile]) crud.Service[model.AuthorProfile] {
-	return &authorProfileService{
-		repo:      repo,
-		relations: []string{"Author"},
-	}
-}
-
-func (s *authorProfileService) Create(ctx crud.Context, record model.AuthorProfile) (model.AuthorProfile, error) {
-	domain, err := authorProfileFromModel(record)
-	if err != nil {
-		return model.AuthorProfile{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.AuthorProfile{}, err
-	}
-	return *toModelAuthorProfile(created, true), nil
-}
-
-func (s *authorProfileService) CreateBatch(ctx crud.Context, records []model.AuthorProfile) ([]model.AuthorProfile, error) {
-	domain := make([]*relationships.AuthorProfile, 0, len(records))
-	for _, record := range records {
-		item, err := authorProfileFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.AuthorProfile, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelAuthorProfile(item, true))
-	}
-	return result, nil
-}
-
-func (s *authorProfileService) Update(ctx crud.Context, record model.AuthorProfile) (model.AuthorProfile, error) {
-	domain, err := authorProfileFromModel(record)
-	if err != nil {
-		return model.AuthorProfile{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.AuthorProfile{}, err
-	}
-	return *toModelAuthorProfile(updated, true), nil
-}
-
-func (s *authorProfileService) UpdateBatch(ctx crud.Context, records []model.AuthorProfile) ([]model.AuthorProfile, error) {
-	domain := make([]*relationships.AuthorProfile, 0, len(records))
-	for _, record := range records {
-		item, err := authorProfileFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.AuthorProfile, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelAuthorProfile(item, true))
-	}
-	return result, nil
-}
-
-func (s *authorProfileService) Delete(ctx crud.Context, record model.AuthorProfile) error {
-	domain, err := authorProfileFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *authorProfileService) DeleteBatch(ctx crud.Context, records []model.AuthorProfile) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *authorProfileService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.AuthorProfile, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return authorProfileModels(records, true), total, nil
-}
-
-func (s *authorProfileService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.AuthorProfile, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.AuthorProfile{}, err
-	}
-	return *toModelAuthorProfile(record, true), nil
-}
-
-type bookService struct {
-	repo      repository.Repository[*relationships.Book]
-	relations []string
-}
-
-func newBookService(repo repository.Repository[*relationships.Book]) crud.Service[model.Book] {
-	return &bookService{
-		repo:      repo,
-		relations: []string{"Publisher", "Author", "Chapters", "Tags"},
-	}
-}
-
-func (s *bookService) Create(ctx crud.Context, record model.Book) (model.Book, error) {
-	domain, err := bookFromModel(record)
-	if err != nil {
-		return model.Book{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.Book{}, err
-	}
-	return *toModelBook(created, true), nil
-}
-
-func (s *bookService) CreateBatch(ctx crud.Context, records []model.Book) ([]model.Book, error) {
-	domain := make([]*relationships.Book, 0, len(records))
-	for _, record := range records {
-		item, err := bookFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Book, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelBook(item, true))
-	}
-	return result, nil
-}
-
-func (s *bookService) Update(ctx crud.Context, record model.Book) (model.Book, error) {
-	domain, err := bookFromModel(record)
-	if err != nil {
-		return model.Book{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.Book{}, err
-	}
-	return *toModelBook(updated, true), nil
-}
-
-func (s *bookService) UpdateBatch(ctx crud.Context, records []model.Book) ([]model.Book, error) {
-	domain := make([]*relationships.Book, 0, len(records))
-	for _, record := range records {
-		item, err := bookFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Book, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelBook(item, true))
-	}
-	return result, nil
-}
-
-func (s *bookService) Delete(ctx crud.Context, record model.Book) error {
-	domain, err := bookFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *bookService) DeleteBatch(ctx crud.Context, records []model.Book) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *bookService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.Book, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return bookModels(records, true), total, nil
-}
-
-func (s *bookService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.Book, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.Book{}, err
-	}
-	return *toModelBook(record, true), nil
-}
-
-type chapterService struct {
-	repo      repository.Repository[*relationships.Chapter]
-	relations []string
-}
-
-func newChapterService(repo repository.Repository[*relationships.Chapter]) crud.Service[model.Chapter] {
-	return &chapterService{
-		repo:      repo,
-		relations: []string{"Book"},
-	}
-}
-
-func (s *chapterService) Create(ctx crud.Context, record model.Chapter) (model.Chapter, error) {
-	domain, err := chapterFromModel(record)
-	if err != nil {
-		return model.Chapter{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.Chapter{}, err
-	}
-	return *toModelChapter(created, true), nil
-}
-
-func (s *chapterService) CreateBatch(ctx crud.Context, records []model.Chapter) ([]model.Chapter, error) {
-	domain := make([]*relationships.Chapter, 0, len(records))
-	for _, record := range records {
-		item, err := chapterFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Chapter, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelChapter(item, true))
-	}
-	return result, nil
-}
-
-func (s *chapterService) Update(ctx crud.Context, record model.Chapter) (model.Chapter, error) {
-	domain, err := chapterFromModel(record)
-	if err != nil {
-		return model.Chapter{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.Chapter{}, err
-	}
-	return *toModelChapter(updated, true), nil
-}
-
-func (s *chapterService) UpdateBatch(ctx crud.Context, records []model.Chapter) ([]model.Chapter, error) {
-	domain := make([]*relationships.Chapter, 0, len(records))
-	for _, record := range records {
-		item, err := chapterFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Chapter, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelChapter(item, true))
-	}
-	return result, nil
-}
-
-func (s *chapterService) Delete(ctx crud.Context, record model.Chapter) error {
-	domain, err := chapterFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *chapterService) DeleteBatch(ctx crud.Context, records []model.Chapter) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *chapterService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.Chapter, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return chapterModels(records, true), total, nil
-}
-
-func (s *chapterService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.Chapter, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.Chapter{}, err
-	}
-	return *toModelChapter(record, true), nil
-}
-
-type tagService struct {
-	repo      repository.Repository[*relationships.Tag]
-	relations []string
-}
-
-func newTagService(repo repository.Repository[*relationships.Tag]) crud.Service[model.Tag] {
-	return &tagService{
-		repo:      repo,
-		relations: []string{"Books", "Authors"},
-	}
-}
-
-func (s *tagService) Create(ctx crud.Context, record model.Tag) (model.Tag, error) {
-	domain, err := tagFromModel(record)
-	if err != nil {
-		return model.Tag{}, err
-	}
-	created, err := s.repo.Create(baseContext(ctx), domain)
-	if err != nil {
-		return model.Tag{}, err
-	}
-	return *toModelTag(created, true), nil
-}
-
-func (s *tagService) CreateBatch(ctx crud.Context, records []model.Tag) ([]model.Tag, error) {
-	domain := make([]*relationships.Tag, 0, len(records))
-	for _, record := range records {
-		item, err := tagFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	created, err := s.repo.CreateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Tag, 0, len(created))
-	for _, item := range created {
-		result = append(result, *toModelTag(item, true))
-	}
-	return result, nil
-}
-
-func (s *tagService) Update(ctx crud.Context, record model.Tag) (model.Tag, error) {
-	domain, err := tagFromModel(record)
-	if err != nil {
-		return model.Tag{}, err
-	}
-	updated, err := s.repo.Update(baseContext(ctx), domain)
-	if err != nil {
-		return model.Tag{}, err
-	}
-	return *toModelTag(updated, true), nil
-}
-
-func (s *tagService) UpdateBatch(ctx crud.Context, records []model.Tag) ([]model.Tag, error) {
-	domain := make([]*relationships.Tag, 0, len(records))
-	for _, record := range records {
-		item, err := tagFromModel(record)
-		if err != nil {
-			return nil, err
-		}
-		domain = append(domain, item)
-	}
-	updated, err := s.repo.UpdateMany(baseContext(ctx), domain)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]model.Tag, 0, len(updated))
-	for _, item := range updated {
-		result = append(result, *toModelTag(item, true))
-	}
-	return result, nil
-}
-
-func (s *tagService) Delete(ctx crud.Context, record model.Tag) error {
-	domain, err := tagFromModel(record)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(baseContext(ctx), domain)
-}
-
-func (s *tagService) DeleteBatch(ctx crud.Context, records []model.Tag) error {
-	for _, record := range records {
-		if err := s.Delete(ctx, record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *tagService) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]model.Tag, int, error) {
-	criteria = appendRelations(s.relations, criteria)
-	records, total, err := s.repo.List(baseContext(ctx), criteria...)
-	if err != nil {
-		return nil, 0, err
-	}
-	return tagModels(records, true), total, nil
-}
-
-func (s *tagService) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (model.Tag, error) {
-	criteria = appendRelations(s.relations, criteria)
-	record, err := s.repo.GetByID(baseContext(ctx), id, criteria...)
-	if err != nil {
-		return model.Tag{}, err
-	}
-	return *toModelTag(record, true), nil
-}
 
 type services struct {
 	publishingHouse crud.Service[model.PublishingHouse]
@@ -811,42 +22,494 @@ type services struct {
 	book            crud.Service[model.Book]
 	chapter         crud.Service[model.Chapter]
 	tag             crud.Service[model.Tag]
+
+	domain domainServices
+	inst   *instrumentation
+}
+
+type domainServices struct {
+	publishingHouse crud.Service[*relationships.PublishingHouse]
+	headquarters    crud.Service[*relationships.Headquarters]
+	author          crud.Service[*relationships.Author]
+	authorProfile   crud.Service[*relationships.AuthorProfile]
+	book            crud.Service[*relationships.Book]
+	chapter         crud.Service[*relationships.Chapter]
+	tag             crud.Service[*relationships.Tag]
+}
+
+type servicePair[Dom any, GQL any] struct {
+	gql    crud.Service[GQL]
+	domain crud.Service[Dom]
+}
+
+type serviceDeps[Dom any, GQL any] struct {
+	repo          repository.Repository[Dom]
+	resource      string
+	relations     []string
+	toDomain      func(GQL) (Dom, error)
+	toDomainBatch func([]GQL) ([]Dom, error)
+	toModel       func(Dom) (GQL, error)
+	toModelBatch  func([]Dom) ([]GQL, error)
+	inst          *instrumentation
+}
+
+type instrumentation struct {
+	virtualBefore map[string]int
+	virtualAfter  map[string]int
+	activities    []activity.Event
+}
+
+func newInstrumentation() *instrumentation {
+	return &instrumentation{
+		virtualBefore: make(map[string]int),
+		virtualAfter:  make(map[string]int),
+	}
+}
+
+func (i *instrumentation) bumpVirtual(resource string, before bool, count int) {
+	if i == nil {
+		return
+	}
+	if before {
+		i.virtualBefore[resource] += count
+		return
+	}
+	i.virtualAfter[resource] += count
+}
+
+func (i *instrumentation) recordActivity(event activity.Event) {
+	if i == nil {
+		return
+	}
+	i.activities = append(i.activities, event)
+}
+
+type trackingVirtuals[T any] struct {
+	inst     *instrumentation
+	resource string
+}
+
+func (t *trackingVirtuals[T]) BeforeSave(_ crud.HookContext, _ T) error {
+	t.inst.bumpVirtual(t.resource, true, 1)
+	return nil
+}
+
+func (t *trackingVirtuals[T]) AfterLoad(_ crud.HookContext, _ T) error {
+	t.inst.bumpVirtual(t.resource, false, 1)
+	return nil
+}
+
+func (t *trackingVirtuals[T]) AfterLoadBatch(_ crud.HookContext, records []T) error {
+	t.inst.bumpVirtual(t.resource, false, len(records))
+	return nil
 }
 
 func newServices(repos relationships.Repositories) services {
+	inst := newInstrumentation()
+
+	pub := makeService(serviceDeps[*relationships.PublishingHouse, model.PublishingHouse]{
+		repo:      repos.Publishers,
+		resource:  "publishing_house",
+		relations: []string{"Headquarters", "Authors", "Books"},
+		toDomain:  publishingHouseFromModel,
+		toModel: func(src *relationships.PublishingHouse) (model.PublishingHouse, error) {
+			if src == nil {
+				return model.PublishingHouse{}, fmt.Errorf("nil publishing house")
+			}
+			if dst := toModelPublishingHouse(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.PublishingHouse{}, fmt.Errorf("convert publishing house: empty model")
+		},
+		toModelBatch: func(src []*relationships.PublishingHouse) ([]model.PublishingHouse, error) {
+			return publishingHouseModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	hq := makeService(serviceDeps[*relationships.Headquarters, model.Headquarters]{
+		repo:      repos.Headquarters,
+		resource:  "headquarters",
+		relations: []string{"Publisher"},
+		toDomain:  headquartersFromModel,
+		toModel: func(src *relationships.Headquarters) (model.Headquarters, error) {
+			if src == nil {
+				return model.Headquarters{}, fmt.Errorf("nil headquarters")
+			}
+			if dst := toModelHeadquarters(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.Headquarters{}, fmt.Errorf("convert headquarters: empty model")
+		},
+		toModelBatch: func(src []*relationships.Headquarters) ([]model.Headquarters, error) {
+			return headquartersModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	author := makeService(serviceDeps[*relationships.Author, model.Author]{
+		repo:      repos.Authors,
+		resource:  "author",
+		relations: []string{"Publisher", "Profile", "Books", "Tags"},
+		toDomain:  authorFromModel,
+		toModel: func(src *relationships.Author) (model.Author, error) {
+			if src == nil {
+				return model.Author{}, fmt.Errorf("nil author")
+			}
+			if dst := toModelAuthor(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.Author{}, fmt.Errorf("convert author: empty model")
+		},
+		toModelBatch: func(src []*relationships.Author) ([]model.Author, error) {
+			return authorModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	authorProfile := makeService(serviceDeps[*relationships.AuthorProfile, model.AuthorProfile]{
+		repo:      repos.AuthorProfiles,
+		resource:  "author_profile",
+		relations: []string{"Author"},
+		toDomain:  authorProfileFromModel,
+		toModel: func(src *relationships.AuthorProfile) (model.AuthorProfile, error) {
+			if src == nil {
+				return model.AuthorProfile{}, fmt.Errorf("nil author profile")
+			}
+			if dst := toModelAuthorProfile(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.AuthorProfile{}, fmt.Errorf("convert author profile: empty model")
+		},
+		toModelBatch: func(src []*relationships.AuthorProfile) ([]model.AuthorProfile, error) {
+			return authorProfileModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	book := makeService(serviceDeps[*relationships.Book, model.Book]{
+		repo:      repos.Books,
+		resource:  "book",
+		relations: []string{"Publisher", "Author", "Chapters", "Tags"},
+		toDomain:  bookFromModel,
+		toModel: func(src *relationships.Book) (model.Book, error) {
+			if src == nil {
+				return model.Book{}, fmt.Errorf("nil book")
+			}
+			if dst := toModelBook(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.Book{}, fmt.Errorf("convert book: empty model")
+		},
+		toModelBatch: func(src []*relationships.Book) ([]model.Book, error) {
+			return bookModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	chapter := makeService(serviceDeps[*relationships.Chapter, model.Chapter]{
+		repo:      repos.Chapters,
+		resource:  "chapter",
+		relations: []string{"Book"},
+		toDomain:  chapterFromModel,
+		toModel: func(src *relationships.Chapter) (model.Chapter, error) {
+			if src == nil {
+				return model.Chapter{}, fmt.Errorf("nil chapter")
+			}
+			if dst := toModelChapter(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.Chapter{}, fmt.Errorf("convert chapter: empty model")
+		},
+		toModelBatch: func(src []*relationships.Chapter) ([]model.Chapter, error) {
+			return chapterModels(src, true), nil
+		},
+		inst: inst,
+	})
+
+	tag := makeService(serviceDeps[*relationships.Tag, model.Tag]{
+		repo:      repos.Tags,
+		resource:  "tag",
+		relations: []string{"Books", "Authors"},
+		toDomain:  tagFromModel,
+		toModel: func(src *relationships.Tag) (model.Tag, error) {
+			if src == nil {
+				return model.Tag{}, fmt.Errorf("nil tag")
+			}
+			if dst := toModelTag(src, true); dst != nil {
+				return *dst, nil
+			}
+			return model.Tag{}, fmt.Errorf("convert tag: empty model")
+		},
+		toModelBatch: func(src []*relationships.Tag) ([]model.Tag, error) {
+			return tagModels(src, true), nil
+		},
+		inst: inst,
+	})
+
 	return services{
-		publishingHouse: newPublishingHouseService(repos.Publishers),
-		headquarters:    newHeadquartersService(repos.Headquarters),
-		author:          newAuthorService(repos.Authors),
-		authorProfile:   newAuthorProfileService(repos.AuthorProfiles),
-		book:            newBookService(repos.Books),
-		chapter:         newChapterService(repos.Chapters),
-		tag:             newTagService(repos.Tags),
+		publishingHouse: pub.gql,
+		headquarters:    hq.gql,
+		author:          author.gql,
+		authorProfile:   authorProfile.gql,
+		book:            book.gql,
+		chapter:         chapter.gql,
+		tag:             tag.gql,
+		inst:            inst,
+		domain: domainServices{
+			publishingHouse: pub.domain,
+			headquarters:    hq.domain,
+			author:          author.domain,
+			authorProfile:   authorProfile.domain,
+			book:            book.domain,
+			chapter:         chapter.domain,
+			tag:             tag.domain,
+		},
 	}
 }
 
-type graphqlCrudContext struct {
-	ctx context.Context
-}
+func makeService[Dom any, GQL any](deps serviceDeps[Dom, GQL]) servicePair[Dom, GQL] {
+	domain := crud.NewService(crud.ServiceConfig[Dom]{
+		Repository:    deps.repo,
+		VirtualFields: &trackingVirtuals[Dom]{inst: deps.inst, resource: deps.resource},
+		ScopeGuard:    tenantScopeGuard[Dom](deps.resource),
+		FieldPolicy:   defaultFieldPolicy[Dom](deps.resource),
+		ActivityHooks: activity.Hooks{
+			activity.HookFunc(func(ctx context.Context, event activity.Event) error {
+				deps.inst.recordActivity(event)
+				return nil
+			}),
+		},
+		ActivityConfig: activity.Config{Enabled: true, Channel: "gql"},
+		ResourceName:   deps.resource,
+	})
 
-func (g *graphqlCrudContext) UserContext() context.Context {
-	if g.ctx == nil {
-		return context.Background()
+	adapter := &serviceAdapter[GQL, Dom]{
+		next:           domain,
+		toDomain:       deps.toDomain,
+		toDomainBatch:  deps.toDomainBatch,
+		toModel:        deps.toModel,
+		toModelBatch:   deps.toModelBatch,
+		defaultInclude: deps.relations,
 	}
-	return g.ctx
+
+	return servicePair[Dom, GQL]{
+		gql:    adapter,
+		domain: domain,
+	}
 }
 
-func (g *graphqlCrudContext) Params(string, ...string) string { return "" }
-func (g *graphqlCrudContext) BodyParser(out any) error        { return fmt.Errorf("not supported") }
-func (g *graphqlCrudContext) Query(string, ...string) string  { return "" }
-func (g *graphqlCrudContext) QueryInt(string, ...int) int     { return 0 }
-func (g *graphqlCrudContext) Queries() map[string]string      { return map[string]string{} }
-func (g *graphqlCrudContext) Body() []byte                    { return nil }
-func (g *graphqlCrudContext) Status(int) crud.Response        { return g }
-func (g *graphqlCrudContext) JSON(any, ...string) error       { return nil }
-func (g *graphqlCrudContext) SendStatus(int) error            { return nil }
+func tenantScopeGuard[T any](resource string) crud.ScopeGuardFunc[T] {
+	column := publisherColumn[T]()
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		actor := crud.ActorFromContext(ctx.UserContext())
+		if actor.IsZero() {
+			return crud.ActorContext{}, crud.ScopeFilter{}, errors.New("unauthorized")
+		}
+		scope := crud.ScopeFilter{}
+		if column != "" && actor.TenantID != "" {
+			scope.AddColumnFilter(column, "=", actor.TenantID)
+		}
+		_ = op
+		if resource != "" {
+			return actor, scope, nil
+		}
+		return actor, scope, nil
+	}
+}
 
-// NewCRUDContext adapts a standard context into a crud.Context for service calls.
-func NewCRUDContext(ctx context.Context) crud.Context {
-	return &graphqlCrudContext{ctx: ctx}
+func defaultFieldPolicy[T any](resource string) crud.FieldPolicyProvider[T] {
+	return func(req crud.FieldPolicyRequest[T]) (crud.FieldPolicy, error) {
+		policy := crud.FieldPolicy{
+			Name:  strings.TrimSpace(resource + "-policy"),
+			Allow: nil,
+			Deny:  nil,
+		}
+		role := strings.ToLower(strings.TrimSpace(req.Actor.Role))
+		if role == "guest" {
+			policy.Deny = []string{"email", "pen_name"}
+		}
+		if role == "masked" {
+			policy.Mask = map[string]crud.FieldMaskFunc{
+				"email": func(any) any {
+					return "***"
+				},
+			}
+		}
+		return policy, nil
+	}
+}
+
+type serviceAdapter[GQL any, Dom any] struct {
+	next           crud.Service[Dom]
+	toDomain       func(GQL) (Dom, error)
+	toDomainBatch  func([]GQL) ([]Dom, error)
+	toModel        func(Dom) (GQL, error)
+	toModelBatch   func([]Dom) ([]GQL, error)
+	defaultInclude []string
+}
+
+func (s *serviceAdapter[GQL, Dom]) Create(ctx crud.Context, record GQL) (GQL, error) {
+	domain, err := s.toDomain(record)
+	if err != nil {
+		var zero GQL
+		return zero, err
+	}
+	created, err := s.next.Create(ctx, domain)
+	if err != nil {
+		var zero GQL
+		return zero, err
+	}
+	return s.toModel(created)
+}
+
+func (s *serviceAdapter[GQL, Dom]) CreateBatch(ctx crud.Context, records []GQL) ([]GQL, error) {
+	domainRecords, err := s.convertBatch(records)
+	if err != nil {
+		var zero []GQL
+		return zero, err
+	}
+	created, err := s.next.CreateBatch(ctx, domainRecords)
+	if err != nil {
+		var zero []GQL
+		return zero, err
+	}
+	return s.toModelSlice(created)
+}
+
+func (s *serviceAdapter[GQL, Dom]) Update(ctx crud.Context, record GQL) (GQL, error) {
+	domain, err := s.toDomain(record)
+	if err != nil {
+		var zero GQL
+		return zero, err
+	}
+	updated, err := s.next.Update(ctx, domain)
+	if err != nil {
+		var zero GQL
+		return zero, err
+	}
+	return s.toModel(updated)
+}
+
+func (s *serviceAdapter[GQL, Dom]) UpdateBatch(ctx crud.Context, records []GQL) ([]GQL, error) {
+	domainRecords, err := s.convertBatch(records)
+	if err != nil {
+		var zero []GQL
+		return zero, err
+	}
+	updated, err := s.next.UpdateBatch(ctx, domainRecords)
+	if err != nil {
+		var zero []GQL
+		return zero, err
+	}
+	return s.toModelSlice(updated)
+}
+
+func (s *serviceAdapter[GQL, Dom]) Delete(ctx crud.Context, record GQL) error {
+	domain, err := s.toDomain(record)
+	if err != nil {
+		return err
+	}
+	return s.next.Delete(ctx, domain)
+}
+
+func (s *serviceAdapter[GQL, Dom]) DeleteBatch(ctx crud.Context, records []GQL) error {
+	domainRecords, err := s.convertBatch(records)
+	if err != nil {
+		return err
+	}
+	return s.next.DeleteBatch(ctx, domainRecords)
+}
+
+func (s *serviceAdapter[GQL, Dom]) Index(ctx crud.Context, criteria []repository.SelectCriteria) ([]GQL, int, error) {
+	criteria = withRelations(s.defaultInclude, criteria)
+	records, total, err := s.next.Index(ctx, criteria)
+	if err != nil {
+		var zero []GQL
+		return zero, total, err
+	}
+	out, err := s.toModelSlice(records)
+	return out, total, err
+}
+
+func (s *serviceAdapter[GQL, Dom]) Show(ctx crud.Context, id string, criteria []repository.SelectCriteria) (GQL, error) {
+	criteria = withRelations(s.defaultInclude, criteria)
+	record, err := s.next.Show(ctx, id, criteria)
+	if err != nil {
+		var zero GQL
+		return zero, err
+	}
+	return s.toModel(record)
+}
+
+func (s *serviceAdapter[GQL, Dom]) convertBatch(records []GQL) ([]Dom, error) {
+	if s.toDomainBatch != nil {
+		return s.toDomainBatch(records)
+	}
+	out := make([]Dom, 0, len(records))
+	for _, record := range records {
+		item, err := s.toDomain(record)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func (s *serviceAdapter[GQL, Dom]) toModelSlice(records []Dom) ([]GQL, error) {
+	if s.toModelBatch != nil {
+		return s.toModelBatch(records)
+	}
+	out := make([]GQL, 0, len(records))
+	for _, record := range records {
+		item, err := s.toModel(record)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func withRelations(relations []string, criteria []repository.SelectCriteria) []repository.SelectCriteria {
+	if len(relations) == 0 {
+		return criteria
+	}
+	out := make([]repository.SelectCriteria, 0, len(criteria)+len(relations))
+	for _, rel := range relations {
+		out = append(out, repository.SelectRelation(rel))
+	}
+	return append(out, criteria...)
+}
+
+func publisherColumn[T any]() string {
+	var zero T
+	t := reflect.TypeOf(zero)
+	if t == nil {
+		return ""
+	}
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return ""
+	}
+	field, ok := t.FieldByName("PublisherID")
+	if !ok {
+		return ""
+	}
+	tag := strings.TrimSpace(field.Tag.Get("bun"))
+	if tag == "" {
+		return "publisher_id"
+	}
+	parts := strings.Split(tag, ",")
+	if len(parts) == 0 {
+		return "publisher_id"
+	}
+	first := strings.TrimSpace(parts[0])
+	if first == "" || first == "-" {
+		return "publisher_id"
+	}
+	return first
 }

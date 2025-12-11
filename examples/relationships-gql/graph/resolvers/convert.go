@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func uuidString(id uuid.UUID) string {
+func uuidToString(id uuid.UUID) string {
 	if id == uuid.Nil {
 		return ""
 	}
@@ -43,7 +43,7 @@ func toModelPublishingHouse(src *relationships.PublishingHouse, withRelations bo
 		return nil
 	}
 	dst := &model.PublishingHouse{
-		Id:            uuidString(src.ID),
+		Id:            uuidToString(src.ID),
 		Name:          src.Name,
 		ImprintPrefix: src.ImprintPrefix,
 		EstablishedAt: timePtr(src.EstablishedAt),
@@ -63,8 +63,8 @@ func toModelHeadquarters(src *relationships.Headquarters, withRelations bool) *m
 		return nil
 	}
 	dst := &model.Headquarters{
-		Id:           uuidString(src.ID),
-		PublisherId:  uuidString(src.PublisherID),
+		Id:           uuidToString(src.ID),
+		PublisherId:  uuidToString(src.PublisherID),
 		AddressLine1: src.AddressLine1,
 		AddressLine2: src.AddressLine2,
 		City:         src.City,
@@ -82,8 +82,8 @@ func toModelAuthor(src *relationships.Author, withRelations bool) *model.Author 
 		return nil
 	}
 	dst := &model.Author{
-		Id:          uuidString(src.ID),
-		PublisherId: uuidString(src.PublisherID),
+		Id:          uuidToString(src.ID),
+		PublisherId: uuidToString(src.PublisherID),
 		FullName:    src.FullName,
 		PenName:     src.PenName,
 		Email:       src.Email,
@@ -106,8 +106,8 @@ func toModelAuthorProfile(src *relationships.AuthorProfile, withRelations bool) 
 		return nil
 	}
 	dst := &model.AuthorProfile{
-		Id:            uuidString(src.ID),
-		AuthorId:      uuidString(src.AuthorID),
+		Id:            uuidToString(src.ID),
+		AuthorId:      uuidToString(src.AuthorID),
 		Biography:     src.Biography,
 		FavoriteGenre: src.FavoriteGenre,
 		WritingStyle:  src.WritingStyle,
@@ -123,9 +123,9 @@ func toModelBook(src *relationships.Book, withRelations bool) *model.Book {
 		return nil
 	}
 	dst := &model.Book{
-		Id:            uuidString(src.ID),
-		PublisherId:   uuidString(src.PublisherID),
-		AuthorId:      uuidString(src.AuthorID),
+		Id:            uuidToString(src.ID),
+		PublisherId:   uuidToString(src.PublisherID),
+		AuthorId:      uuidToString(src.AuthorID),
 		Title:         src.Title,
 		Isbn:          src.ISBN,
 		Status:        src.Status,
@@ -148,8 +148,8 @@ func toModelChapter(src *relationships.Chapter, withRelations bool) *model.Chapt
 		return nil
 	}
 	dst := &model.Chapter{
-		Id:           uuidString(src.ID),
-		BookId:       uuidString(src.BookID),
+		Id:           uuidToString(src.ID),
+		BookId:       uuidToString(src.BookID),
 		Title:        src.Title,
 		WordCount:    src.WordCount,
 		ChapterIndex: src.ChapterIndex,
@@ -165,7 +165,7 @@ func toModelTag(src *relationships.Tag, withRelations bool) *model.Tag {
 		return nil
 	}
 	dst := &model.Tag{
-		Id:          uuidString(src.ID),
+		Id:          uuidToString(src.ID),
 		Name:        src.Name,
 		Category:    src.Category,
 		Description: src.Description,

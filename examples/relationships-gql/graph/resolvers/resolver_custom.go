@@ -21,6 +21,8 @@ type Resolver struct {
 	ContextFactory     ContextFactory
 	Loaders            *dataloader.Loader
 	Events             EventBus
+	inst               *instrumentation
+	rest               domainServices
 	AuthorSvc          crud.Service[model.Author]
 	AuthorProfileSvc   crud.Service[model.AuthorProfile]
 	BookSvc            crud.Service[model.Book]
@@ -34,8 +36,10 @@ type Resolver struct {
 func NewResolver(repos relationships.Repositories) *Resolver {
 	svc := newServices(repos)
 	return &Resolver{
-		ContextFactory:     NewCRUDContext,
+		ContextFactory:     GraphQLContext,
 		Events:             NewEventBus(),
+		inst:               svc.inst,
+		rest:               svc.domain,
 		AuthorSvc:          svc.author,
 		AuthorProfileSvc:   svc.authorProfile,
 		BookSvc:            svc.book,

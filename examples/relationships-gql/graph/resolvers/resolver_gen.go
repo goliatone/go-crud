@@ -5,11 +5,15 @@ package resolvers
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-crud/gql/helpers"
+
+	"errors"
+	"github.com/goliatone/go-auth"
 
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
@@ -304,11 +308,46 @@ func hasSubscription(entity, event string) bool {
 	return subscriptionTopic(entity, event) != ""
 }
 
+func GraphQLContext(ctx context.Context) crud.Context {
+	crudCtx := helpers.GraphQLToCrudContext(ctx)
+	if crudCtx == nil {
+		return nil
+	}
+
+	base := crudCtx.UserContext()
+	if existing := crud.ActorFromContext(base); !existing.IsZero() {
+		return crudCtx
+	}
+
+	actor, ok := auth.ActorFromContext(base)
+	if !ok || actor == nil {
+		return crudCtx
+	}
+
+	mapped := crud.ActorContext{
+		ActorID:        actor.ActorID,
+		Subject:        actor.Subject,
+		Role:           actor.Role,
+		ResourceRoles:  actor.ResourceRoles,
+		TenantID:       actor.TenantID,
+		OrganizationID: actor.OrganizationID,
+		Metadata:       actor.Metadata,
+		ImpersonatorID: actor.ImpersonatorID,
+		IsImpersonated: actor.IsImpersonated,
+	}
+
+	updated := crud.ContextWithActor(base, mapped)
+	if setter, ok := crudCtx.(interface{ SetUserContext(context.Context) }); ok && updated != nil {
+		setter.SetUserContext(updated)
+	}
+	return crudCtx
+}
+
 func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
 	}
-	return nil
+	return GraphQLContext(ctx)
 }
 
 func (r *Resolver) guard(ctx context.Context, entity, action string) error {
@@ -711,6 +750,11 @@ func (r *Resolver) AuthorService() crud.Service[model.Author] {
 }
 
 func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Author", "show"); err != nil {
 		return nil, err
 	}
@@ -723,6 +767,11 @@ func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, err
 }
 
 func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Author", "index"); err != nil {
 		return nil, err
 	}
@@ -751,6 +800,11 @@ func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationI
 }
 
 func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInput) (*model.Author, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Author", "create"); err != nil {
 		return nil, err
 	}
@@ -768,6 +822,11 @@ func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInp
 }
 
 func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.UpdateAuthorInput) (*model.Author, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Author", "update"); err != nil {
 		return nil, err
 	}
@@ -789,6 +848,11 @@ func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.Upda
 }
 
 func (r *Resolver) DeleteAuthor(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Author", "delete"); err != nil {
 		return false, err
 	}
@@ -823,6 +887,11 @@ func (r *Resolver) AuthorProfileService() crud.Service[model.AuthorProfile] {
 }
 
 func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.AuthorProfile, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "AuthorProfile", "show"); err != nil {
 		return nil, err
 	}
@@ -835,6 +904,11 @@ func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.Auth
 }
 
 func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "AuthorProfile", "index"); err != nil {
 		return nil, err
 	}
@@ -863,6 +937,11 @@ func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.Pagi
 }
 
 func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAuthorProfileInput) (*model.AuthorProfile, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "AuthorProfile", "create"); err != nil {
 		return nil, err
 	}
@@ -880,6 +959,11 @@ func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAu
 }
 
 func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input model.UpdateAuthorProfileInput) (*model.AuthorProfile, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "AuthorProfile", "update"); err != nil {
 		return nil, err
 	}
@@ -901,6 +985,11 @@ func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input mod
 }
 
 func (r *Resolver) DeleteAuthorProfile(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "AuthorProfile", "delete"); err != nil {
 		return false, err
 	}
@@ -935,6 +1024,11 @@ func (r *Resolver) BookService() crud.Service[model.Book] {
 }
 
 func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Book", "show"); err != nil {
 		return nil, err
 	}
@@ -947,6 +1041,11 @@ func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) 
 }
 
 func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Book", "index"); err != nil {
 		return nil, err
 	}
@@ -975,6 +1074,11 @@ func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) (*model.Book, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Book", "create"); err != nil {
 		return nil, err
 	}
@@ -992,6 +1096,11 @@ func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) 
 }
 
 func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.UpdateBookInput) (*model.Book, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Book", "update"); err != nil {
 		return nil, err
 	}
@@ -1013,6 +1122,11 @@ func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.Update
 }
 
 func (r *Resolver) DeleteBook(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Book", "delete"); err != nil {
 		return false, err
 	}
@@ -1047,6 +1161,11 @@ func (r *Resolver) ChapterService() crud.Service[model.Chapter] {
 }
 
 func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Chapter", "show"); err != nil {
 		return nil, err
 	}
@@ -1059,6 +1178,11 @@ func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, e
 }
 
 func (r *Resolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Chapter", "index"); err != nil {
 		return nil, err
 	}
@@ -1087,6 +1211,11 @@ func (r *Resolver) ListChapter(ctx context.Context, pagination *model.Pagination
 }
 
 func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterInput) (*model.Chapter, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Chapter", "create"); err != nil {
 		return nil, err
 	}
@@ -1104,6 +1233,11 @@ func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterI
 }
 
 func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.UpdateChapterInput) (*model.Chapter, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Chapter", "update"); err != nil {
 		return nil, err
 	}
@@ -1125,6 +1259,11 @@ func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.Upd
 }
 
 func (r *Resolver) DeleteChapter(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Chapter", "delete"); err != nil {
 		return false, err
 	}
@@ -1159,6 +1298,11 @@ func (r *Resolver) HeadquartersService() crud.Service[model.Headquarters] {
 }
 
 func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headquarters, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Headquarters", "show"); err != nil {
 		return nil, err
 	}
@@ -1171,6 +1315,11 @@ func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headq
 }
 
 func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Headquarters", "index"); err != nil {
 		return nil, err
 	}
@@ -1199,6 +1348,11 @@ func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.Pagin
 }
 
 func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHeadquartersInput) (*model.Headquarters, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Headquarters", "create"); err != nil {
 		return nil, err
 	}
@@ -1216,6 +1370,11 @@ func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHea
 }
 
 func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input model.UpdateHeadquartersInput) (*model.Headquarters, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Headquarters", "update"); err != nil {
 		return nil, err
 	}
@@ -1237,6 +1396,11 @@ func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input mode
 }
 
 func (r *Resolver) DeleteHeadquarters(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Headquarters", "delete"); err != nil {
 		return false, err
 	}
@@ -1271,6 +1435,11 @@ func (r *Resolver) PublishingHouseService() crud.Service[model.PublishingHouse] 
 }
 
 func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.PublishingHouse, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "PublishingHouse", "show"); err != nil {
 		return nil, err
 	}
@@ -1283,6 +1452,11 @@ func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.Pu
 }
 
 func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "PublishingHouse", "index"); err != nil {
 		return nil, err
 	}
@@ -1311,6 +1485,11 @@ func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.Pa
 }
 
 func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.CreatePublishingHouseInput) (*model.PublishingHouse, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "PublishingHouse", "create"); err != nil {
 		return nil, err
 	}
@@ -1328,6 +1507,11 @@ func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.Create
 }
 
 func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input model.UpdatePublishingHouseInput) (*model.PublishingHouse, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "PublishingHouse", "update"); err != nil {
 		return nil, err
 	}
@@ -1349,6 +1533,11 @@ func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input m
 }
 
 func (r *Resolver) DeletePublishingHouse(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "PublishingHouse", "delete"); err != nil {
 		return false, err
 	}
@@ -1383,6 +1572,11 @@ func (r *Resolver) TagService() crud.Service[model.Tag] {
 }
 
 func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Tag", "show"); err != nil {
 		return nil, err
 	}
@@ -1395,6 +1589,11 @@ func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
 }
 
 func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Tag", "index"); err != nil {
 		return nil, err
 	}
@@ -1423,6 +1622,11 @@ func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInpu
 }
 
 func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Tag", "create"); err != nil {
 		return nil, err
 	}
@@ -1440,6 +1644,11 @@ func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*
 }
 
 func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateTagInput) (*model.Tag, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Tag", "update"); err != nil {
 		return nil, err
 	}
@@ -1461,6 +1670,11 @@ func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateT
 }
 
 func (r *Resolver) DeleteTag(ctx context.Context, id string) (bool, error) {
+	user, ok := auth.FromContext(ctx)
+	if !ok || user == nil {
+		return false, errors.New("unauthorized")
+	}
+	_ = user
 	if err := r.guard(ctx, "Tag", "delete"); err != nil {
 		return false, err
 	}

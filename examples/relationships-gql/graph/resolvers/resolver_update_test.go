@@ -7,8 +7,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/goliatone/go-auth"
 	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
+	"github.com/google/uuid"
 )
 
 func TestApplyInputPointerPatch(t *testing.T) {
@@ -81,6 +83,17 @@ func setupResolver(t *testing.T) (*Resolver, context.Context, func()) {
 	db := client.DB()
 	require.NoError(t, relationships.MigrateSchema(ctx, db))
 	require.NoError(t, relationships.SeedDatabase(ctx, client))
+
+	ctx = auth.WithContext(ctx, &auth.User{
+		ID:       uuid.New(),
+		Username: "test-user",
+		Role:     auth.RoleAdmin,
+	})
+	ctx = auth.WithActorContext(ctx, &auth.ActorContext{
+		ActorID: "graph-test-actor",
+		Subject: "test-user",
+		Role:    string(auth.RoleAdmin),
+	})
 
 	resolver := NewResolver(relationships.RegisterRepositories(db))
 
