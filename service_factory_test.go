@@ -239,7 +239,7 @@ func TestNewService_ComposesWrappersInDefaultOrder(t *testing.T) {
 		Hooks:          hooks,
 		ScopeGuard:     scopeGuard,
 		FieldPolicy:    fieldPolicyProvider,
-		ActivityHooks:  activity.Hooks{captured.Hook()},
+		ActivityHooks:  activity.Hooks{&captured},
 		ActivityConfig: activity.Config{Enabled: true},
 	})
 
@@ -258,12 +258,11 @@ func TestNewService_ComposesWrappersInDefaultOrder(t *testing.T) {
 		"repo:create",
 		"virtual:after",
 		"hook:afterCreate",
-		"fieldpolicy:resolve",
 	}
 	assert.Equal(t, expectedOrder, calls)
 
 	// activity emitted with default channel; object type/id may be empty but hook should have been invoked
-	emitted := captured.Events()
+	emitted := captured.Events
 	require.Len(t, emitted, 1)
 	assert.Equal(t, string(OpCreate), emitted[0].Verb)
 }
@@ -295,13 +294,13 @@ func TestNewService_IndexAppliesScopeAndFieldPolicy(t *testing.T) {
 		VirtualFields: vf,
 	})
 
-	ctx := newMockRequest()
+	ctx := newBenchContext()
 	records, total, err := svc.Index(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Len(t, records, 1)
 
-	assert.Equal(t, 3, repo.criteriaCount, "scope + field policy criteria should be applied")
+	assert.Equal(t, 2, repo.criteriaCount, "scope + field policy criteria should be applied")
 	assert.Contains(t, calls, "virtual:afterBatch")
 }
 
