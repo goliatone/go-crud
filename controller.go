@@ -71,42 +71,71 @@ type guardRequestContext struct {
 
 // Controller handles CRUD operations for a given model.
 type Controller[T any] struct {
-	Repo                 repository.Repository[T]
-	deserializer         func(op CrudOperation, ctx Context) (T, error)
-	deserialiMany        func(op CrudOperation, ctx Context) ([]T, error)
-	resp                 ResponseHandler[T]
-	service              Service[T]
-	resource             string
-	resourceType         reflect.Type
-	logger               Logger
-	fieldMapProvider     FieldMapProvider
-	queryLoggingEnabled  bool
-	routeConfig          RouteConfig
-	hooks                LifecycleHooks[T]
-	activityEmitterHooks *activity.Emitter   // activity log events
-	notificationEmitter  NotificationEmitter // user facing notifications
-	fieldPolicyProvider  FieldPolicyProvider[T]
-	actions              []Action[T]
-	actionDescriptors    []ActionDescriptor
-	actionRouteDefs      []router.RouteDefinition
-	adminScopeMetadata   AdminScopeMetadata
-	adminMenuMetadata    AdminMenuMetadata
-	rowFilterHints       []RowFilterHint
-	routeMethods         map[CrudOperation]string
-	routePaths           map[CrudOperation]string
-	routeNames           map[CrudOperation]string
-	relationProvider     router.RelationMetadataProvider
-	scopeGuard           ScopeGuardFunc[T]
-	virtualFieldsEnabled bool
-	virtualFieldConfig   VirtualFieldHandlerConfig
-	mergePolicy          MergePolicy
-	virtualFieldDefs     []VirtualFieldDef
+	Repo                  repository.Repository[T]
+	deserializer          func(op CrudOperation, ctx Context) (T, error)
+	deserialiMany         func(op CrudOperation, ctx Context) ([]T, error)
+	resp                  ResponseHandler[T]
+	service               Service[T]
+	resource              string
+	resourceType          reflect.Type
+	logger                Logger
+	serviceOverrides      *ServiceFuncs[T]
+	commandServiceFactory CommandServiceFactory[T]
+	fieldMapProvider      FieldMapProvider
+	queryLoggingEnabled   bool
+	routeConfig           RouteConfig
+	hooks                 LifecycleHooks[T]
+	activityEmitterHooks  *activity.Emitter   // activity log events
+	notificationEmitter   NotificationEmitter // user facing notifications
+	fieldPolicyProvider   FieldPolicyProvider[T]
+	actions               []Action[T]
+	actionDescriptors     []ActionDescriptor
+	actionRouteDefs       []router.RouteDefinition
+	adminScopeMetadata    AdminScopeMetadata
+	adminMenuMetadata     AdminMenuMetadata
+	rowFilterHints        []RowFilterHint
+	routeMethods          map[CrudOperation]string
+	routePaths            map[CrudOperation]string
+	routeNames            map[CrudOperation]string
+	relationProvider      router.RelationMetadataProvider
+	scopeGuard            ScopeGuardFunc[T]
+	virtualFieldsEnabled  bool
+	virtualFieldConfig    VirtualFieldHandlerConfig
+	mergePolicy           MergePolicy
+	virtualFieldDefs      []VirtualFieldDef
 }
 
 // NewController creates a new Controller with functional options.
 func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Controller[T] {
+	controller := newControllerBase(repo)
+
+	for _, opt := range opts {
+		opt(controller)
+	}
+
+	controller.initialize()
+
+	return controller
+}
+
+// NewControllerWithService builds a controller using the provided service while
+// still honoring controller options (deserializer, response handler, hooks, etc.).
+func NewControllerWithService[T any](repo repository.Repository[T], service Service[T], opts ...Option[T]) *Controller[T] {
+	controller := newControllerBase(repo)
+	controller.service = service
+
+	for _, opt := range opts {
+		opt(controller)
+	}
+
+	controller.initialize()
+
+	return controller
+}
+
+func newControllerBase[T any](repo repository.Repository[T]) *Controller[T] {
 	var t T
-	controller := &Controller[T]{
+	return &Controller[T]{
 		Repo:             repo,
 		deserializer:     DefaultDeserializer[T],
 		deserialiMany:    DefaultDeserializerMany[T],
@@ -121,34 +150,28 @@ func NewController[T any](repo repository.Repository[T], opts ...Option[T]) *Con
 		relationProvider: router.NewDefaultRelationProvider(),
 		mergePolicy:      defaultMergePolicy(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(controller)
-	}
+func (c *Controller[T]) initialize() {
+	c.attachVirtualFieldHooks()
+	c.buildService()
 
-	if controller.service == nil {
-		controller.service = NewRepositoryService(controller.Repo)
-	}
-
-	if controller.fieldMapProvider == nil {
-		if provider := newFieldMapProviderFromRepo(controller.Repo, controller.resourceType); provider != nil {
-			controller.fieldMapProvider = provider
+	if c.fieldMapProvider == nil {
+		if provider := newFieldMapProviderFromRepo(c.Repo, c.resourceType); provider != nil {
+			c.fieldMapProvider = provider
 		}
 	}
-	controller.attachVirtualFieldHooks()
 
-	if controller.virtualFieldsEnabled {
-		controller.fieldMapProvider = wrapFieldMapProviderWithVirtuals(controller.fieldMapProvider, controller.virtualFieldDefs, controller.virtualFieldConfig)
+	if c.virtualFieldsEnabled {
+		c.fieldMapProvider = wrapFieldMapProviderWithVirtuals(c.fieldMapProvider, c.virtualFieldDefs, c.virtualFieldConfig)
 	}
 
-	if controller.relationProvider == nil {
-		controller.relationProvider = router.NewDefaultRelationProvider()
+	if c.relationProvider == nil {
+		c.relationProvider = router.NewDefaultRelationProvider()
 	}
 
-	registerRelationProvider(controller.resourceType, controller.relationProvider)
-	registerQueryConfig(controller.resourceType, controller.fieldMapProvider)
-
-	return controller
+	registerRelationProvider(c.resourceType, c.relationProvider)
+	registerQueryConfig(c.resourceType, c.fieldMapProvider)
 }
 
 func (c *Controller[T]) RegisterRoutes(r Router) {
@@ -555,6 +578,53 @@ func (c *Controller[T]) runBatchHooks(ctx Context, op CrudOperation, hooks []Hoo
 	return nil
 }
 
+func (c *Controller[T]) attachHookContext(ctx Context, op CrudOperation) {
+	if ctx == nil {
+		return
+	}
+
+	base := ctx.UserContext()
+	meta := c.hookMetadata(op)
+	base = ContextWithHookMetadata(base, meta)
+	base = ContextWithActivityEmitter(base, c.activityEmitterHooks)
+	base = ContextWithNotificationEmitter(base, c.notificationEmitter)
+
+	if setter, ok := ctx.(userContextSetter); ok && base != nil {
+		setter.SetUserContext(base)
+	}
+}
+
+func (c *Controller[T]) buildService() {
+	svc := c.service
+
+	cfg := ServiceConfig[T]{
+		Repository:   c.Repo,
+		Hooks:        c.hooks,
+		ScopeGuard:   c.scopeGuard,
+		FieldPolicy:  c.fieldPolicyProvider,
+		ResourceName: c.resource,
+		ResourceType: c.resourceType,
+	}
+
+	if svc == nil {
+		svc = NewService(cfg)
+	} else if !hooksEmpty(cfg.Hooks) {
+		svc = &hooksService[T]{next: svc, hooks: cfg.Hooks}
+	}
+
+	if c.serviceOverrides != nil {
+		svc = ComposeService(svc, *c.serviceOverrides)
+	}
+
+	if c.commandServiceFactory != nil {
+		if wrapped := c.commandServiceFactory(svc); wrapped != nil {
+			svc = wrapped
+		}
+	}
+
+	c.service = svc
+}
+
 func (c *Controller[T]) attachVirtualFieldHooks() {
 	if !c.virtualFieldsEnabled {
 		return
@@ -713,6 +783,8 @@ func (c *Controller[T]) Show(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpRead)
+
 	queryOpts := c.policyQueryOptions(policy)
 	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpRead, c.logger, c.queryLoggingEnabled, queryOpts...)
 	if err != nil {
@@ -725,9 +797,6 @@ func (c *Controller[T]) Show(ctx Context) error {
 	record, err := c.service.Show(ctx, id, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
-	}
-	if err := c.runHooks(ctx, OpRead, c.hooks.AfterRead, record, meta); err != nil {
-		return c.resp.OnError(ctx, err, OpRead)
 	}
 	applyFieldPolicyToRecord(record, policy)
 	return c.resp.OnData(ctx, record, OpRead, filters)
@@ -753,6 +822,8 @@ func (c *Controller[T]) Index(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpList)
+
 	queryOpts := c.policyQueryOptions(policy)
 	criteria, filters, err := BuildQueryCriteriaWithLogger[T](ctx, OpList, c.logger, c.queryLoggingEnabled, queryOpts...)
 	if err != nil {
@@ -763,10 +834,6 @@ func (c *Controller[T]) Index(ctx Context) error {
 
 	records, count, err := c.service.Index(ctx, criteria)
 	if err != nil {
-		return c.resp.OnError(ctx, err, OpList)
-	}
-
-	if err := c.runBatchHooks(ctx, OpList, c.hooks.AfterList, records, meta); err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
 
@@ -793,15 +860,12 @@ func (c *Controller[T]) Create(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpCreate)
+
 	record, err := c.deserializer(OpCreate, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
-	}
-
-	if err := c.runHooks(ctx, OpCreate, c.hooks.BeforeCreate, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
 	createdRecord, err := c.service.Create(ctx, record)
@@ -810,10 +874,6 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreate)
 	}
 
-	if err := c.runHooks(ctx, OpCreate, c.hooks.AfterCreate, createdRecord, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, err)
-		return c.resp.OnError(ctx, err, OpCreate)
-	}
 	c.emitActivityEvents(ctx, OpCreate, meta, []T{createdRecord}, nil)
 	applyFieldPolicyToRecord(createdRecord, policy)
 	return c.resp.OnData(ctx, createdRecord, OpCreate)
@@ -831,15 +891,12 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpCreateBatch)
+
 	records, err := c.deserialiMany(OpCreateBatch, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
-	}
-
-	if err := c.runBatchHooks(ctx, OpCreateBatch, c.hooks.BeforeCreateBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
 	createdRecords, err := c.service.CreateBatch(ctx, records)
@@ -848,10 +905,6 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
 	}
 
-	if err := c.runBatchHooks(ctx, OpCreateBatch, c.hooks.AfterCreateBatch, createdRecords, meta); err != nil {
-		c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, err)
-		return c.resp.OnError(ctx, err, OpCreateBatch)
-	}
 	c.emitActivityEvents(ctx, OpCreateBatch, meta, createdRecords, nil)
 	applyFieldPolicyToSlice(createdRecords, policy)
 
@@ -877,6 +930,8 @@ func (c *Controller[T]) Update(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 	c.logFieldPolicyDecision(policy)
+
+	c.attachHookContext(ctx, OpUpdate)
 
 	idStr := ctx.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -908,21 +963,12 @@ func (c *Controller[T]) Update(ctx Context) error {
 	// Apply virtual map merge semantics (merge vs replace, delete-with-null).
 	record = mergeVirtualMaps(existingRecord, record, c.virtualFieldDefs, c.mergePolicy)
 
-	if err := c.runHooks(ctx, OpUpdate, c.hooks.BeforeUpdate, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpUpdate)
-	}
-
 	updatedRecord, err := c.service.Update(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
 	}
 
-	if err := c.runHooks(ctx, OpUpdate, c.hooks.AfterUpdate, updatedRecord, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, err)
-		return c.resp.OnError(ctx, err, OpUpdate)
-	}
 	c.emitActivityEvents(ctx, OpUpdate, meta, []T{updatedRecord}, nil)
 	applyFieldPolicyToRecord(updatedRecord, policy)
 	return c.resp.OnData(ctx, updatedRecord, OpUpdate)
@@ -939,6 +985,8 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 	c.logFieldPolicyDecision(policy)
+
+	c.attachHookContext(ctx, OpUpdateBatch)
 
 	records, err := c.deserialiMany(OpUpdateBatch, ctx)
 	if err != nil {
@@ -964,21 +1012,12 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		records[i] = merged
 	}
 
-	if err := c.runBatchHooks(ctx, OpUpdateBatch, c.hooks.BeforeUpdateBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpUpdateBatch)
-	}
-
 	updatedRecords, err := c.service.UpdateBatch(ctx, records)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
 	}
 
-	if err := c.runBatchHooks(ctx, OpUpdateBatch, c.hooks.AfterUpdateBatch, updatedRecords, meta); err != nil {
-		c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, err)
-		return c.resp.OnError(ctx, err, OpUpdateBatch)
-	}
 	c.emitActivityEvents(ctx, OpUpdateBatch, meta, updatedRecords, nil)
 	applyFieldPolicyToSlice(updatedRecords, policy)
 
@@ -1005,6 +1044,8 @@ func (c *Controller[T]) Delete(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpDelete)
+
 	id := ctx.Params("id")
 	criteria := c.applyScopeCriteria(nil, meta.scope)
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
@@ -1014,21 +1055,12 @@ func (c *Controller[T]) Delete(ctx Context) error {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
-	if err := c.runHooks(ctx, OpDelete, c.hooks.BeforeDelete, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpDelete)
-	}
-
 	err = c.service.Delete(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
 	}
 
-	if err := c.runHooks(ctx, OpDelete, c.hooks.AfterDelete, record, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
-		return c.resp.OnError(ctx, err, OpDelete)
-	}
 	c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, nil)
 
 	return c.resp.OnEmpty(ctx, OpDelete)
@@ -1046,15 +1078,12 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 	}
 	c.logFieldPolicyDecision(policy)
 
+	c.attachHookContext(ctx, OpDeleteBatch)
+
 	records, err := c.deserialiMany(OpDeleteBatch, ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
-	}
-
-	if err := c.runBatchHooks(ctx, OpDeleteBatch, c.hooks.BeforeDeleteBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
 	err = c.service.DeleteBatch(ctx, records)
@@ -1063,10 +1092,6 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
 	}
 
-	if err := c.runBatchHooks(ctx, OpDeleteBatch, c.hooks.AfterDeleteBatch, records, meta); err != nil {
-		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
-		return c.resp.OnError(ctx, err, OpDeleteBatch)
-	}
 	c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, nil)
 
 	return c.resp.OnEmpty(ctx, OpDeleteBatch)
