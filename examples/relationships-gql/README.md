@@ -2,6 +2,12 @@
 
 This example mirrors the REST relationships demo but serves the data over GraphQL using gqlgen, go-crud services, and an in-memory sqlite/bun setup seeded via fixtures (hashid-generated IDs).
 
+## Service wiring
+- Services are composed once in `graph/resolvers/services.go` via `crud.NewService`, layering virtual fields, validation, scope guards, field policies, and activity instrumentation per entity.
+- Resolvers stay thin by only adapting the gqlgen context: `crudCtx := helpers.GraphQLToCrudContext(ctx); return r.services.book.Create(crudCtx, record)` where `record` is the converted model.
+- You can feed the same service into REST with `crud.NewControllerWithService` if you want this example to mirror the REST router without duplicating hooks/guards.
+- Parity checks (`graph/resolvers/parity_test.go`) and the websocket smoke test keep REST⇔GraphQL behavior aligned as hooks or guards change.
+
 ## Running
 
 ```
