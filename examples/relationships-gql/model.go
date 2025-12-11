@@ -9,7 +9,7 @@ import (
 
 // Regenerate the GraphQL schema/config/resolvers for the relationships example
 // using the live models/relations registered in registrar (no metadata.json).
-//go:generate go run ../../gql/cmd/graphqlgen --schema-package ./registrar --out ./graph --config ./gqlgen.yml --emit-subscriptions --emit-dataloader
+//go:generate go run ../../gql/cmd/graphqlgen --schema-package ./registrar --out ./graph --config ./gqlgen.yml --emit-subscriptions --emit-dataloader --auth-package github.com/goliatone/go-auth --auth-guard "auth.FromContext(ctx)"
 
 // PublishingHouse demonstrates has-one (Headquarters) and has-many (Authors, Books) relations.
 type PublishingHouse struct {
