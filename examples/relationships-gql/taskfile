@@ -72,6 +72,8 @@ function graphqlgen {
     --config ./gqlgen.yml \
     --emit-subscriptions \
     --emit-dataloader \
+    --auth-package github.com/goliatone/go-auth \
+    --auth-guard "auth.FromContext(ctx)" \
     "$@"
 }
 
