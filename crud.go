@@ -9,6 +9,7 @@ type Request interface {
 	Params(key string, defaultValue ...string) string
 	BodyParser(out any) error
 	Query(key string, defaultValue ...string) string
+	QueryValues(key string) []string
 	QueryInt(key string, defaultValue ...int) int
 	Queries() map[string]string
 	Body() []byte
