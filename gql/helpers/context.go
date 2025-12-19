@@ -62,6 +62,14 @@ func (g *graphqlContext) Query(key string, defaultValue ...string) string {
 	return ""
 }
 
+func (g *graphqlContext) QueryValues(key string) []string {
+	val := g.Query(key)
+	if val == "" {
+		return []string{}
+	}
+	return []string{val}
+}
+
 func (g *graphqlContext) QueryInt(key string, defaultValue ...int) int {
 	val := strings.TrimSpace(g.Query(key))
 	if val == "" {

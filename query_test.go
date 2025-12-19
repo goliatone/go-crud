@@ -37,6 +37,7 @@ func newMockRequest() *mockContext {
 		userCtx:   context.Background(),
 		paramsMap: make(map[string]string),
 		queryMap:  make(map[string]string),
+		queries:   url.Values{},
 		status:    200,
 	}
 }
@@ -73,6 +74,20 @@ func (m *mockContext) Query(key string, defaultValue ...string) string {
 		return defaultValue[0]
 	}
 	return val
+}
+
+func (m *mockContext) QueryValues(key string) []string {
+	if m.queries != nil {
+		if values, ok := m.queries[key]; ok && len(values) > 0 {
+			out := make([]string, len(values))
+			copy(out, values)
+			return out
+		}
+	}
+	if val, ok := m.queryMap[key]; ok && val != "" {
+		return []string{val}
+	}
+	return []string{}
 }
 
 // QueryInt returns a query parameter parsed as int, or defaultValue if provided and parsing fails.
@@ -294,6 +309,22 @@ type Page struct {
 func newMockContextWithQuery(queryParams map[string]string) *mockContext {
 	mock := newMockRequest()
 	mock.queryMap = queryParams
+	for key, val := range queryParams {
+		mock.queries.Add(key, val)
+	}
+	return mock
+}
+
+func newMockContextWithQueryValues(queryParams map[string][]string) *mockContext {
+	mock := newMockRequest()
+	for key, values := range queryParams {
+		for _, val := range values {
+			mock.queries.Add(key, val)
+		}
+		if len(values) > 0 {
+			mock.queryMap[key] = values[0]
+		}
+	}
 	return mock
 }
 
@@ -707,6 +738,17 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildQueryCriteriaRepeatedIncludeParams(t *testing.T) {
+	ctx := newMockContextWithQueryValues(map[string][]string{
+		"include": {"Profile", "Company"},
+	})
+
+	_, filters, err := BuildQueryCriteria[TestModel](ctx, OpList)
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	assert.ElementsMatch(t, []string{"Profile", "Company"}, filters.Include)
 }
 
 func TestBuildQueryCriteriaWithLoggerEnabled(t *testing.T) {

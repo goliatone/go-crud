@@ -32,6 +32,10 @@ func (s *stubContext) Query(string, ...string) string {
 	return ""
 }
 
+func (s *stubContext) QueryValues(string) []string {
+	return []string{}
+}
+
 func (s *stubContext) QueryInt(string, ...int) int {
 	return 0
 }
