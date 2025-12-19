@@ -9,7 +9,7 @@ require (
 	github.com/ettle/strcase v0.2.0
 	github.com/goliatone/go-crud v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-repository-bun v0.10.0
-	github.com/goliatone/go-router v0.32.0
+	github.com/goliatone/go-router v0.39.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.14
