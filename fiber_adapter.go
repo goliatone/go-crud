@@ -93,6 +93,17 @@ func (ca *crudAdapter) Query(key string, defaultValue ...string) string {
 	return val
 }
 
+func (ca *crudAdapter) QueryValues(key string) []string {
+	args := ca.c.Request().URI().QueryArgs()
+	values := []string{}
+	args.VisitAll(func(k, v []byte) {
+		if string(k) == key {
+			values = append(values, string(v))
+		}
+	})
+	return values
+}
+
 func (ca *crudAdapter) QueryInt(key string, defaultValue ...int) int {
 	val := ca.Query(key)
 	if val == "" && len(defaultValue) > 0 {
