@@ -55,6 +55,8 @@ github.com/goliatone/go-repository-bun v0.10.0 h1:fopNB43c7FKsSIUktTqytqbYwlfpM3
 github.com/goliatone/go-repository-bun v0.10.0/go.mod h1:ZG2ZKOpbHhgi81rUtVgdtNCCApu49ihPhHpce4qjaOI=
 github.com/goliatone/go-router v0.32.0 h1:vxsxMlfQnxih7bSLUTOCQb7794JgE1YzhM50kTieBQk=
 github.com/goliatone/go-router v0.32.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
+github.com/goliatone/go-router v0.39.0 h1:e4X25haZiPr/1WPG8BEeKxIihjPcnubAhy05KVLWexQ=
+github.com/goliatone/go-router v0.39.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
 github.com/goliatone/go-users v0.3.0 h1:IPA5WTlH2TkyQgXzv3txEoQWojx4ayrS8xotHsCHBNs=
 github.com/goliatone/go-users v0.3.0/go.mod h1:d72HO6IQyLTPNyH+Y0Bs1Rt60YLJdF5gjs3qgsBdpGI=
 github.com/goliatone/hashid v0.1.1 h1:VfZZf7s0uM+JZ3ZBkqaEM1mL/CJfiTmFOzZ1QuXY3EM=
