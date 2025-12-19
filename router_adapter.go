@@ -125,6 +125,10 @@ func (ca *contextAdapter) Query(key string, defaultValue ...string) string {
 	return ca.c.Query(key, def)
 }
 
+func (ca *contextAdapter) QueryValues(key string) []string {
+	return ca.c.QueryValues(key)
+}
+
 func (ca *contextAdapter) QueryInt(key string, defaultValue ...int) int {
 	def := 0
 	if len(defaultValue) > 0 {
