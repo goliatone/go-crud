@@ -2,6 +2,18 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Query normalization ([39067df](https://github.com/goliatone/go-crud/commit/39067dfeec8484a8742813e56996d77cad0415f8))  - (goliatone)
+- QueryValues to support multi value query strings ([8e543fc](https://github.com/goliatone/go-crud/commit/8e543fcdd0210ca54481f869fa924b29135e17f6))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([bf31a9c](https://github.com/goliatone/go-crud/commit/bf31a9c08e3e7b737d463f2d7c98998fe3c7f58e))  - (goliatone)
+- Update tests ([69c2321](https://github.com/goliatone/go-crud/commit/69c2321b174c2442f5acf6a21a14e90d4cf510ed))  - (goliatone)
+
+# [0.14.0](https://github.com/goliatone/go-crud/compare/v0.13.0...v0.14.0) - (2025-12-11)
+
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Resolve OR operators ([773d571](https://github.com/goliatone/go-crud/commit/773d571563928a8ca0e87241f97ac699170fadec))  - (goliatone)
@@ -9,6 +21,10 @@
 - Use pivot tables to handle many to many rels ([0fbc603](https://github.com/goliatone/go-crud/commit/0fbc603ae38d2e92bba30288cab24021315af0af))  - (goliatone)
 - Handle empty rels ([b1afdb1](https://github.com/goliatone/go-crud/commit/b1afdb188203d43d1cc595cf1cbf1c0b06db4e28))  - (goliatone)
 - Update filename for generated resolver ([70b8922](https://github.com/goliatone/go-crud/commit/70b89224f28f1fc78627fddc861d6d26996999cd))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.14.0 ([a0cc1b1](https://github.com/goliatone/go-crud/commit/a0cc1b1ffcc3cc6fdbaa7de2347148a5cabf9843))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
