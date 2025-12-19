@@ -110,7 +110,7 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 	offset := ctx.QueryInt("offset", DefaultOffset)
 	order := ctx.Query("order")
 	selectFields := ctx.Query("select")
-	include := ctx.Query("include")
+	include := normalizeIncludeParams(ctx)
 
 	filters := &Filters{
 		Limit:     limit,
@@ -339,6 +339,33 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 	}
 
 	return criteria.compute(), filters, nil
+}
+
+func normalizeIncludeParams(ctx Context) string {
+	if ctx == nil {
+		return ""
+	}
+	values := ctx.QueryValues("include")
+	if len(values) == 0 {
+		if val := strings.TrimSpace(ctx.Query("include")); val != "" {
+			values = []string{val}
+		}
+	}
+	if len(values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(values))
+	for _, raw := range values {
+		for _, item := range strings.Split(raw, ",") {
+			if val := strings.TrimSpace(item); val != "" {
+				parts = append(parts, val)
+			}
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ",")
 }
 
 func getDirection(dir string) string {
