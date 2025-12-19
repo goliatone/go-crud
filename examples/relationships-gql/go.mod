@@ -12,7 +12,7 @@ require (
 	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-persistence-bun v0.7.0
 	github.com/goliatone/go-repository-bun v0.10.0
-	github.com/goliatone/go-router v0.32.0
+	github.com/goliatone/go-router v0.39.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.28
