@@ -34,6 +34,7 @@ type ServiceConfig[T any] struct {
 	NotificationEmitter NotificationEmitter
 	ResourceName        string
 	ResourceType        reflect.Type
+	BatchReturnOrderByID bool
 }
 
 // NewService composes the repository-backed service with optional layers in the
@@ -41,7 +42,12 @@ type ServiceConfig[T any] struct {
 // scope guard → field policy → activity/notifications. Alternate orderings
 // should be implemented as custom wrappers by callers.
 func NewService[T any](cfg ServiceConfig[T]) Service[T] {
-	base := NewRepositoryService(cfg.Repository)
+	opts := RepositoryServiceOptions{}
+	if cfg.BatchReturnOrderByID {
+		opts.BatchInsertCriteria = []repository.InsertCriteria{repository.InsertReturnOrderByID()}
+		opts.BatchUpdateCriteria = []repository.UpdateCriteria{repository.UpdateReturnOrderByID()}
+	}
+	base := NewRepositoryServiceWithOptions(cfg.Repository, opts)
 
 	var svc Service[T] = base
 
