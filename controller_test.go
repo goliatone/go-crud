@@ -926,6 +926,50 @@ func TestController_CreateBatch_FormatOptions(t *testing.T) {
 	}
 }
 
+func TestController_DeleteBatch_AcceptsIDArray(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	repo := newTestUserRepository(db)
+	user1 := &TestUser{
+		ID:        uuid.New(),
+		Name:      "Delete Batch 1",
+		Email:     "delete-batch-1@example.com",
+		Password:  "secret",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	user2 := &TestUser{
+		ID:        uuid.New(),
+		Name:      "Delete Batch 2",
+		Email:     "delete-batch-2@example.com",
+		Password:  "secret",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := repo.Create(ctx, user1)
+	require.NoError(t, err)
+	_, err = repo.Create(ctx, user2)
+	require.NoError(t, err)
+
+	ids := []string{user1.ID.String(), user2.ID.String()}
+	body, err := json.Marshal(ids)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodDelete, "/test-user/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	_, err = repo.GetByID(ctx, user1.ID.String())
+	assert.Error(t, err)
+	_, err = repo.GetByID(ctx, user2.ID.String())
+	assert.Error(t, err)
+}
+
 func TestController_UpdateUser(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
@@ -1715,6 +1759,67 @@ func TestRegisterRoutes(t *testing.T) {
 			Name:   fmt.Sprintf("%s:%s", singular, OpDelete),
 			Method: "DELETE",
 			Path:   fmt.Sprintf("/%s/:id", singular),
+		},
+	}
+
+	for _, expected := range expectedRoutes {
+		route := app.GetRoute(expected.Name)
+		if assert.NotNil(t, route, "Route %s should be registered", expected.Name) {
+			assert.Equal(t, expected.Method, route.Method, "Method for route %s should be %s", expected.Name, expected.Method)
+			assert.Equal(t, expected.Path, route.Path, "Path for route %s should be %s", expected.Name, expected.Path)
+		} else {
+			t.Errorf("Route %s not found", expected.Name)
+		}
+	}
+}
+
+func TestRegisterRoutesWithBatchRouteSegment(t *testing.T) {
+	app := fiber.New()
+	router := NewFiberAdapter(app)
+
+	sqldb, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+	defer sqldb.Close()
+
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+
+	ctx := context.Background()
+	if err := createSchema(ctx, db); err != nil {
+		t.Fatalf("Failed to create schema: %v", err)
+	}
+
+	repo := newTestUserRepository(db)
+	controller := NewController(
+		repo,
+		WithDeserializer(testUserDeserializer),
+		WithBatchRouteSegment("bulk"),
+	)
+
+	controller.RegisterRoutes(router)
+
+	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+
+	expectedRoutes := []struct {
+		Name   string
+		Method string
+		Path   string
+	}{
+		{
+			Name:   fmt.Sprintf("%s:%s", singular, OpCreateBatch),
+			Method: "POST",
+			Path:   fmt.Sprintf("/%s/bulk", singular),
+		},
+		{
+			Name:   fmt.Sprintf("%s:%s", singular, OpUpdateBatch),
+			Method: "PUT",
+			Path:   fmt.Sprintf("/%s/bulk", singular),
+		},
+		{
+			Name:   fmt.Sprintf("%s:%s", singular, OpDeleteBatch),
+			Method: "DELETE",
+			Path:   fmt.Sprintf("/%s/bulk", singular),
 		},
 	}
 

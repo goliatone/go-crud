@@ -28,6 +28,8 @@ type stubRepo struct {
 	updateResp    testModel
 	deleteErr     error
 	criteriaCount int
+	createManyCriteriaCount int
+	updateManyCriteriaCount int
 }
 
 func (r *stubRepo) Raw(ctx context.Context, sql string, args ...any) ([]testModel, error) {
@@ -84,6 +86,7 @@ func (r *stubRepo) CreateMany(ctx context.Context, records []testModel, criteria
 	if r.calls != nil {
 		*r.calls = append(*r.calls, "repo:createMany")
 	}
+	r.createManyCriteriaCount = len(criteria)
 	return records, nil
 }
 func (r *stubRepo) CreateManyTx(ctx context.Context, tx bun.IDB, records []testModel, criteria ...repository.InsertCriteria) ([]testModel, error) {
@@ -114,6 +117,7 @@ func (r *stubRepo) UpdateTx(ctx context.Context, tx bun.IDB, record testModel, c
 	return r.Update(ctx, record, criteria...)
 }
 func (r *stubRepo) UpdateMany(ctx context.Context, records []testModel, criteria ...repository.UpdateCriteria) ([]testModel, error) {
+	r.updateManyCriteriaCount = len(criteria)
 	return records, nil
 }
 func (r *stubRepo) UpdateManyTx(ctx context.Context, tx bun.IDB, records []testModel, criteria ...repository.UpdateCriteria) ([]testModel, error) {
@@ -312,6 +316,23 @@ func TestNewService_NoOptionalLayersFallsBackToRepo(t *testing.T) {
 	created, err := svc.Create(ctx, testModel{ID: "xyz"})
 	require.NoError(t, err)
 	assert.Equal(t, "xyz", created.ID)
+}
+
+func TestNewService_BatchReturnOrderByID(t *testing.T) {
+	repo := &stubRepo{}
+	svc := NewService(ServiceConfig[testModel]{
+		Repository:          repo,
+		BatchReturnOrderByID: true,
+	})
+	ctx := newStubContext()
+
+	_, err := svc.CreateBatch(ctx, []testModel{{ID: "a"}})
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.createManyCriteriaCount)
+
+	_, err = svc.UpdateBatch(ctx, []testModel{{ID: "a"}})
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.updateManyCriteriaCount)
 }
 
 func TestValidationFailureShortCircuits(t *testing.T) {
