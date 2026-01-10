@@ -58,7 +58,22 @@ func CommandServiceFromFuncs[T any](overrides ServiceFuncs[T]) CommandServiceFac
 
 // NewRepositoryService returns a Service[T] that delegates to repository.Repository[T].
 func NewRepositoryService[T any](repo repository.Repository[T]) Service[T] {
-	return &repositoryService[T]{repo: repo}
+	return NewRepositoryServiceWithOptions(repo, RepositoryServiceOptions{})
+}
+
+// RepositoryServiceOptions configures repository-backed service behavior.
+type RepositoryServiceOptions struct {
+	BatchInsertCriteria []repository.InsertCriteria
+	BatchUpdateCriteria []repository.UpdateCriteria
+}
+
+// NewRepositoryServiceWithOptions returns a Service[T] that delegates to repository.Repository[T].
+func NewRepositoryServiceWithOptions[T any](repo repository.Repository[T], opts RepositoryServiceOptions) Service[T] {
+	return &repositoryService[T]{
+		repo:           repo,
+		insertCriteria: opts.BatchInsertCriteria,
+		updateCriteria: opts.BatchUpdateCriteria,
+	}
 }
 
 // NewServiceFromFuncs builds a service backed by the repository and applying overrides.
@@ -67,7 +82,9 @@ func NewServiceFromFuncs[T any](repo repository.Repository[T], funcs ServiceFunc
 }
 
 type repositoryService[T any] struct {
-	repo repository.Repository[T]
+	repo           repository.Repository[T]
+	insertCriteria []repository.InsertCriteria
+	updateCriteria []repository.UpdateCriteria
 }
 
 func (s *repositoryService[T]) Create(ctx Context, record T) (T, error) {
@@ -75,7 +92,10 @@ func (s *repositoryService[T]) Create(ctx Context, record T) (T, error) {
 }
 
 func (s *repositoryService[T]) CreateBatch(ctx Context, records []T) ([]T, error) {
-	return s.repo.CreateMany(ctx.UserContext(), records)
+	if len(s.insertCriteria) == 0 {
+		return s.repo.CreateMany(ctx.UserContext(), records)
+	}
+	return s.repo.CreateMany(ctx.UserContext(), records, s.insertCriteria...)
 }
 
 func (s *repositoryService[T]) Update(ctx Context, record T) (T, error) {
@@ -83,7 +103,10 @@ func (s *repositoryService[T]) Update(ctx Context, record T) (T, error) {
 }
 
 func (s *repositoryService[T]) UpdateBatch(ctx Context, records []T) ([]T, error) {
-	return s.repo.UpdateMany(ctx.UserContext(), records)
+	if len(s.updateCriteria) == 0 {
+		return s.repo.UpdateMany(ctx.UserContext(), records)
+	}
+	return s.repo.UpdateMany(ctx.UserContext(), records, s.updateCriteria...)
 }
 
 func (s *repositoryService[T]) Delete(ctx Context, record T) error {
@@ -91,12 +114,15 @@ func (s *repositoryService[T]) Delete(ctx Context, record T) error {
 }
 
 func (s *repositoryService[T]) DeleteBatch(ctx Context, records []T) error {
-	criteria := make([]repository.DeleteCriteria, 0, len(records))
+	ids := make([]string, 0, len(records))
 	for _, record := range records {
 		id := s.repo.Handlers().GetID(record)
-		criteria = append(criteria, repository.DeleteByID(id.String()))
+		ids = append(ids, id.String())
 	}
-	return s.repo.DeleteMany(ctx.UserContext(), criteria...)
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.repo.DeleteWhere(ctx.UserContext(), repository.DeleteByIDs(ids))
 }
 
 func (s *repositoryService[T]) Index(ctx Context, criteria []repository.SelectCriteria) ([]T, int, error) {
