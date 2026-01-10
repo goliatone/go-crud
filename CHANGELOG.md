@@ -4,6 +4,23 @@
 
 ## <!-- 16 -->➕ Add
 
+- Options to manage endoptions ([6f52ea4](https://github.com/goliatone/go-crud/commit/6f52ea43af4d604a85f1e20cceb9de4313830dcd))  - (goliatone)
+- Bulk handling improvements ([6200eb8](https://github.com/goliatone/go-crud/commit/6200eb843a4012bf881054c1029e8b621992e999))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([b6a68dc](https://github.com/goliatone/go-crud/commit/b6a68dc2e686688437efd43dac997a7a3c5c3cb4))  - (goliatone)
+- Update examples ([bf51f27](https://github.com/goliatone/go-crud/commit/bf51f2726acb5cf9f53e36067a863f65acb1eb3c))  - (goliatone)
+- Update tests ([2f488fb](https://github.com/goliatone/go-crud/commit/2f488fb47cb45b2b6c34043d691e170b3876f519))  - (goliatone)
+
+# [0.15.0](https://github.com/goliatone/go-crud/compare/v0.14.0...v0.15.0) - (2025-12-19)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.15.0 ([4ddb164](https://github.com/goliatone/go-crud/commit/4ddb16481e8b3c33c077b9f0b7154c371236d3c4))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
 - Query normalization ([39067df](https://github.com/goliatone/go-crud/commit/39067dfeec8484a8742813e56996d77cad0415f8))  - (goliatone)
 - QueryValues to support multi value query strings ([8e543fc](https://github.com/goliatone/go-crud/commit/8e543fcdd0210ca54481f869fa924b29135e17f6))  - (goliatone)
 
