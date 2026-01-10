@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -84,6 +85,8 @@ type Controller[T any] struct {
 	fieldMapProvider      FieldMapProvider
 	queryLoggingEnabled   bool
 	routeConfig           RouteConfig
+	batchRouteSegment     string
+	batchReturnOrderByID  bool
 	hooks                 LifecycleHooks[T]
 	activityEmitterHooks  *activity.Emitter   // activity log events
 	notificationEmitter   NotificationEmitter // user facing notifications
@@ -144,6 +147,8 @@ func newControllerBase[T any](repo repository.Repository[T]) *Controller[T] {
 		resourceType:     reflect.TypeOf(t),
 		logger:           &defaultLogger{},
 		routeConfig:      DefaultRouteConfig(),
+		batchRouteSegment: defaultBatchRouteSegment,
+		batchReturnOrderByID: false,
 		routeMethods:     make(map[CrudOperation]string),
 		routePaths:       make(map[CrudOperation]string),
 		routeNames:       make(map[CrudOperation]string),
@@ -246,8 +251,10 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 	listRoute := fmt.Sprintf("%s:%s", resource, OpList)
 	registerRoute(OpList, http.MethodGet, listPath, c.Index, listRoute)
 
+	batchSegment := c.batchSegment()
+
 	// /user/batch
-	createBatchPath := fmt.Sprintf("/%s/batch", resource)
+	createBatchPath := fmt.Sprintf("/%s/%s", resource, batchSegment)
 	createBatchRoute := fmt.Sprintf("%s:%s", resource, OpCreateBatch)
 	registerRoute(OpCreateBatch, http.MethodPost, createBatchPath, c.CreateBatch, createBatchRoute)
 
@@ -274,6 +281,15 @@ func (c *Controller[T]) RegisterRoutes(r Router) {
 
 	c.registerActionRoutes(r, resolvedActions, applyMeta)
 	c.refreshSchemaRegistration()
+}
+
+func (c *Controller[T]) batchSegment() string {
+	segment := strings.TrimSpace(c.batchRouteSegment)
+	segment = strings.Trim(segment, "/")
+	if segment == "" {
+		return defaultBatchRouteSegment
+	}
+	return segment
 }
 
 func mergeRecordWithExisting[T any](record, existing T) (T, error) {
@@ -598,12 +614,13 @@ func (c *Controller[T]) buildService() {
 	svc := c.service
 
 	cfg := ServiceConfig[T]{
-		Repository:   c.Repo,
-		Hooks:        c.hooks,
-		ScopeGuard:   c.scopeGuard,
-		FieldPolicy:  c.fieldPolicyProvider,
-		ResourceName: c.resource,
-		ResourceType: c.resourceType,
+		Repository:          c.Repo,
+		Hooks:               c.hooks,
+		ScopeGuard:          c.scopeGuard,
+		FieldPolicy:         c.fieldPolicyProvider,
+		ResourceName:        c.resource,
+		ResourceType:        c.resourceType,
+		BatchReturnOrderByID: c.batchReturnOrderByID,
 	}
 
 	if svc == nil {
@@ -1080,7 +1097,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 
 	c.attachHookContext(ctx, OpDeleteBatch)
 
-	records, err := c.deserialiMany(OpDeleteBatch, ctx)
+	records, err := c.decodeDeleteBatch(ctx)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
@@ -1095,6 +1112,66 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 	c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, nil)
 
 	return c.resp.OnEmpty(ctx, OpDeleteBatch)
+}
+
+func (c *Controller[T]) decodeDeleteBatch(ctx Context) ([]T, error) {
+	records, err := c.deserialiMany(OpDeleteBatch, ctx)
+	if err == nil {
+		return records, nil
+	}
+
+	body := ctx.Body()
+	if len(body) == 0 {
+		return nil, err
+	}
+
+	ids, idErr := decodeDeleteBatchIDs(body)
+	if idErr != nil {
+		return nil, err
+	}
+
+	records, recordErr := c.recordsFromIDs(ids)
+	if recordErr != nil {
+		return nil, recordErr
+	}
+
+	return records, nil
+}
+
+func decodeDeleteBatchIDs(body []byte) ([]string, error) {
+	var ids []string
+	if err := json.Unmarshal(body, &ids); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+func (c *Controller[T]) recordsFromIDs(ids []string) ([]T, error) {
+	handlers := c.Repo.Handlers()
+	if handlers.SetID == nil {
+		return nil, fmt.Errorf("missing record id setter")
+	}
+
+	records := make([]T, 0, len(ids))
+	for _, rawID := range ids {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			return nil, fmt.Errorf("empty record id")
+		}
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+
+		var record T
+		if handlers.NewRecord != nil {
+			record = handlers.NewRecord()
+		}
+		handlers.SetID(record, parsed)
+		records = append(records, record)
+	}
+
+	return records, nil
 }
 
 func shouldReturnOptions(ctx Context) bool {
