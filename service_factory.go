@@ -23,17 +23,17 @@ type VirtualFieldProcessor[T any] interface {
 // ResourceName/ResourceType help field policies resolve friendly names when
 // reflection on the model type is not sufficient or needs overriding.
 type ServiceConfig[T any] struct {
-	Repository          repository.Repository[T]
-	Hooks               LifecycleHooks[T]
-	ScopeGuard          ScopeGuardFunc[T]
-	FieldPolicy         FieldPolicyProvider[T]
-	VirtualFields       VirtualFieldProcessor[T]
-	Validator           ValidatorFunc[T]
-	ActivityHooks       activity.Hooks
-	ActivityConfig      activity.Config
-	NotificationEmitter NotificationEmitter
-	ResourceName        string
-	ResourceType        reflect.Type
+	Repository           repository.Repository[T]
+	Hooks                LifecycleHooks[T]
+	ScopeGuard           ScopeGuardFunc[T]
+	FieldPolicy          FieldPolicyProvider[T]
+	VirtualFields        VirtualFieldProcessor[T]
+	Validator            ValidatorFunc[T]
+	ActivityHooks        activity.Hooks
+	ActivityConfig       activity.Config
+	NotificationEmitter  NotificationEmitter
+	ResourceName         string
+	ResourceType         reflect.Type
 	BatchReturnOrderByID bool
 }
 

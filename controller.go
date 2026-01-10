@@ -139,21 +139,21 @@ func NewControllerWithService[T any](repo repository.Repository[T], service Serv
 func newControllerBase[T any](repo repository.Repository[T]) *Controller[T] {
 	var t T
 	return &Controller[T]{
-		Repo:             repo,
-		deserializer:     DefaultDeserializer[T],
-		deserialiMany:    DefaultDeserializerMany[T],
-		resp:             NewDefaultResponseHandler[T](),
-		service:          nil,
-		resourceType:     reflect.TypeOf(t),
-		logger:           &defaultLogger{},
-		routeConfig:      DefaultRouteConfig(),
-		batchRouteSegment: defaultBatchRouteSegment,
+		Repo:                 repo,
+		deserializer:         DefaultDeserializer[T],
+		deserialiMany:        DefaultDeserializerMany[T],
+		resp:                 NewDefaultResponseHandler[T](),
+		service:              nil,
+		resourceType:         reflect.TypeOf(t),
+		logger:               &defaultLogger{},
+		routeConfig:          DefaultRouteConfig(),
+		batchRouteSegment:    defaultBatchRouteSegment,
 		batchReturnOrderByID: false,
-		routeMethods:     make(map[CrudOperation]string),
-		routePaths:       make(map[CrudOperation]string),
-		routeNames:       make(map[CrudOperation]string),
-		relationProvider: router.NewDefaultRelationProvider(),
-		mergePolicy:      defaultMergePolicy(),
+		routeMethods:         make(map[CrudOperation]string),
+		routePaths:           make(map[CrudOperation]string),
+		routeNames:           make(map[CrudOperation]string),
+		relationProvider:     router.NewDefaultRelationProvider(),
+		mergePolicy:          defaultMergePolicy(),
 	}
 }
 
@@ -614,12 +614,12 @@ func (c *Controller[T]) buildService() {
 	svc := c.service
 
 	cfg := ServiceConfig[T]{
-		Repository:          c.Repo,
-		Hooks:               c.hooks,
-		ScopeGuard:          c.scopeGuard,
-		FieldPolicy:         c.fieldPolicyProvider,
-		ResourceName:        c.resource,
-		ResourceType:        c.resourceType,
+		Repository:           c.Repo,
+		Hooks:                c.hooks,
+		ScopeGuard:           c.scopeGuard,
+		FieldPolicy:          c.fieldPolicyProvider,
+		ResourceName:         c.resource,
+		ResourceType:         c.resourceType,
 		BatchReturnOrderByID: c.batchReturnOrderByID,
 	}
 

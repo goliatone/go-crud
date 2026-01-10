@@ -20,14 +20,14 @@ type testModel struct {
 }
 
 type stubRepo struct {
-	calls         *[]string
-	listResp      []testModel
-	listCount     int
-	showResp      testModel
-	createResp    testModel
-	updateResp    testModel
-	deleteErr     error
-	criteriaCount int
+	calls                   *[]string
+	listResp                []testModel
+	listCount               int
+	showResp                testModel
+	createResp              testModel
+	updateResp              testModel
+	deleteErr               error
+	criteriaCount           int
 	createManyCriteriaCount int
 	updateManyCriteriaCount int
 }
@@ -321,7 +321,7 @@ func TestNewService_NoOptionalLayersFallsBackToRepo(t *testing.T) {
 func TestNewService_BatchReturnOrderByID(t *testing.T) {
 	repo := &stubRepo{}
 	svc := NewService(ServiceConfig[testModel]{
-		Repository:          repo,
+		Repository:           repo,
 		BatchReturnOrderByID: true,
 	})
 	ctx := newStubContext()
