@@ -17,6 +17,8 @@ const (
 	TAG_KEY_RESOURCE = "resource"
 )
 
+const defaultBatchRouteSegment = "batch"
+
 var operatorMap = DefaultOperatorMap()
 
 type FieldMapProvider func(reflect.Type) map[string]string
@@ -200,6 +202,26 @@ func WithServiceFuncs[T any](overrides ServiceFuncs[T]) Option[T] {
 func WithRouteConfig[T any](config RouteConfig) Option[T] {
 	return func(c *Controller[T]) {
 		c.routeConfig = c.routeConfig.merge(config)
+	}
+}
+
+// WithBatchRouteSegment sets the path segment used for batch routes (default "batch").
+func WithBatchRouteSegment[T any](segment string) Option[T] {
+	return func(c *Controller[T]) {
+		cleaned := strings.TrimSpace(segment)
+		cleaned = strings.Trim(cleaned, "/")
+		if cleaned == "" {
+			c.batchRouteSegment = defaultBatchRouteSegment
+			return
+		}
+		c.batchRouteSegment = cleaned
+	}
+}
+
+// WithBatchReturnOrderByID enables ordered batch returns for CreateBatch/UpdateBatch.
+func WithBatchReturnOrderByID[T any](enabled bool) Option[T] {
+	return func(c *Controller[T]) {
+		c.batchReturnOrderByID = enabled
 	}
 }
 
