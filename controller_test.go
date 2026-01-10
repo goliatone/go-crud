@@ -1794,7 +1794,7 @@ func TestRegisterRoutesWithBatchRouteSegment(t *testing.T) {
 	controller := NewController(
 		repo,
 		WithDeserializer(testUserDeserializer),
-		WithBatchRouteSegment("bulk"),
+		WithBatchRouteSegment[*TestUser]("bulk"),
 	)
 
 	controller.RegisterRoutes(router)
