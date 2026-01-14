@@ -855,6 +855,16 @@ func (c *Controller[T]) Index(ctx Context) error {
 	}
 
 	filters.Count = count
+	originalOffset := filters.Offset
+	adjusted := normalizePagination(filters, count)
+	if adjusted && count > 0 && filters.Offset != originalOffset {
+		adjustedCriteria := append(criteria, paginationCriteria(filters.Limit, filters.Offset))
+		records, _, err = c.service.Index(ctx, adjustedCriteria)
+		if err != nil {
+			return c.resp.OnError(ctx, err, OpList)
+		}
+	}
+
 	applyFieldPolicyToSlice(records, policy)
 
 	if shouldReturnOptions(ctx) {
