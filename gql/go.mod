@@ -7,9 +7,9 @@ toolchain go1.24.11
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/goliatone/go-crud v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-repository-bun v0.10.0
-	github.com/goliatone/go-router v0.39.0
+	github.com/goliatone/go-crud v0.17.0
+	github.com/goliatone/go-repository-bun v0.11.0
+	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.14
@@ -36,7 +36,7 @@ require (
 	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-errors v0.9.0 // indirect
-	github.com/goliatone/go-persistence-bun v0.7.0 // indirect
+	github.com/goliatone/go-persistence-bun v0.9.0 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -71,9 +71,10 @@ require (
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

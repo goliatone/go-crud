@@ -2,6 +2,26 @@
 
 # [unreleased]
 
+## <!-- 1 -->🐛 Bug Fixes
+
+- Release gql subpacakge ([8e2d021](https://github.com/goliatone/go-crud/commit/8e2d021bb69932f3fec0f39e2e5f058da895e1c0))  - (goliatone)
+- Clamp pagination to max records ([73612a8](https://github.com/goliatone/go-crud/commit/73612a84c4197828b8c23d2dfd3437cfe767503c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Filters include page/adjusted ([e7cae9c](https://github.com/goliatone/go-crud/commit/e7cae9c5943644f96f9c5adf2523bcda6a8da4af))  - (goliatone)
+- Pagination imp ([6c34884](https://github.com/goliatone/go-crud/commit/6c3488420048b613197c5e67e9853367e429cdb7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([e18f05e](https://github.com/goliatone/go-crud/commit/e18f05e057bac5a5232255990973a15f3b8612cb))  - (goliatone)
+
+# [0.16.0](https://github.com/goliatone/go-crud/compare/v0.15.0...v0.16.0) - (2026-01-10)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.16.0 ([40c85db](https://github.com/goliatone/go-crud/commit/40c85dbf208db7d5b6f7090e99d9a86530254f65))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Options to manage endoptions ([6f52ea4](https://github.com/goliatone/go-crud/commit/6f52ea43af4d604a85f1e20cceb9de4313830dcd))  - (goliatone)
