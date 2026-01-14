@@ -1607,6 +1607,83 @@ func TestController_ListUsers_WithPagination(t *testing.T) {
 	assert.Equal(t, "User 20", listResponse.Data[9].Name)
 }
 
+func TestController_ListUsers_AdjustsOutOfRangeOffset(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	repo := newTestUserRepository(db)
+	for i := 1; i <= 6; i++ {
+		user := &TestUser{
+			ID:        uuid.New(),
+			Name:      fmt.Sprintf("User %d", i),
+			Email:     fmt.Sprintf("user%d@example.com", i),
+			Password:  "secret",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		_, err := repo.Create(ctx, user)
+		if err != nil {
+			t.Fatalf("Failed to create user %d: %v", i, err)
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/test-users?limit=10&offset=20", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var response APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.True(t, response.Success)
+	assert.Len(t, response.Data, 6)
+	if assert.NotNil(t, response.Meta) {
+		assert.Equal(t, 6, response.Meta.Count)
+		assert.Equal(t, 10, response.Meta.Limit)
+		assert.Equal(t, 0, response.Meta.Offset)
+		assert.Equal(t, 1, response.Meta.Page)
+		assert.True(t, response.Meta.Adjusted)
+	}
+}
+
+func TestController_ListUsers_AdjustsOffsetWhenEmpty(t *testing.T) {
+	app, db := setupApp(t)
+	defer db.Close()
+
+	req := httptest.NewRequest("GET", "/test-users?limit=10&offset=20", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("Failed to perform request: %v", err)
+	}
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var response APIListResponse[TestUser]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	assert.True(t, response.Success)
+	assert.Len(t, response.Data, 0)
+	if assert.NotNil(t, response.Meta) {
+		assert.Equal(t, 0, response.Meta.Count)
+		assert.Equal(t, 10, response.Meta.Limit)
+		assert.Equal(t, 0, response.Meta.Offset)
+		assert.Equal(t, 1, response.Meta.Page)
+		assert.True(t, response.Meta.Adjusted)
+	}
+}
+
 func TestController_UnauthorizedFieldAccess(t *testing.T) {
 	app, db := setupApp(t)
 	defer db.Close()
