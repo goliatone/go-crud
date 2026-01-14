@@ -94,6 +94,12 @@ func BuildQueryCriteriaWithLogger[T any](ctx Context, op CrudOperation, logger L
 var DefaultLimit = 25
 var DefaultOffset = 0
 
+func paginationCriteria(limit, offset int) repository.SelectCriteria {
+	return func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.Limit(limit).Offset(offset)
+	}
+}
+
 // Index supports different query string parameters:
 // GET /users?limit=10&offset=20
 // GET /users?order=name asc,created_at desc
@@ -121,9 +127,7 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 	criteria := &queryCriteria{op: op}
 
 	// Basic limit/offset criteria
-	criteria.pagination = append(criteria.pagination, func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Limit(limit).Offset(offset)
-	})
+	criteria.pagination = append(criteria.pagination, paginationCriteria(limit, offset))
 
 	// For fields that are allowable.
 	// E.g. "name" => "name", "created_at" => "created_at", etc.
