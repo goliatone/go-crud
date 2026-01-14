@@ -34,6 +34,8 @@ type Filters struct {
 	Operation string         `json:"operation,omitempty"`
 	Limit     int            `json:"limit,omitempty"`
 	Offset    int            `json:"offset,omitempty"`
+	Page      int            `json:"page,omitempty"`
+	Adjusted  bool           `json:"adjusted,omitempty"`
 	Count     int            `json:"count,omitempty"`
 	Order     []Order        `json:"order,omitempty"`
 	Fields    []string       `json:"fields,omitempty"`
