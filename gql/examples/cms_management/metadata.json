@@ -1,0 +1,42 @@
+[
+  {
+    "entity_name": "content",
+    "description": "CMS content entry (management API)",
+    "required": ["id", "type", "slug", "locale", "status", "data"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "type": { "type": "string" },
+      "slug": { "type": "string" },
+      "locale": { "type": "string" },
+      "status": { "type": "string" },
+      "data": { "type": "object" }
+    }
+  },
+  {
+    "entity_name": "page",
+    "description": "CMS page entry (management API)",
+    "required": ["id", "slug", "locale", "status", "data"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "title": { "type": "string" },
+      "slug": { "type": "string" },
+      "locale": { "type": "string" },
+      "status": { "type": "string" },
+      "data": { "type": "object" }
+    }
+  },
+  {
+    "entity_name": "content_type",
+    "description": "CMS content type definition (management API)",
+    "required": ["id", "name", "slug"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "name": { "type": "string" },
+      "slug": { "type": "string" },
+      "description": { "type": "string" },
+      "schema": { "type": "object" },
+      "capabilities": { "type": "object" },
+      "icon": { "type": "string" }
+    }
+  }
+]
