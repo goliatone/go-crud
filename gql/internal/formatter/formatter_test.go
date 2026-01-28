@@ -136,6 +136,61 @@ func TestFormat_HandlesNilMapsAndSorts(t *testing.T) {
 	assert.Equal(t, "String", doc.Entities[0].Fields[0].Type)
 }
 
+func TestFormat_BuildsUnionMetadata(t *testing.T) {
+	schemas := []router.SchemaMetadata{
+		{
+			Name: "blog_post",
+			Properties: map[string]router.PropertyInfo{
+				"blocks": {
+					Type:  "array",
+					Items: &router.PropertyInfo{Type: "object"},
+					CustomTagData: map[string]any{
+						unionMembersKey: []string{"hero_block", "rich_text_block"},
+						unionDiscriminatorKey: map[string]string{
+							"hero":      "hero_block",
+							"rich_text": "rich_text_block",
+						},
+						unionOverridesKey: map[string]string{
+							"hero": "HeroBlockOverride",
+						},
+					},
+				},
+			},
+		},
+		{Name: "hero_block"},
+		{Name: "rich_text_block"},
+	}
+
+	doc, err := Format(schemas)
+	require.NoError(t, err)
+	require.Len(t, doc.Unions, 1)
+
+	union := doc.Unions[0]
+	assert.Equal(t, "BlogPostBlock", union.Name)
+	assert.Equal(t, []string{"HeroBlock", "RichTextBlock"}, union.Types)
+	assert.Equal(t, "HeroBlockOverride", union.TypeMap["hero"])
+	assert.Equal(t, "RichTextBlock", union.TypeMap["rich_text"])
+
+	var blog Entity
+	for _, ent := range doc.Entities {
+		if ent.RawName == "blog_post" {
+			blog = ent
+			break
+		}
+	}
+	require.NotEmpty(t, blog.Name)
+
+	var blocks Field
+	for _, field := range blog.Fields {
+		if field.OriginalName == "blocks" {
+			blocks = field
+			break
+		}
+	}
+	require.Equal(t, "BlogPostBlock", blocks.Type)
+	assert.True(t, blocks.IsList)
+}
+
 func fieldNames(fields []Field) []string {
 	names := make([]string, 0, len(fields))
 	for _, f := range fields {

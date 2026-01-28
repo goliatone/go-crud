@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/goliatone/go-crud"
+	"github.com/goliatone/go-router"
 )
 
 func TestFromReader_ParsesSchemaArray(t *testing.T) {
@@ -92,6 +93,87 @@ func TestFromSchemaEntries_ConvertsOpenAPIDoc(t *testing.T) {
 
 	assert.True(t, sample.Properties["id"].Required)
 	assert.NotNil(t, sample.Properties["tags"].Items)
+}
+
+func TestFromSchemaEntries_ParsesUnionMetadata(t *testing.T) {
+	doc := map[string]any{
+		"components": map[string]any{
+			"schemas": map[string]any{
+				"blog_post": map[string]any{
+					"x-gql": map[string]any{
+						"unionTypeMap": map[string]any{
+							"hero": "HeroBlockOverride",
+						},
+					},
+					"properties": map[string]any{
+						"blocks": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"oneOf": []any{
+									map[string]any{"$ref": "#/components/schemas/hero_block"},
+									map[string]any{"$ref": "#/components/schemas/rich_text_block"},
+								},
+							},
+						},
+					},
+				},
+				"hero_block": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"_type": map[string]any{"const": "hero"},
+					},
+				},
+				"rich_text_block": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"_type": map[string]any{"enum": []any{"rich_text"}},
+					},
+				},
+			},
+		},
+	}
+
+	entries := []crud.SchemaEntry{{Resource: "blog_post", Document: doc}}
+	schemas, err := FromSchemaEntries(entries)
+	require.NoError(t, err)
+	require.NotEmpty(t, schemas)
+
+	var blog router.SchemaMetadata
+	for _, schema := range schemas {
+		if schema.Name == "blog_post" {
+			blog = schema
+			break
+		}
+	}
+	require.NotEmpty(t, blog.Name)
+
+	prop, ok := blog.Properties["blocks"]
+	require.True(t, ok)
+
+	members := unionMembersFromProperty(prop)
+	require.Equal(t, []string{"hero_block", "rich_text_block"}, members)
+
+	rawDiscriminators, ok := prop.CustomTagData[unionDiscriminatorKey]
+	require.True(t, ok)
+	discMap, ok := rawDiscriminators.(map[string]string)
+	if !ok {
+		if rawMap, ok := rawDiscriminators.(map[string]any); ok {
+			discMap = toStringMap(rawMap)
+		}
+	}
+	require.NotNil(t, discMap)
+	require.Equal(t, "hero_block", discMap["hero"])
+	require.Equal(t, "rich_text_block", discMap["rich_text"])
+
+	rawOverrides, ok := prop.CustomTagData[unionOverridesKey]
+	require.True(t, ok)
+	overrides, ok := rawOverrides.(map[string]string)
+	if !ok {
+		if rawMap, ok := rawOverrides.(map[string]any); ok {
+			overrides = toStringMap(rawMap)
+		}
+	}
+	require.Equal(t, "HeroBlockOverride", overrides["hero"])
 }
 
 func TestFromFile_LoadsSchemasFixture(t *testing.T) {

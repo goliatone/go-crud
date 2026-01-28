@@ -12,6 +12,7 @@ import (
 	"github.com/goliatone/go-crud/gql/internal/hooks"
 	"github.com/goliatone/go-crud/gql/internal/metadata"
 	"github.com/goliatone/go-crud/gql/internal/overlay"
+	"github.com/goliatone/go-router"
 )
 
 func TestTemplates_RenderGolden(t *testing.T) {
@@ -99,6 +100,50 @@ func TestTemplates_RenderSubscriptions(t *testing.T) {
 	assertRenderMatches(t, renderer, SchemaTemplate, ctx, "schema_subscriptions.graphql.golden")
 	assertRenderMatches(t, renderer, ResolverGenTemplate, ctx, "resolver_gen_subscriptions.go.golden")
 	assertRenderMatches(t, renderer, ResolverCustomTemplate, ctx, "resolver_custom_subscriptions.go.golden")
+}
+
+func TestTemplates_RenderUnionBlocks(t *testing.T) {
+	renderer, err := NewRenderer()
+	require.NoError(t, err)
+
+	schemas := []router.SchemaMetadata{
+		{
+			Name: "blog_post",
+			Properties: map[string]router.PropertyInfo{
+				"blocks": {
+					Type:  "array",
+					Items: &router.PropertyInfo{Type: "object"},
+					CustomTagData: map[string]any{
+						"x-gql-union-members": []string{"hero_block", "rich_text_block"},
+						"x-gql-union-discriminator-map": map[string]string{
+							"hero":      "hero_block",
+							"rich_text": "rich_text_block",
+						},
+					},
+				},
+			},
+		},
+		{Name: "hero_block"},
+		{Name: "rich_text_block"},
+	}
+
+	doc, err := formatter.Format(schemas)
+	require.NoError(t, err)
+
+	ctx := BuildContext(doc, ContextOptions{
+		ConfigPath: "gqlgen.yml",
+		OutDir:     "graph",
+	})
+
+	schemaOut, err := renderer.Render(SchemaTemplate, ctx)
+	require.NoError(t, err)
+	require.Contains(t, schemaOut, "union BlogPostBlock = HeroBlock | RichTextBlock")
+
+	modelOut, err := renderer.Render(ModelsTemplate, ctx)
+	require.NoError(t, err)
+	require.Contains(t, modelOut, "type BlogPostBlock interface")
+	require.Contains(t, modelOut, "func (*HeroBlock) IsBlogPostBlock()")
+	require.Contains(t, modelOut, "func (*RichTextBlock) IsBlogPostBlock()")
 }
 
 func TestBuildContext_OmitsMutationFields(t *testing.T) {
