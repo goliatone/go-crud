@@ -39,6 +39,19 @@ go run ./gql/cmd/graphqlgen --schema-package ./internal/yourapp --emit-subscript
 - Set `--run-gqlgen` to invoke gqlgen after files are written; combine with `--skip-gqlgen` or `--dry-run` as needed.
 - Omit mutation payload fields via `--omit-mutation-field field` or `--omit-mutation-field Entity.field`. Enable dataloaders with `--emit-dataloader`.
 
+## Schema refresh hooks
+- When content types are published at runtime, register a schema refresh hook to regenerate GraphQL artifacts from the schema registry:
+```
+refresh.RegisterSchemaRefresh(ctx, refresh.Options{
+    Debounce: 250 * time.Millisecond,
+    GeneratorOptions: generator.Options{
+        SchemaPackage: "./internal/api",
+        OutDir:        "graph",
+        ConfigPath:    "gqlgen.yml",
+    },
+})
+```
+
 ## Metadata sources
 - `--metadata-file` expects JSON containing `router.SchemaMetadata` (single object, array, or `{ "schemas": [...] }`). The loader also understands `crud.SchemaEntry` wrappers from the schema registry.
 - If `--metadata-file` is not provided, the CLI reads `crud.ListSchemas()`; ensure your controllers/packages are imported so their `init` hooks register schemas. This registry-first flow is the default; metadata.json is optional and can be emitted with a small dumper if you need fixtures/docs.
