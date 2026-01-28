@@ -225,15 +225,25 @@ func filterSchemas(schemas []router.SchemaMetadata, include, exclude []string) [
 	var filtered []router.SchemaMetadata
 	for _, schema := range schemas {
 		name := schema.Name
-		if matches(name, exclude) {
+		if matchesSchemaName(name, exclude) {
 			continue
 		}
-		if len(include) > 0 && !matches(name, include) {
+		if len(include) > 0 && !matchesSchemaName(name, include) {
 			continue
 		}
 		filtered = append(filtered, schema)
 	}
 	return filtered
+}
+
+func matchesSchemaName(name string, patterns []string) bool {
+	if matches(name, patterns) {
+		return true
+	}
+	if base, _, ok := formatter.ParseVersionedName(name); ok {
+		return matches(base, patterns)
+	}
+	return false
 }
 
 func matches(name string, patterns []string) bool {
