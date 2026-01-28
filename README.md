@@ -265,6 +265,28 @@ crud.RegisterSchemaListener(func(entry crud.SchemaEntry) {
 })
 ```
 
+You can also register OpenAPI documents generated outside of a controller (for example, content types managed by go-cms):
+
+```go
+doc := map[string]any{
+	"openapi": "3.0.3",
+	"info": map[string]any{
+		"title":   "Article",
+		"version": "1.0.0",
+	},
+}
+
+crud.RegisterSchemaDocument("article", "articles", doc)
+```
+
+To expose the aggregated registry payload directly from an admin service, stream it as JSON:
+
+```go
+if err := crud.ExportSchemas(w, crud.WithSchemaExportIndent("  ")); err != nil {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+```
+
 Each `SchemaEntry` carries the compiled OpenAPI document (including all vendor extensions), so you can expose the aggregated payload directly or enrich it with service-specific metadata before returning it to go-admin/go-cms consumers.
         tree:
           name: user
