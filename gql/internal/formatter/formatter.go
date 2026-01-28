@@ -175,7 +175,7 @@ func WithScalarOverride(ref TypeRef, scalar string) Option {
 func formatSchema(schema router.SchemaMetadata, opts Options) (Entity, []Union) {
 	entity := Entity{
 		RawName:     schema.Name,
-		Name:        opts.typeNamer(schema.Name),
+		Name:        formatTypeName(schema.Name, opts),
 		Description: schema.Description,
 		LabelField:  formatLabel(schema.LabelField, opts.fieldNamer),
 	}
@@ -257,14 +257,14 @@ func buildUnion(schemaName, propName string, prop router.PropertyInfo, opts Opti
 		return nil
 	}
 
-	unionName := opts.typeNamer(schemaName) + opts.typeNamer(singularize(propName))
+	unionName := formatTypeName(schemaName, opts) + opts.typeNamer(singularize(propName))
 	types := make([]string, 0, len(members))
 	seen := make(map[string]struct{}, len(members))
 	for _, member := range members {
 		if member == "" {
 			continue
 		}
-		typeName := opts.typeNamer(member)
+		typeName := formatTypeName(member, opts)
 		if _, ok := seen[typeName]; ok {
 			continue
 		}
@@ -279,7 +279,7 @@ func buildUnion(schemaName, propName string, prop router.PropertyInfo, opts Opti
 		Types:          types,
 		TypeMap:        typeMap,
 		TypeMapEntries: unionTypeMapEntries(typeMap),
-		SourceEntity:   opts.typeNamer(schemaName),
+		SourceEntity:   formatTypeName(schemaName, opts),
 		SourceField:    opts.fieldNamer(propName),
 	}
 }
@@ -299,7 +299,7 @@ func buildUnionTypeMap(prop router.PropertyInfo, opts Options) map[string]string
 		if schemaName == "" {
 			continue
 		}
-		out[normalized] = opts.typeNamer(schemaName)
+		out[normalized] = formatTypeName(schemaName, opts)
 	}
 	for key, value := range overrides {
 		normalized := normalizeDiscriminatorKey(key)
@@ -441,7 +441,7 @@ func buildRelation(propName, relKey string, rel *router.RelationshipInfo, prop r
 		Name:             opts.fieldNamer(propName),
 		OriginalName:     propName,
 		Key:              relKey,
-		Type:             opts.typeNamer(target),
+		Type:             formatTypeName(target, opts),
 		Cardinality:      cardinality,
 		SourceField:      rel.SourceField,
 		SourceColumn:     rel.SourceColumn,
@@ -629,6 +629,64 @@ func toStringMap(raw map[string]any) map[string]string {
 		return nil
 	}
 	return out
+}
+
+// ParseVersionedName splits "slug@v1.2.3" into ("slug", "1.2.3", true).
+func ParseVersionedName(raw string) (string, string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", "", false
+	}
+	idx := strings.LastIndex(trimmed, "@")
+	if idx <= 0 || idx >= len(trimmed)-1 {
+		return trimmed, "", false
+	}
+	base := strings.TrimSpace(trimmed[:idx])
+	version := strings.TrimSpace(trimmed[idx+1:])
+	version = strings.TrimPrefix(strings.ToLower(version), "v")
+	if base == "" || version == "" || !isSemanticVersion(version) {
+		return trimmed, "", false
+	}
+	return base, version, true
+}
+
+func formatTypeName(raw string, opts Options) string {
+	base, version, ok := ParseVersionedName(raw)
+	if !ok {
+		return opts.typeNamer(raw)
+	}
+	suffix := formatVersionSuffix(version)
+	if suffix == "" {
+		return opts.typeNamer(base)
+	}
+	return opts.typeNamer(base) + suffix
+}
+
+func formatVersionSuffix(version string) string {
+	version = strings.TrimSpace(version)
+	version = strings.TrimPrefix(strings.ToLower(version), "v")
+	if version == "" {
+		return ""
+	}
+	return "V" + strings.ReplaceAll(version, ".", "_")
+}
+
+func isSemanticVersion(version string) bool {
+	parts := strings.Split(version, ".")
+	if len(parts) == 0 || len(parts) > 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for i := 0; i < len(part); i++ {
+			if part[i] < '0' || part[i] > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func defaultOptions() Options {
