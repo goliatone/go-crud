@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -8,9 +9,16 @@ import (
 	"github.com/goliatone/go-router"
 )
 
+const (
+	unionMembersKey       = "x-gql-union-members"
+	unionDiscriminatorKey = "x-gql-union-discriminator-map"
+	unionOverridesKey     = "x-gql-union-type-map"
+)
+
 // Document is the template ready representation of a list of schemas.
 type Document struct {
 	Entities []Entity
+	Unions   []Union
 }
 
 // Entity represents a GraphQL type derived from a SchemaMetadata entry.
@@ -21,6 +29,22 @@ type Entity struct {
 	LabelField    string
 	Fields        []Field
 	Relationships []Relation
+}
+
+// Union represents a GraphQL union derived from oneOf schema definitions.
+type Union struct {
+	Name           string
+	Types          []string
+	TypeMap        map[string]string
+	TypeMapEntries []UnionTypeMapEntry
+	SourceEntity   string
+	SourceField    string
+}
+
+// UnionTypeMapEntry captures a stable ordering for union discriminator mappings.
+type UnionTypeMapEntry struct {
+	Key   string
+	Value string
 }
 
 // Field captures the scalar or relation backed properties of an entity.
@@ -88,13 +112,20 @@ func Format(schemas []router.SchemaMetadata, option ...Option) (Document, error)
 	doc := Document{
 		Entities: make([]Entity, 0, len(schemas)),
 	}
+	unionRegistry := make(map[string]Union)
 	for _, schema := range schemas {
-		doc.Entities = append(doc.Entities, formatSchema(schema, opts))
+		entity, unions := formatSchema(schema, opts)
+		doc.Entities = append(doc.Entities, entity)
+		for _, union := range unions {
+			mergeUnion(unionRegistry, union)
+		}
 	}
 
 	sort.Slice(doc.Entities, func(i, j int) bool {
 		return doc.Entities[i].Name < doc.Entities[j].Name
 	})
+
+	doc.Unions = collectUnions(unionRegistry)
 
 	return doc, nil
 }
@@ -141,7 +172,7 @@ func WithScalarOverride(ref TypeRef, scalar string) Option {
 	}
 }
 
-func formatSchema(schema router.SchemaMetadata, opts Options) Entity {
+func formatSchema(schema router.SchemaMetadata, opts Options) (Entity, []Union) {
 	entity := Entity{
 		RawName:     schema.Name,
 		Name:        opts.typeNamer(schema.Name),
@@ -150,7 +181,7 @@ func formatSchema(schema router.SchemaMetadata, opts Options) Entity {
 	}
 
 	if len(schema.Properties) == 0 {
-		return entity
+		return entity, nil
 	}
 
 	required := make(map[string]struct{}, len(schema.Required))
@@ -159,10 +190,15 @@ func formatSchema(schema router.SchemaMetadata, opts Options) Entity {
 	}
 
 	fields := make([]Field, 0, len(schema.Properties))
+	unions := make([]Union, 0, len(schema.Properties))
 	relations := make(map[string]Relation)
 
 	for propName, prop := range schema.Properties {
 		field := buildField(propName, prop, schema, required, opts)
+		if union := buildUnion(schema.Name, propName, prop, opts); union != nil {
+			field.Type = union.Name
+			unions = append(unions, *union)
+		}
 		if field.Relation != nil {
 			relations[propName] = *field.Relation
 		}
@@ -172,7 +208,7 @@ func formatSchema(schema router.SchemaMetadata, opts Options) Entity {
 	orderFields(fields, opts.pinned)
 	entity.Fields = fields
 	entity.Relationships = collectRelations(relations)
-	return entity
+	return entity, unions
 }
 
 func buildField(name string, prop router.PropertyInfo, schema router.SchemaMetadata, required map[string]struct{}, opts Options) Field {
@@ -212,6 +248,158 @@ func buildField(name string, prop router.PropertyInfo, schema router.SchemaMetad
 		ReadOnly:     prop.ReadOnly,
 		WriteOnly:    prop.WriteOnly,
 		Relation:     rel,
+	}
+}
+
+func buildUnion(schemaName, propName string, prop router.PropertyInfo, opts Options) *Union {
+	members := unionMembers(prop)
+	if len(members) == 0 {
+		return nil
+	}
+
+	unionName := opts.typeNamer(schemaName) + opts.typeNamer(singularize(propName))
+	types := make([]string, 0, len(members))
+	seen := make(map[string]struct{}, len(members))
+	for _, member := range members {
+		if member == "" {
+			continue
+		}
+		typeName := opts.typeNamer(member)
+		if _, ok := seen[typeName]; ok {
+			continue
+		}
+		seen[typeName] = struct{}{}
+		types = append(types, typeName)
+	}
+	sort.Strings(types)
+
+	typeMap := buildUnionTypeMap(prop, opts)
+	return &Union{
+		Name:           unionName,
+		Types:          types,
+		TypeMap:        typeMap,
+		TypeMapEntries: unionTypeMapEntries(typeMap),
+		SourceEntity:   opts.typeNamer(schemaName),
+		SourceField:    opts.fieldNamer(propName),
+	}
+}
+
+func buildUnionTypeMap(prop router.PropertyInfo, opts Options) map[string]string {
+	discriminators := unionDiscriminators(prop)
+	overrides := unionOverrides(prop)
+	if len(discriminators) == 0 && len(overrides) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(discriminators)+len(overrides))
+	for key, schemaName := range discriminators {
+		normalized := normalizeDiscriminatorKey(key)
+		if normalized == "" {
+			continue
+		}
+		if schemaName == "" {
+			continue
+		}
+		out[normalized] = opts.typeNamer(schemaName)
+	}
+	for key, value := range overrides {
+		normalized := normalizeDiscriminatorKey(key)
+		if normalized == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		out[normalized] = strings.TrimSpace(value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func unionMembers(prop router.PropertyInfo) []string {
+	if prop.CustomTagData == nil {
+		return nil
+	}
+	raw := prop.CustomTagData[unionMembersKey]
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			if val, ok := entry.(string); ok && strings.TrimSpace(val) != "" {
+				out = append(out, val)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func unionDiscriminators(prop router.PropertyInfo) map[string]string {
+	if prop.CustomTagData == nil {
+		return nil
+	}
+	raw := prop.CustomTagData[unionDiscriminatorKey]
+	switch typed := raw.(type) {
+	case map[string]string:
+		return cloneStringMap(typed)
+	case map[string]any:
+		return toStringMap(typed)
+	default:
+		return nil
+	}
+}
+
+func unionOverrides(prop router.PropertyInfo) map[string]string {
+	if prop.CustomTagData == nil {
+		return nil
+	}
+	raw := prop.CustomTagData[unionOverridesKey]
+	switch typed := raw.(type) {
+	case map[string]string:
+		return cloneStringMap(typed)
+	case map[string]any:
+		return toStringMap(typed)
+	default:
+		return nil
+	}
+}
+
+func normalizeDiscriminatorKey(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func unionTypeMapEntries(typeMap map[string]string) []UnionTypeMapEntry {
+	if len(typeMap) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(typeMap))
+	for key := range typeMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]UnionTypeMapEntry, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, UnionTypeMapEntry{Key: key, Value: typeMap[key]})
+	}
+	return out
+}
+
+func singularize(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return name
+	}
+	lower := strings.ToLower(trimmed)
+	switch {
+	case strings.HasSuffix(lower, "ies") && len(trimmed) > 3:
+		return trimmed[:len(trimmed)-3] + "y"
+	case strings.HasSuffix(lower, "ses") && len(trimmed) > 3:
+		return trimmed[:len(trimmed)-2]
+	case strings.HasSuffix(lower, "s") && !strings.HasSuffix(lower, "ss") && len(trimmed) > 1:
+		return trimmed[:len(trimmed)-1]
+	default:
+		return trimmed
 	}
 }
 
@@ -340,6 +528,107 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func mergeUnion(registry map[string]Union, union Union) {
+	if registry == nil || union.Name == "" {
+		return
+	}
+	existing, ok := registry[union.Name]
+	if !ok {
+		if union.TypeMapEntries == nil {
+			union.TypeMapEntries = unionTypeMapEntries(union.TypeMap)
+		}
+		registry[union.Name] = union
+		return
+	}
+
+	typeSet := make(map[string]struct{}, len(existing.Types)+len(union.Types))
+	for _, t := range existing.Types {
+		typeSet[t] = struct{}{}
+	}
+	for _, t := range union.Types {
+		typeSet[t] = struct{}{}
+	}
+	mergedTypes := make([]string, 0, len(typeSet))
+	for t := range typeSet {
+		mergedTypes = append(mergedTypes, t)
+	}
+	sort.Strings(mergedTypes)
+
+	mergedMap := make(map[string]string)
+	for key, val := range existing.TypeMap {
+		mergedMap[key] = val
+	}
+	for key, val := range union.TypeMap {
+		if strings.TrimSpace(val) == "" {
+			continue
+		}
+		mergedMap[key] = val
+	}
+
+	existing.Types = mergedTypes
+	existing.TypeMap = mergedMap
+	existing.TypeMapEntries = unionTypeMapEntries(mergedMap)
+	if existing.SourceEntity == "" {
+		existing.SourceEntity = union.SourceEntity
+	}
+	if existing.SourceField == "" {
+		existing.SourceField = union.SourceField
+	}
+	registry[union.Name] = existing
+}
+
+func collectUnions(registry map[string]Union) []Union {
+	if len(registry) == 0 {
+		return nil
+	}
+	out := make([]Union, 0, len(registry))
+	for _, union := range registry {
+		if union.TypeMapEntries == nil {
+			union.TypeMapEntries = unionTypeMapEntries(union.TypeMap)
+		}
+		out = append(out, union)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for key, val := range in {
+		out[key] = val
+	}
+	return out
+}
+
+func toStringMap(raw map[string]any) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for key, val := range raw {
+		if key == "" || val == nil {
+			continue
+		}
+		switch v := val.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				out[key] = v
+			}
+		default:
+			out[key] = strings.TrimSpace(fmt.Sprintf("%v", v))
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func defaultOptions() Options {
