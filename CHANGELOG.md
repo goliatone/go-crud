@@ -2,10 +2,32 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Gql metadata loader ([9d07621](https://github.com/goliatone/go-crud/commit/9d076219dadc58e9f570dbc270da17c3b79b7b30))  - (goliatone)
+- Gql formatter ([cf0aa17](https://github.com/goliatone/go-crud/commit/cf0aa17e4f359f2af950c54931f735701ca51588))  - (goliatone)
+- Udpate gql templates ([2384df8](https://github.com/goliatone/go-crud/commit/2384df88aab6b8ca2a4670cbae53006f1178c627))  - (goliatone)
+- Schema registry ([ce5a373](https://github.com/goliatone/go-crud/commit/ce5a373d6768ecf494e07328c5b9aada1d8f4697))  - (goliatone)
+- Example for CMS delivery ([3bc2b54](https://github.com/goliatone/go-crud/commit/3bc2b54e384997c2b135c2da11b2326dc52927af))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([c9f3ce1](https://github.com/goliatone/go-crud/commit/c9f3ce1c69d4f6c7b3b73ff3c84e754c192d74ed))  - (goliatone)
+- Update deps ([b1a2f15](https://github.com/goliatone/go-crud/commit/b1a2f154c2acd0719cbb518537a2e882ab47f4a3))  - (goliatone)
+- Update examples ([de5efb6](https://github.com/goliatone/go-crud/commit/de5efb6495cfbe4131da299dfa58dc6d3dd63c44))  - (goliatone)
+- Update test ([83c1441](https://github.com/goliatone/go-crud/commit/83c14410be15c0791837ac7baa2116ffba198751))  - (goliatone)
+- Udpate example ([336deaf](https://github.com/goliatone/go-crud/commit/336deaf670e9339c3e2cc926b92c17eec35816f1))  - (goliatone)
+
+# [0.17.0](https://github.com/goliatone/go-crud/compare/v0.16.0...v0.17.0) - (2026-01-14)
+
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Release gql subpacakge ([8e2d021](https://github.com/goliatone/go-crud/commit/8e2d021bb69932f3fec0f39e2e5f058da895e1c0))  - (goliatone)
 - Clamp pagination to max records ([73612a8](https://github.com/goliatone/go-crud/commit/73612a84c4197828b8c23d2dfd3437cfe767503c))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.17.0 ([d7a89bd](https://github.com/goliatone/go-crud/commit/d7a89bd58993e5bb0c003a28ef05f4072215b940))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
