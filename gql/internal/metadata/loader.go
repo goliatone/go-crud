@@ -18,6 +18,12 @@ import (
 	"github.com/goliatone/go-router"
 )
 
+const (
+	unionMembersKey       = "x-gql-union-members"
+	unionDiscriminatorKey = "x-gql-union-discriminator-map"
+	unionOverridesKey     = "x-gql-union-type-map"
+)
+
 // FromFile reads SchemaMetadata from a JSON file. The payload can be a single schema,
 // an array of schemas, or a wrapper object with a "schemas" field.
 func FromFile(path string) ([]router.SchemaMetadata, error) {
@@ -147,12 +153,12 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		if !ok {
 			continue
 		}
-		result[name] = schemaFromOpenAPI(name, rawMap)
+		result[name] = schemaFromOpenAPI(name, rawMap, rawSchemas)
 	}
 	return result, nil
 }
 
-func schemaFromOpenAPI(name string, raw map[string]any) router.SchemaMetadata {
+func schemaFromOpenAPI(name string, raw map[string]any, rawSchemas map[string]any) router.SchemaMetadata {
 	schema := router.SchemaMetadata{
 		Name:          name,
 		Description:   stringValue(raw["description"]),
@@ -160,6 +166,8 @@ func schemaFromOpenAPI(name string, raw map[string]any) router.SchemaMetadata {
 		Properties:    make(map[string]router.PropertyInfo),
 		Relationships: make(map[string]*router.RelationshipInfo),
 	}
+
+	unionOverrides := unionTypeOverrides(raw)
 
 	required := toStringSlice(raw["required"])
 	requiredSet := make(map[string]struct{}, len(required))
@@ -177,6 +185,14 @@ func schemaFromOpenAPI(name string, raw map[string]any) router.SchemaMetadata {
 		propInfo, rel := propertyFromOpenAPI(propName, propMap)
 		if _, ok := requiredSet[strings.ToLower(propName)]; ok {
 			propInfo.Required = true
+		}
+		if members := unionMembersFromProperty(propInfo); len(members) > 0 {
+			if len(unionOverrides) > 0 {
+				setCustomTagData(&propInfo, unionOverridesKey, unionOverrides)
+			}
+			if discriminators := unionDiscriminatorsForMembers(members, rawSchemas); len(discriminators) > 0 {
+				setCustomTagData(&propInfo, unionDiscriminatorKey, discriminators)
+			}
 		}
 		schema.Properties[propName] = propInfo
 		if rel != nil {
@@ -203,6 +219,10 @@ func propertyFromOpenAPI(name string, raw map[string]any) (router.PropertyInfo, 
 		WriteOnly:   boolValue(raw["writeOnly"]),
 		Nullable:    boolValue(raw["nullable"]),
 		Example:     raw["example"],
+	}
+
+	if members := unionMembersFromRaw(raw); len(members) > 0 {
+		setCustomTagData(&prop, unionMembersKey, members)
 	}
 
 	if nested, ok := raw["properties"].(map[string]any); ok && len(nested) > 0 {
@@ -292,6 +312,155 @@ func relationFromExtension(raw map[string]any) *router.RelationshipInfo {
 	}
 
 	return rel
+}
+
+func unionTypeOverrides(raw map[string]any) map[string]string {
+	ext, ok := raw["x-gql"].(map[string]any)
+	if !ok || len(ext) == 0 {
+		return nil
+	}
+	rawMap, ok := ext["unionTypeMap"].(map[string]any)
+	if !ok || len(rawMap) == 0 {
+		return nil
+	}
+	return toStringMap(rawMap)
+}
+
+func unionMembersFromProperty(prop router.PropertyInfo) []string {
+	if prop.CustomTagData == nil {
+		return nil
+	}
+	raw := prop.CustomTagData[unionMembersKey]
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		members := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			if name, ok := entry.(string); ok && strings.TrimSpace(name) != "" {
+				members = append(members, name)
+			}
+		}
+		return members
+	default:
+		return nil
+	}
+}
+
+func unionMembersFromRaw(raw map[string]any) []string {
+	members := schemaNamesFromOneOf(raw["oneOf"])
+	if len(members) > 0 {
+		return members
+	}
+	items, ok := raw["items"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return schemaNamesFromOneOf(items["oneOf"])
+}
+
+func schemaNamesFromOneOf(raw any) []string {
+	entries, ok := raw.([]any)
+	if !ok || len(entries) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(entries))
+	out := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		entryMap, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name := schemaNameFromRef(entryMap); name != "" {
+			if _, exists := seen[name]; exists {
+				continue
+			}
+			seen[name] = struct{}{}
+			out = append(out, name)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
+}
+
+func unionDiscriminatorsForMembers(members []string, rawSchemas map[string]any) map[string]string {
+	if len(members) == 0 || len(rawSchemas) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(members))
+	for _, member := range members {
+		raw, ok := rawSchemas[member].(map[string]any)
+		if !ok {
+			continue
+		}
+		if val := discriminatorValue(raw); val != "" {
+			out[val] = member
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func discriminatorValue(raw map[string]any) string {
+	props, ok := raw["properties"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	typeRaw, ok := props["_type"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if val, ok := typeRaw["const"].(string); ok && strings.TrimSpace(val) != "" {
+		return val
+	}
+	if enumAny, ok := typeRaw["enum"].([]any); ok {
+		for _, entry := range enumAny {
+			if val, ok := entry.(string); ok && strings.TrimSpace(val) != "" {
+				return val
+			}
+		}
+	}
+	return ""
+}
+
+func setCustomTagData(prop *router.PropertyInfo, key string, value any) {
+	if prop.CustomTagData == nil {
+		prop.CustomTagData = make(map[string]any)
+	}
+	prop.CustomTagData[key] = value
+}
+
+func toStringMap(raw map[string]any) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for key, val := range raw {
+		if key == "" {
+			continue
+		}
+		switch v := val.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				out[key] = v
+			}
+		case fmt.Stringer:
+			out[key] = v.String()
+		default:
+			if v != nil {
+				out[key] = fmt.Sprint(v)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func schemaNameFromRef(raw map[string]any) string {
