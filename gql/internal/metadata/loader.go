@@ -15,6 +15,7 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/goliatone/go-crud"
+	"github.com/goliatone/go-crud/gql/extensions"
 	"github.com/goliatone/go-router"
 )
 
@@ -147,18 +148,42 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		return nil, fmt.Errorf("missing components.schemas")
 	}
 
-	cmsMeta := cmsMetadataFromDoc(doc)
+	handlers := extensions.ListSchemaExtensions()
 	nameMap := make(map[string]string, len(rawSchemas))
+	docHandlers := handlersForDocument(doc, handlers)
+	for _, handler := range docHandlers {
+		ctx := &extensions.SchemaExtensionContext{
+			Doc:     doc,
+			NameMap: nameMap,
+		}
+		handler.ApplyDoc(doc, ctx)
+	}
+
+	resolvedNames := make(map[string]string, len(rawSchemas))
 	for name, raw := range rawSchemas {
 		rawMap, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		resolved := resolveSchemaName(name, rawMap, cmsMeta)
+		ctx := &extensions.SchemaExtensionContext{
+			Doc:        doc,
+			SchemaName: name,
+			NameMap:    nameMap,
+		}
+		for _, handler := range handlersForSchema(doc, rawMap, handlers) {
+			handler.ApplySchema(name, rawMap, ctx)
+		}
+		resolved := strings.TrimSpace(ctx.SchemaName)
+		if resolved == "" || resolved == name {
+			if mapped := nameMap[name]; mapped != "" {
+				resolved = mapped
+			}
+		}
 		if resolved == "" {
 			resolved = name
 		}
 		nameMap[name] = resolved
+		resolvedNames[name] = resolved
 	}
 
 	result := make(map[string]router.SchemaMetadata, len(rawSchemas))
@@ -167,15 +192,85 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		if !ok {
 			continue
 		}
-		resolved := nameMap[name]
+		resolved := resolvedNames[name]
 		if resolved == "" {
 			resolved = name
 		}
 		schema := schemaFromOpenAPI(resolved, rawMap, rawSchemas)
+		ctx := &extensions.SchemaExtensionContext{
+			Doc:        doc,
+			SchemaName: resolved,
+			Meta:       &schema,
+			NameMap:    nameMap,
+		}
+		for _, handler := range handlersForSchema(doc, rawMap, handlers) {
+			handler.ApplySchema(resolved, rawMap, ctx)
+		}
+		if strings.TrimSpace(ctx.SchemaName) != "" && ctx.SchemaName != resolved {
+			resolved = ctx.SchemaName
+			schema.Name = resolved
+			nameMap[name] = resolved
+		}
 		applySchemaNameMap(&schema, nameMap)
 		result[resolved] = schema
 	}
 	return result, nil
+}
+
+func handlersForDocument(doc map[string]any, handlers []extensions.SchemaExtensionHandler) []extensions.SchemaExtensionHandler {
+	if len(handlers) == 0 || len(doc) == 0 {
+		return nil
+	}
+	out := make([]extensions.SchemaExtensionHandler, 0, len(handlers))
+	for _, handler := range handlers {
+		if handler == nil {
+			continue
+		}
+		name := strings.TrimSpace(handler.Name())
+		if name == "" {
+			continue
+		}
+		if hasExtensionKey(doc, name) {
+			out = append(out, handler)
+		}
+	}
+	return out
+}
+
+func handlersForSchema(doc map[string]any, raw map[string]any, handlers []extensions.SchemaExtensionHandler) []extensions.SchemaExtensionHandler {
+	if len(handlers) == 0 {
+		return nil
+	}
+	out := make([]extensions.SchemaExtensionHandler, 0, len(handlers))
+	for _, handler := range handlers {
+		if handler == nil {
+			continue
+		}
+		name := strings.TrimSpace(handler.Name())
+		if name == "" {
+			continue
+		}
+		if hasExtensionKey(raw, name) || hasExtensionKey(doc, name) {
+			out = append(out, handler)
+		}
+	}
+	return out
+}
+
+func hasExtensionKey(raw map[string]any, key string) bool {
+	if len(raw) == 0 || key == "" {
+		return false
+	}
+	if _, ok := raw[key]; ok {
+		return true
+	}
+	needle := strings.ToLower(key)
+	for k := range raw {
+		if strings.ToLower(k) == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func schemaFromOpenAPI(name string, raw map[string]any, rawSchemas map[string]any) router.SchemaMetadata {
@@ -613,66 +708,6 @@ func applyRequiredFlags(schema router.SchemaMetadata) router.SchemaMetadata {
 	return schema
 }
 
-type cmsMetadata struct {
-	ContentType string
-	Schema      string
-	Version     string
-}
-
-func cmsMetadataFromDoc(doc map[string]any) cmsMetadata {
-	raw, ok := doc["x-cms"].(map[string]any)
-	if !ok {
-		return cmsMetadata{}
-	}
-	return cmsMetadataFromMap(raw)
-}
-
-func cmsMetadataFromMap(raw map[string]any) cmsMetadata {
-	return cmsMetadata{
-		ContentType: stringValueFromMap(raw, "content_type", "contentType", "contentTypeSlug", "slug"),
-		Schema:      stringValueFromMap(raw, "schema", "schema_version", "schemaVersion"),
-		Version:     stringValueFromMap(raw, "version", "schema_version", "schemaVersion"),
-	}
-}
-
-func resolveSchemaName(name string, raw map[string]any, docMeta cmsMetadata) string {
-	if rawMeta, ok := raw["x-cms"].(map[string]any); ok {
-		cms := cmsMetadataFromMap(rawMeta)
-		if resolved := cmsSchemaIdentifier(cms); resolved != "" {
-			return resolved
-		}
-	}
-	if docMeta.ContentType != "" && strings.EqualFold(name, docMeta.ContentType) {
-		if resolved := cmsSchemaIdentifier(docMeta); resolved != "" {
-			return resolved
-		}
-	}
-	return name
-}
-
-func cmsSchemaIdentifier(meta cmsMetadata) string {
-	if meta.Schema != "" {
-		if strings.Contains(meta.Schema, "@") {
-			return meta.Schema
-		}
-		if meta.ContentType != "" && strings.HasPrefix(strings.ToLower(meta.Schema), "v") {
-			return fmt.Sprintf("%s@%s", meta.ContentType, meta.Schema)
-		}
-		if meta.ContentType != "" && isSemverLike(meta.Schema) {
-			return fmt.Sprintf("%s@v%s", meta.ContentType, meta.Schema)
-		}
-		return meta.Schema
-	}
-	if meta.ContentType != "" && meta.Version != "" {
-		version := meta.Version
-		if !strings.HasPrefix(strings.ToLower(version), "v") {
-			version = "v" + version
-		}
-		return fmt.Sprintf("%s@%s", meta.ContentType, version)
-	}
-	return ""
-}
-
 func applySchemaNameMap(schema *router.SchemaMetadata, nameMap map[string]string) {
 	if schema == nil || len(nameMap) == 0 {
 		return
@@ -792,35 +827,6 @@ func mapSchemaName(name string, nameMap map[string]string) string {
 		return mapped
 	}
 	return name
-}
-
-func stringValueFromMap(raw map[string]any, keys ...string) string {
-	for _, key := range keys {
-		if val, ok := raw[key]; ok {
-			if str := strings.TrimSpace(stringValue(val)); str != "" {
-				return str
-			}
-		}
-	}
-	return ""
-}
-
-func isSemverLike(value string) bool {
-	parts := strings.Split(strings.TrimSpace(value), ".")
-	if len(parts) == 0 || len(parts) > 3 {
-		return false
-	}
-	for _, part := range parts {
-		if part == "" {
-			return false
-		}
-		for i := 0; i < len(part); i++ {
-			if part[i] < '0' || part[i] > '9' {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func resolveSchemaPackage(pkg string) (string, string, error) {
