@@ -147,13 +147,33 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		return nil, fmt.Errorf("missing components.schemas")
 	}
 
+	cmsMeta := cmsMetadataFromDoc(doc)
+	nameMap := make(map[string]string, len(rawSchemas))
+	for name, raw := range rawSchemas {
+		rawMap, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		resolved := resolveSchemaName(name, rawMap, cmsMeta)
+		if resolved == "" {
+			resolved = name
+		}
+		nameMap[name] = resolved
+	}
+
 	result := make(map[string]router.SchemaMetadata, len(rawSchemas))
 	for name, raw := range rawSchemas {
 		rawMap, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		result[name] = schemaFromOpenAPI(name, rawMap, rawSchemas)
+		resolved := nameMap[name]
+		if resolved == "" {
+			resolved = name
+		}
+		schema := schemaFromOpenAPI(resolved, rawMap, rawSchemas)
+		applySchemaNameMap(&schema, nameMap)
+		result[resolved] = schema
 	}
 	return result, nil
 }
@@ -591,6 +611,216 @@ func applyRequiredFlags(schema router.SchemaMetadata) router.SchemaMetadata {
 	}
 	schema.Properties = props
 	return schema
+}
+
+type cmsMetadata struct {
+	ContentType string
+	Schema      string
+	Version     string
+}
+
+func cmsMetadataFromDoc(doc map[string]any) cmsMetadata {
+	raw, ok := doc["x-cms"].(map[string]any)
+	if !ok {
+		return cmsMetadata{}
+	}
+	return cmsMetadataFromMap(raw)
+}
+
+func cmsMetadataFromMap(raw map[string]any) cmsMetadata {
+	return cmsMetadata{
+		ContentType: stringValueFromMap(raw, "content_type", "contentType", "contentTypeSlug", "slug"),
+		Schema:      stringValueFromMap(raw, "schema", "schema_version", "schemaVersion"),
+		Version:     stringValueFromMap(raw, "version", "schema_version", "schemaVersion"),
+	}
+}
+
+func resolveSchemaName(name string, raw map[string]any, docMeta cmsMetadata) string {
+	if rawMeta, ok := raw["x-cms"].(map[string]any); ok {
+		cms := cmsMetadataFromMap(rawMeta)
+		if resolved := cmsSchemaIdentifier(cms); resolved != "" {
+			return resolved
+		}
+	}
+	if docMeta.ContentType != "" && strings.EqualFold(name, docMeta.ContentType) {
+		if resolved := cmsSchemaIdentifier(docMeta); resolved != "" {
+			return resolved
+		}
+	}
+	return name
+}
+
+func cmsSchemaIdentifier(meta cmsMetadata) string {
+	if meta.Schema != "" {
+		if strings.Contains(meta.Schema, "@") {
+			return meta.Schema
+		}
+		if meta.ContentType != "" && strings.HasPrefix(strings.ToLower(meta.Schema), "v") {
+			return fmt.Sprintf("%s@%s", meta.ContentType, meta.Schema)
+		}
+		if meta.ContentType != "" && isSemverLike(meta.Schema) {
+			return fmt.Sprintf("%s@v%s", meta.ContentType, meta.Schema)
+		}
+		return meta.Schema
+	}
+	if meta.ContentType != "" && meta.Version != "" {
+		version := meta.Version
+		if !strings.HasPrefix(strings.ToLower(version), "v") {
+			version = "v" + version
+		}
+		return fmt.Sprintf("%s@%s", meta.ContentType, version)
+	}
+	return ""
+}
+
+func applySchemaNameMap(schema *router.SchemaMetadata, nameMap map[string]string) {
+	if schema == nil || len(nameMap) == 0 {
+		return
+	}
+	if len(schema.Relationships) > 0 {
+		for _, rel := range schema.Relationships {
+			if rel == nil || rel.RelatedSchema == "" {
+				continue
+			}
+			if mapped, ok := nameMap[rel.RelatedSchema]; ok {
+				rel.RelatedSchema = mapped
+			}
+		}
+	}
+	if len(schema.Properties) == 0 {
+		return
+	}
+	props := make(map[string]router.PropertyInfo, len(schema.Properties))
+	for name, prop := range schema.Properties {
+		props[name] = applySchemaNameMapToProperty(prop, nameMap)
+	}
+	schema.Properties = props
+}
+
+func applySchemaNameMapToProperty(prop router.PropertyInfo, nameMap map[string]string) router.PropertyInfo {
+	if prop.RelatedSchema != "" {
+		if mapped, ok := nameMap[prop.RelatedSchema]; ok {
+			prop.RelatedSchema = mapped
+		}
+	}
+	if prop.Items != nil {
+		item := applySchemaNameMapToProperty(*prop.Items, nameMap)
+		prop.Items = &item
+	}
+	if len(prop.Properties) > 0 {
+		nested := make(map[string]router.PropertyInfo, len(prop.Properties))
+		for name, nestedProp := range prop.Properties {
+			nested[name] = applySchemaNameMapToProperty(nestedProp, nameMap)
+		}
+		prop.Properties = nested
+	}
+	if len(prop.CustomTagData) > 0 {
+		prop.CustomTagData = applySchemaNameMapToCustomTags(prop.CustomTagData, nameMap)
+	}
+	return prop
+}
+
+func applySchemaNameMapToCustomTags(tags map[string]any, nameMap map[string]string) map[string]any {
+	if len(tags) == 0 {
+		return tags
+	}
+	out := make(map[string]any, len(tags))
+	for key, val := range tags {
+		switch key {
+		case unionMembersKey:
+			out[key] = remapStringSlice(val, nameMap)
+		case unionDiscriminatorKey, unionOverridesKey:
+			out[key] = remapStringMap(val, nameMap)
+		default:
+			out[key] = val
+		}
+	}
+	return out
+}
+
+func remapStringSlice(raw any, nameMap map[string]string) any {
+	switch typed := raw.(type) {
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			if entry == "" {
+				continue
+			}
+			out = append(out, mapSchemaName(entry, nameMap))
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			if name, ok := entry.(string); ok && name != "" {
+				out = append(out, mapSchemaName(name, nameMap))
+			}
+		}
+		return out
+	default:
+		return raw
+	}
+}
+
+func remapStringMap(raw any, nameMap map[string]string) any {
+	switch typed := raw.(type) {
+	case map[string]string:
+		out := make(map[string]string, len(typed))
+		for key, val := range typed {
+			if strings.TrimSpace(val) == "" {
+				continue
+			}
+			out[key] = mapSchemaName(val, nameMap)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]string, len(typed))
+		for key, val := range typed {
+			if val == nil {
+				continue
+			}
+			out[key] = mapSchemaName(stringValue(val), nameMap)
+		}
+		return out
+	default:
+		return raw
+	}
+}
+
+func mapSchemaName(name string, nameMap map[string]string) string {
+	if mapped, ok := nameMap[name]; ok && mapped != "" {
+		return mapped
+	}
+	return name
+}
+
+func stringValueFromMap(raw map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if val, ok := raw[key]; ok {
+			if str := strings.TrimSpace(stringValue(val)); str != "" {
+				return str
+			}
+		}
+	}
+	return ""
+}
+
+func isSemverLike(value string) bool {
+	parts := strings.Split(strings.TrimSpace(value), ".")
+	if len(parts) == 0 || len(parts) > 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for i := 0; i < len(part); i++ {
+			if part[i] < '0' || part[i] > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func resolveSchemaPackage(pkg string) (string, string, error) {
