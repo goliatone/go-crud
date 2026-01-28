@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-crud"
-	"github.com/goliatone/go-crud/gql/internal/generator"
+	"github.com/goliatone/go-crud/gql/generator"
 )
 
 // GeneratorFunc executes a GraphQL generation cycle.
@@ -27,7 +27,7 @@ type Options struct {
 
 // Refresher listens for schema registry updates and regenerates GraphQL output.
 type Refresher struct {
-	ctx context.Context
+	ctx  context.Context
 	opts Options
 
 	mu      sync.Mutex
