@@ -2,6 +2,10 @@ package crud
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,13 +34,11 @@ var globalSchemaRegistry = &schemaRegistry{
 }
 
 func registerSchemaEntry(meta router.ResourceMetadata, doc map[string]any) {
-	entry := SchemaEntry{
-		Resource:  meta.Name,
-		Plural:    meta.PluralName,
-		Document:  cloneSchemaDocument(doc),
-		UpdatedAt: time.Now().UTC(),
-	}
-	globalSchemaRegistry.upsert(entry)
+	_ = RegisterSchemaEntry(SchemaEntry{
+		Resource: meta.Name,
+		Plural:   meta.PluralName,
+		Document: doc,
+	})
 }
 
 func (sr *schemaRegistry) upsert(entry SchemaEntry) {
@@ -98,6 +100,76 @@ func cloneSchemaDocument(doc map[string]any) map[string]any {
 		return nil
 	}
 	return clone
+}
+
+type schemaExportConfig struct {
+	indent string
+}
+
+// SchemaExportOption configures registry export output.
+type SchemaExportOption func(*schemaExportConfig)
+
+// WithSchemaExportIndent controls JSON indentation when exporting schema registry entries.
+func WithSchemaExportIndent(indent string) SchemaExportOption {
+	return func(cfg *schemaExportConfig) {
+		cfg.indent = indent
+	}
+}
+
+// RegisterSchemaEntry registers an OpenAPI document in the schema registry.
+func RegisterSchemaEntry(entry SchemaEntry) bool {
+	resource := strings.TrimSpace(entry.Resource)
+	if resource == "" || len(entry.Document) == 0 {
+		return false
+	}
+	entry.Resource = resource
+	entry.Document = cloneSchemaDocument(entry.Document)
+	if entry.UpdatedAt.IsZero() {
+		entry.UpdatedAt = time.Now().UTC()
+	} else {
+		entry.UpdatedAt = entry.UpdatedAt.UTC()
+	}
+	globalSchemaRegistry.upsert(entry)
+	return true
+}
+
+// RegisterSchemaDocument registers a projected OpenAPI document without a controller/router.
+func RegisterSchemaDocument(resource, plural string, doc map[string]any) bool {
+	return RegisterSchemaEntry(SchemaEntry{
+		Resource: resource,
+		Plural:   plural,
+		Document: doc,
+	})
+}
+
+// ExportSchemas writes the schema registry entries as JSON, sorted by resource name.
+func ExportSchemas(w io.Writer, opts ...SchemaExportOption) error {
+	if w == nil {
+		return errors.New("schema export writer is nil")
+	}
+
+	entries := ListSchemas()
+	if len(entries) == 0 {
+		return errors.New("no schemas registered")
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Resource < entries[j].Resource
+	})
+
+	cfg := schemaExportConfig{}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(&cfg)
+	}
+
+	enc := json.NewEncoder(w)
+	if cfg.indent != "" {
+		enc.SetIndent("", cfg.indent)
+	}
+	return enc.Encode(entries)
 }
 
 // ListSchemas returns all registered schema documents.
