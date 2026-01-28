@@ -53,7 +53,76 @@ var criteriaConfig = map[string]map[string]criteriaField{
 {% endfor %}
 }
 
-func findOriginalNameForJoinKey(entity, joinKey string) string {
+{% if Unions %}var unionTypeMaps = map[string]map[string]string{
+{% for union in Unions %}	"{{ union.Name }}": {
+	{% for entry in union.TypeMapEntries %}		"{{ entry.Key }}": "{{ entry.Value }}",
+	{% endfor %}	},
+{% endfor %}}
+
+func resolveUnionTypeName(unionName, discriminator string) string {
+	if unionName == "" || discriminator == "" {
+		return ""
+	}
+	typeMap, ok := unionTypeMaps[unionName]
+	if !ok {
+		return ""
+	}
+	key := strings.ToLower(strings.TrimSpace(discriminator))
+	if val, ok := typeMap[key]; ok {
+		return val
+	}
+	return ""
+}
+
+func unionDiscriminator(value any) string {
+	if value == nil {
+		return ""
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		return valueString(v["_type"])
+	case map[string]string:
+		return v["_type"]
+	case interface{ Type() string }:
+		return v.Type()
+	case interface{ GetType() string }:
+		return v.GetType()
+	}
+
+	rv := reflect.ValueOf(value)
+	if rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return ""
+		}
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return ""
+	}
+
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		tag := field.Tag.Get("json")
+		tagName := strings.SplitN(tag, ",", 2)[0]
+		if tagName == "_type" || strings.EqualFold(field.Name, "Type") {
+			fv := rv.Field(i)
+			if fv.IsValid() && fv.CanInterface() {
+				return valueString(fv.Interface())
+			}
+		}
+	}
+	return ""
+}
+
+func resolveUnionType(unionName string, value any) string {
+	if unionName == "" {
+		return ""
+	}
+	return resolveUnionTypeName(unionName, unionDiscriminator(value))
+}
+
+{% endif %}func findOriginalNameForJoinKey(entity, joinKey string) string {
 	joinKey = strings.ToLower(strings.TrimSpace(joinKey))
 	if joinKey == "" {
 		return ""

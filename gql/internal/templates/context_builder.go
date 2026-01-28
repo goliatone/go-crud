@@ -390,7 +390,7 @@ func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	for _, ent := range ctx.Entities {
 		fields := make([]ModelField, 0, len(ent.Fields))
 		for _, f := range ent.Fields {
-			goType, imp := goTypeFor(f.Type, f.IsList, f.Required && !f.Nullable, isEntity(ctx.Entities, f.Type), enumNames, scalarMap)
+			goType, imp := goTypeFor(f.Type, f.IsList, f.Required && !f.Nullable, isEntity(ctx.Entities, f.Type), isUnion(ctx.Unions, f.Type), enumNames, scalarMap)
 			if imp != "" {
 				imports[imp] = struct{}{}
 			}
@@ -410,7 +410,7 @@ func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	for _, in := range ctx.Inputs {
 		fields := make([]ModelField, 0, len(in.Fields))
 		for _, f := range in.Fields {
-			goType, imp := goTypeFor(f.Type, f.List, f.Required, isEntity(ctx.Entities, f.Type), enumNames, scalarMap)
+			goType, imp := goTypeFor(f.Type, f.List, f.Required, isEntity(ctx.Entities, f.Type), isUnion(ctx.Unions, f.Type), enumNames, scalarMap)
 			if !f.List && !f.Required && !strings.HasPrefix(goType, "*") {
 				goType = "*" + goType
 			}
@@ -800,7 +800,7 @@ func scalarGoTypes(scalars []TemplateScalar) map[string]string {
 	return m
 }
 
-func goTypeFor(gqlType string, isList bool, required bool, isEntity bool, enumNames map[string]struct{}, scalarMap map[string]string) (string, string) {
+func goTypeFor(gqlType string, isList bool, required bool, isEntity bool, isUnion bool, enumNames map[string]struct{}, scalarMap map[string]string) (string, string) {
 	baseType := gqlType
 	var importName string
 
@@ -808,6 +808,8 @@ func goTypeFor(gqlType string, isList bool, required bool, isEntity bool, enumNa
 		baseType = goType
 	} else if _, ok := enumNames[baseType]; ok {
 		// keep enum name
+	} else if isUnion {
+		// keep union interface name
 	} else if isEntity {
 		baseType = "*" + baseType
 	}
@@ -823,7 +825,7 @@ func goTypeFor(gqlType string, isList bool, required bool, isEntity bool, enumNa
 		return "[]" + baseType, importName
 	}
 
-	if !required && !strings.HasPrefix(baseType, "*") && !isEntity && !isScalarBuiltin(baseType) {
+	if !required && !strings.HasPrefix(baseType, "*") && !isEntity && !isUnion && !isScalarBuiltin(baseType) {
 		baseType = "*" + baseType
 	}
 
@@ -842,6 +844,15 @@ func isScalarBuiltin(goType string) bool {
 func isEntity(entities []formatter.Entity, name string) bool {
 	for _, e := range entities {
 		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func isUnion(unions []formatter.Union, name string) bool {
+	for _, u := range unions {
+		if u.Name == name {
 			return true
 		}
 	}

@@ -23,6 +23,9 @@ models:{% if Scalars %}{% for scalar in Scalars %}
 {% endfor %}{% endif %}{% for entity in Entities %}
   {{ entity.Name }}:
     model: {{ ModelPackage }}.{{ entity.Name }}
+{% endfor %}{% for union in Unions %}
+  {{ union.Name }}:
+    model: {{ ModelPackage }}.{{ union.Name }}
 {% endfor %}{% for input in Inputs %}
   {{ input.Name }}:
     model: {{ ModelPackage }}.{{ input.Name }}

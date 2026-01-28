@@ -57,6 +57,7 @@ func NewRendererWithBaseDir(baseDir string) (gotemplate.Renderer, error) {
 type Context struct {
 	Notice             string
 	Entities           []formatter.Entity
+	Unions             []formatter.Union
 	ModelPackage       string
 	ResolverPackage    string
 	DataloaderPackage  string
@@ -229,6 +230,7 @@ func NewContext(doc formatter.Document) Context {
 	return Context{
 		Notice:            GeneratedNotice,
 		Entities:          doc.Entities,
+		Unions:            doc.Unions,
 		ModelPackage:      "graph/model",
 		ResolverPackage:   "graph/resolvers",
 		DataloaderPackage: "graph/dataloader",

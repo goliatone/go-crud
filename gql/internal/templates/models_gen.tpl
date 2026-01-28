@@ -22,7 +22,13 @@ const (
 {% for field in struct.Fields %}	{{ field.Name }} {{ field.GoType }} `json:"{{ field.JSONName }},omitempty"`
 {% endfor %}}
 
-{% endfor %}{% if Scalars %}
+{% endfor %}{% if Unions %}
+{% for union in Unions %}type {{ union.Name }} interface {
+	Is{{ union.Name }}()
+}
+{% for member in union.Types %}func (*{{ member }}) Is{{ union.Name }}() {}
+{% endfor %}
+{% endfor %}{% endif %}{% if Scalars %}
 {% for scalar in Scalars %}
 func Marshal{{ scalar.Name }}(v {{ scalar.Name }}) graphql.Marshaler {
 {% if scalar.Name == "Time" %}	return graphql.MarshalTime(time.Time(v))

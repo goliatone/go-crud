@@ -31,6 +31,12 @@
 {% endfor %}
 {% endif %}
 
+{% if Unions -%}
+{% for union in Unions -%}
+union {{ union.Name }} = {% for member in union.Types %}{{ member }}{% if not forloop.last %} | {% endif %}{% endfor %}
+{% endfor %}
+{% endif %}
+
 {% for entity in Entities -%}
 {% if entity.Description %}"""{{ entity.Description }}"""
 {% endif %}type {{ entity.Name }} {
