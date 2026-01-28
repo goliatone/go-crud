@@ -191,6 +191,49 @@ func TestFormat_BuildsUnionMetadata(t *testing.T) {
 	assert.True(t, blocks.IsList)
 }
 
+func TestFormat_VersionedSchemaNames(t *testing.T) {
+	schemas := []router.SchemaMetadata{
+		{
+			Name: "article@v1.2.3",
+			Properties: map[string]router.PropertyInfo{
+				"blocks": {
+					Type:  "array",
+					Items: &router.PropertyInfo{Type: "object"},
+					CustomTagData: map[string]any{
+						unionMembersKey: []string{"hero_block@v2.0.0", "rich_text_block"},
+						unionDiscriminatorKey: map[string]string{
+							"hero":      "hero_block@v2.0.0",
+							"rich_text": "rich_text_block",
+						},
+					},
+				},
+			},
+		},
+		{Name: "hero_block@v2.0.0"},
+		{Name: "rich_text_block"},
+	}
+
+	doc, err := Format(schemas)
+	require.NoError(t, err)
+	require.Len(t, doc.Unions, 1)
+
+	var article Entity
+	for _, ent := range doc.Entities {
+		if ent.RawName == "article@v1.2.3" {
+			article = ent
+			break
+		}
+	}
+	require.Equal(t, "ArticleV1_2_3", article.Name)
+
+	union := doc.Unions[0]
+	assert.Equal(t, "ArticleV1_2_3Block", union.Name)
+	assert.Contains(t, union.Types, "HeroBlockV2_0_0")
+	assert.Contains(t, union.Types, "RichTextBlock")
+	assert.Equal(t, "HeroBlockV2_0_0", union.TypeMap["hero"])
+	assert.Equal(t, "RichTextBlock", union.TypeMap["rich_text"])
+}
+
 func fieldNames(fields []Field) []string {
 	names := make([]string, 0, len(fields))
 	for _, f := range fields {

@@ -176,6 +176,72 @@ func TestFromSchemaEntries_ParsesUnionMetadata(t *testing.T) {
 	require.Equal(t, "HeroBlockOverride", overrides["hero"])
 }
 
+func TestFromSchemaEntries_AppliesCMSVersionedNames(t *testing.T) {
+	doc := map[string]any{
+		"x-cms": map[string]any{
+			"content_type": "article",
+			"schema":       "article@v1.2.3",
+		},
+		"components": map[string]any{
+			"schemas": map[string]any{
+				"article": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"id": map[string]any{"type": "string"},
+					},
+				},
+				"page": map[string]any{
+					"type": "object",
+				},
+				"feed": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"featured": map[string]any{
+							"oneOf": []any{
+								map[string]any{"$ref": "#/components/schemas/article"},
+								map[string]any{"$ref": "#/components/schemas/page"},
+							},
+						},
+						"primary": map[string]any{
+							"type": "object",
+							"x-relationships": map[string]any{
+								"type":   "has-one",
+								"target": "#/components/schemas/article",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	entries := []crud.SchemaEntry{{Resource: "article", Document: doc}}
+	schemas, err := FromSchemaEntries(entries)
+	require.NoError(t, err)
+
+	var article, feed router.SchemaMetadata
+	for _, schema := range schemas {
+		switch schema.Name {
+		case "article@v1.2.3":
+			article = schema
+		case "feed":
+			feed = schema
+		}
+	}
+	require.Equal(t, "article@v1.2.3", article.Name)
+	require.Equal(t, "feed", feed.Name)
+
+	featured, ok := feed.Properties["featured"]
+	require.True(t, ok)
+	members := unionMembersFromProperty(featured)
+	require.Contains(t, members, "article@v1.2.3")
+	require.Contains(t, members, "page")
+
+	rel, ok := feed.Relationships["primary"]
+	require.True(t, ok)
+	assert.Equal(t, "article@v1.2.3", rel.RelatedSchema)
+}
+
 func TestFromFile_LoadsSchemasFixture(t *testing.T) {
 	schemas, err := FromFile("testdata/metadata.json")
 	require.NoError(t, err)

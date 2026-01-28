@@ -146,6 +146,41 @@ func TestTemplates_RenderUnionBlocks(t *testing.T) {
 	require.Contains(t, modelOut, "func (*RichTextBlock) IsBlogPostBlock()")
 }
 
+func TestTemplates_RenderVersionedSchemas(t *testing.T) {
+	renderer, err := NewRenderer()
+	require.NoError(t, err)
+
+	schemas := []router.SchemaMetadata{
+		{
+			Name: "article@v1.2.3",
+			Properties: map[string]router.PropertyInfo{
+				"id": {Type: "string"},
+			},
+		},
+	}
+
+	doc, err := formatter.Format(schemas)
+	require.NoError(t, err)
+
+	ctx := BuildContext(doc, ContextOptions{
+		ConfigPath: "gqlgen.yml",
+		OutDir:     "graph",
+	})
+
+	schemaOut, err := renderer.Render(SchemaTemplate, ctx)
+	require.NoError(t, err)
+	require.Contains(t, schemaOut, "type ArticleV1_2_3")
+	require.Contains(t, schemaOut, "getArticleV1_2_3")
+
+	resolverOut, err := renderer.Render(ResolverGenTemplate, ctx)
+	require.NoError(t, err)
+	require.Contains(t, resolverOut, "GetArticleV1_2_3")
+
+	modelOut, err := renderer.Render(ModelsTemplate, ctx)
+	require.NoError(t, err)
+	require.Contains(t, modelOut, "type ArticleV1_2_3 struct")
+}
+
 func TestBuildContext_OmitsMutationFields(t *testing.T) {
 	schemas, err := metadata.FromFile(filepath.Join("testdata", "metadata.json"))
 	require.NoError(t, err)

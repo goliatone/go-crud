@@ -44,3 +44,36 @@ func TestExportSchemas(t *testing.T) {
 	assert.Equal(t, "alpha", entries[0].Resource)
 	assert.Equal(t, "beta", entries[1].Resource)
 }
+
+func TestRegisterSchemaDocumentStoresCMSProjection(t *testing.T) {
+	resetSchemaRegistry()
+
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info": map[string]any{
+			"title":   "Article",
+			"version": "1.0.0",
+		},
+		"components": map[string]any{
+			"schemas": map[string]any{
+				"article": map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		"x-cms": map[string]any{
+			"content_type": "article",
+			"schema":       "article@v1.0.0",
+		},
+	}
+
+	ok := RegisterSchemaDocument("article", "articles", doc)
+	require.True(t, ok, "expected registration to succeed")
+
+	entry, found := GetSchema("article")
+	require.True(t, found, "expected schema to be registered")
+	meta, ok := entry.Document["x-cms"].(map[string]any)
+	require.True(t, ok, "expected x-cms metadata")
+	assert.Equal(t, "article", meta["content_type"])
+	assert.Equal(t, "article@v1.0.0", meta["schema"])
+}
