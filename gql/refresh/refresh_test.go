@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/goliatone/go-crud"
-	"github.com/goliatone/go-crud/gql/internal/generator"
+	"github.com/goliatone/go-crud/gql/generator"
 )
 
 func TestRegisterSchemaRefresh_TriggersGenerator(t *testing.T) {
