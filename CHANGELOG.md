@@ -4,6 +4,30 @@
 
 ## <!-- 16 -->➕ Add
 
+- Gql generator ([5ac8f45](https://github.com/goliatone/go-crud/commit/5ac8f4531f363604ef1fb9e1e6052a86295ddf18))  - (goliatone)
+- Gql support for versions ([e0bb839](https://github.com/goliatone/go-crud/commit/e0bb839f434ce2fcee9c5780874ae88fb314f367))  - (goliatone)
+- Gql refresh ([e9eb5c9](https://github.com/goliatone/go-crud/commit/e9eb5c99e197cc2c67f1ce9bb8700121bba05f37))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Move cms related extension loader to own package ([8f233c4](https://github.com/goliatone/go-crud/commit/8f233c44ddcddb219adca8c19b38173f967d18d9))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([8e27e16](https://github.com/goliatone/go-crud/commit/8e27e1698ed185802ad1c58d9e118fa13545b567))  - (goliatone)
+- Udpate test ([836432f](https://github.com/goliatone/go-crud/commit/836432f019931367e0f0efa3208e934aafd43a9e))  - (goliatone)
+- Update format ([85ca163](https://github.com/goliatone/go-crud/commit/85ca1638d9b60807060eb726a63c39ba8d7459f0))  - (goliatone)
+- Update readme ([3ec3b7f](https://github.com/goliatone/go-crud/commit/3ec3b7fe88756e85af2d2dd0a30ef3443cb187db))  - (goliatone)
+- Update test ([c98ec61](https://github.com/goliatone/go-crud/commit/c98ec61d9c54d18a3f224db7ac76d17cc1004691))  - (goliatone)
+
+# [0.18.0](https://github.com/goliatone/go-crud/compare/v0.17.0...v0.18.0) - (2026-01-28)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.18.0 ([a28a2fa](https://github.com/goliatone/go-crud/commit/a28a2fa84efd1776d036e2024662dd2d925d2a8f))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
 - Gql metadata loader ([9d07621](https://github.com/goliatone/go-crud/commit/9d076219dadc58e9f570dbc270da17c3b79b7b30))  - (goliatone)
 - Gql formatter ([cf0aa17](https://github.com/goliatone/go-crud/commit/cf0aa17e4f359f2af950c54931f735701ca51588))  - (goliatone)
 - Udpate gql templates ([2384df8](https://github.com/goliatone/go-crud/commit/2384df88aab6b8ca2a4670cbae53006f1178c627))  - (goliatone)
