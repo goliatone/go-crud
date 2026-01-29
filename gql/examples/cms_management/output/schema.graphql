@@ -74,6 +74,26 @@ input UpdateContentInput {
   type: String
 }
 
+"""Create payload for ContentType"""
+input CreateContentTypeInput {
+  name: String!
+  slug: String!
+  capabilities: JSON
+  description: String
+  icon: String
+  schema: JSON
+}
+
+"""Update payload for ContentType"""
+input UpdateContentTypeInput {
+  name: String
+  slug: String
+  capabilities: JSON
+  description: String
+  icon: String
+  schema: JSON
+}
+
 """Create payload for Page"""
 input CreatePageInput {
   data: JSON!
@@ -90,26 +110,6 @@ input UpdatePageInput {
   slug: String
   status: String
   title: String
-}
-
-"""Create payload for ContentType"""
-input CreateContentTypeInput {
-  name: String!
-  slug: String!
-  description: String
-  schema: JSON
-  capabilities: JSON
-  icon: String
-}
-
-"""Update payload for ContentType"""
-input UpdateContentTypeInput {
-  name: String
-  slug: String
-  description: String
-  schema: JSON
-  capabilities: JSON
-  icon: String
 }
 
 """CMS content entry (management API)"""
@@ -134,6 +134,29 @@ type ContentEdge {
   node: Content!
 }
 
+"""CMS content type definition (management API)"""
+type ContentType {
+  id: UUID!
+  capabilities: JSON
+  description: String
+  icon: String
+  name: String!
+  schema: JSON
+  slug: String!
+}
+
+"""ContentType connection"""
+type ContentTypeConnection {
+  edges: [ContentTypeEdge!]!
+  pageInfo: PageInfo!
+}
+
+"""Edge wrapper for ContentType"""
+type ContentTypeEdge {
+  cursor: String!
+  node: ContentType!
+}
+
 """CMS page entry (management API)"""
 type Page {
   id: UUID!
@@ -156,29 +179,6 @@ type PageEdge {
   node: Page!
 }
 
-"""CMS content type definition (management API)"""
-type ContentType {
-  id: UUID!
-  name: String!
-  slug: String!
-  description: String
-  schema: JSON
-  capabilities: JSON
-  icon: String
-}
-
-"""ContentType connection"""
-type ContentTypeConnection {
-  edges: [ContentTypeEdge!]!
-  pageInfo: PageInfo!
-}
-
-"""Edge wrapper for ContentType"""
-type ContentTypeEdge {
-  cursor: String!
-  node: ContentType!
-}
-
 type PageInfo {
   total: Int!
   hasNextPage: Boolean!
@@ -190,20 +190,20 @@ type PageInfo {
 type Query {
   getContent(id: UUID!): Content!
   listContent(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): ContentConnection!
-  getPage(id: UUID!): Page!
-  listPage(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): PageConnection!
   getContentType(id: UUID!): ContentType!
   listContentType(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): ContentTypeConnection!
+  getPage(id: UUID!): Page!
+  listPage(pagination: PaginationInput, orderBy: [OrderByInput], filter: [FilterInput]): PageConnection!
 }
 
 type Mutation {
   createContent(input: CreateContentInput!): Content!
   updateContent(id: UUID!, input: UpdateContentInput!): Content!
   deleteContent(id: UUID!): Boolean!
-  createPage(input: CreatePageInput!): Page!
-  updatePage(id: UUID!, input: UpdatePageInput!): Page!
-  deletePage(id: UUID!): Boolean!
   createContentType(input: CreateContentTypeInput!): ContentType!
   updateContentType(id: UUID!, input: UpdateContentTypeInput!): ContentType!
   deleteContentType(id: UUID!): Boolean!
+  createPage(input: CreatePageInput!): Page!
+  updatePage(id: UUID!, input: UpdatePageInput!): Page!
+  deletePage(id: UUID!): Boolean!
 }

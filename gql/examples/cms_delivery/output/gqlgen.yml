@@ -19,73 +19,73 @@ resolver:
 
 models:
   UUID:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.UUID
+    model: model.UUID
 
   Time:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.Time
+    model: model.Time
 
   JSON:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.JSON
+    model: model.JSON
 
   Content:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.Content
+    model: model.Content
 
   ContentConnection:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.ContentConnection
+    model: model.ContentConnection
 
   ContentEdge:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.ContentEdge
+    model: model.ContentEdge
 
   Menu:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.Menu
+    model: model.Menu
 
   MenuConnection:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.MenuConnection
+    model: model.MenuConnection
 
   MenuEdge:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.MenuEdge
+    model: model.MenuEdge
 
   Page:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.Page
+    model: model.Page
 
   PageConnection:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.PageConnection
+    model: model.PageConnection
 
   PageEdge:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.PageEdge
+    model: model.PageEdge
 
   PageInfo:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.PageInfo
+    model: model.PageInfo
 
   PaginationInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.PaginationInput
+    model: model.PaginationInput
 
   OrderByInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.OrderByInput
+    model: model.OrderByInput
 
   FilterInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.FilterInput
+    model: model.FilterInput
 
   CreateContentInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.CreateContentInput
+    model: model.CreateContentInput
 
   UpdateContentInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.UpdateContentInput
+    model: model.UpdateContentInput
 
   CreateMenuInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.CreateMenuInput
+    model: model.CreateMenuInput
 
   UpdateMenuInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.UpdateMenuInput
+    model: model.UpdateMenuInput
 
   CreatePageInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.CreatePageInput
+    model: model.CreatePageInput
 
   UpdatePageInput:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.UpdatePageInput
+    model: model.UpdatePageInput
 
   OrderDirection:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.OrderDirection
+    model: model.OrderDirection
 
   FilterOperator:
-    model: github.com/goliatone/go-crud/gql/examples/cms_delivery/output/model.FilterOperator
+    model: model.FilterOperator
