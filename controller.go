@@ -77,6 +77,8 @@ type Controller[T any] struct {
 	deserialiMany         func(op CrudOperation, ctx Context) ([]T, error)
 	resp                  ResponseHandler[T]
 	service               Service[T]
+	readService           Service[T]
+	writeService          Service[T]
 	resource              string
 	resourceType          reflect.Type
 	logger                Logger
@@ -102,6 +104,7 @@ type Controller[T any] struct {
 	routeNames            map[CrudOperation]string
 	relationProvider      router.RelationMetadataProvider
 	scopeGuard            ScopeGuardFunc[T]
+	contextFactory        func(Context) Context
 	virtualFieldsEnabled  bool
 	virtualFieldConfig    VirtualFieldHandlerConfig
 	mergePolicy           MergePolicy
@@ -481,6 +484,7 @@ func (c *Controller[T]) registerActionRoutes(r Router, actions []resolvedAction[
 
 func (c *Controller[T]) buildActionHandler(action resolvedAction[T]) func(Context) error {
 	return func(ctx Context) error {
+		ctx = c.applyContextFactory(ctx)
 		meta, err := c.resolveGuardContext(ctx, action.operation)
 		if err != nil {
 			return c.resp.OnError(ctx, err, action.operation)
@@ -499,6 +503,17 @@ func (c *Controller[T]) buildActionHandler(action resolvedAction[T]) func(Contex
 		}
 		return nil
 	}
+}
+
+func (c *Controller[T]) applyContextFactory(ctx Context) Context {
+	if ctx == nil || c.contextFactory == nil {
+		return ctx
+	}
+	updated := c.contextFactory(ctx)
+	if updated == nil {
+		return ctx
+	}
+	return updated
 }
 
 func (c *Controller[T]) recordRouteMetadata(op CrudOperation, method, path, routeName string) {
@@ -611,8 +626,6 @@ func (c *Controller[T]) attachHookContext(ctx Context, op CrudOperation) {
 }
 
 func (c *Controller[T]) buildService() {
-	svc := c.service
-
 	cfg := ServiceConfig[T]{
 		Repository:           c.Repo,
 		Hooks:                c.hooks,
@@ -623,7 +636,22 @@ func (c *Controller[T]) buildService() {
 		BatchReturnOrderByID: c.batchReturnOrderByID,
 	}
 
+	c.service = c.composeService(cfg, c.service, true)
+
+	if c.readService != nil {
+		c.readService = c.composeService(cfg, c.readService, false)
+	}
+
+	if c.writeService != nil {
+		c.writeService = c.composeService(cfg, c.writeService, false)
+	}
+}
+
+func (c *Controller[T]) composeService(cfg ServiceConfig[T], svc Service[T], allowDefault bool) Service[T] {
 	if svc == nil {
+		if !allowDefault {
+			return nil
+		}
 		svc = NewService(cfg)
 	} else if !hooksEmpty(cfg.Hooks) {
 		svc = &hooksService[T]{next: svc, hooks: cfg.Hooks}
@@ -639,7 +667,21 @@ func (c *Controller[T]) buildService() {
 		}
 	}
 
-	c.service = svc
+	return svc
+}
+
+func (c *Controller[T]) resolvedReadService() Service[T] {
+	if c.readService != nil {
+		return c.readService
+	}
+	return c.service
+}
+
+func (c *Controller[T]) resolvedWriteService() Service[T] {
+	if c.writeService != nil {
+		return c.writeService
+	}
+	return c.service
 }
 
 func (c *Controller[T]) attachVirtualFieldHooks() {
@@ -689,6 +731,7 @@ func wrapFieldMapProviderWithVirtuals(base FieldMapProvider, defs []VirtualField
 }
 
 func (c *Controller[T]) Schema(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
 	meta, doc := c.compileSchemaDocument()
 	if meta.Name == "" {
 		return ctx.SendStatus(http.StatusNotFound)
@@ -789,6 +832,8 @@ func (c *Controller[T]) refreshSchemaRegistration() {
 // GET /user?include=Company,Profile
 // GET /user?select=id,age,email
 func (c *Controller[T]) Show(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedReadService()
 	meta, err := c.resolveGuardContext(ctx, OpRead)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpRead)
@@ -811,7 +856,7 @@ func (c *Controller[T]) Show(ctx Context) error {
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 
 	id := ctx.Params("id")
-	record, err := c.service.Show(ctx, id, criteria)
+	record, err := svc.Show(ctx, id, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpRead)
 	}
@@ -828,6 +873,8 @@ func (c *Controller[T]) Show(ctx Context) error {
 // GET /users?name__and=John,Jack
 // GET /users?name__or=John,Jack
 func (c *Controller[T]) Index(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedReadService()
 	meta, err := c.resolveGuardContext(ctx, OpList)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
@@ -849,7 +896,7 @@ func (c *Controller[T]) Index(ctx Context) error {
 	criteria = c.applyScopeCriteria(criteria, meta.scope)
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 
-	records, count, err := c.service.Index(ctx, criteria)
+	records, count, err := svc.Index(ctx, criteria)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpList)
 	}
@@ -859,7 +906,7 @@ func (c *Controller[T]) Index(ctx Context) error {
 	adjusted := normalizePagination(filters, count)
 	if adjusted && count > 0 && filters.Offset != originalOffset {
 		adjustedCriteria := append(criteria, paginationCriteria(filters.Limit, filters.Offset))
-		records, _, err = c.service.Index(ctx, adjustedCriteria)
+		records, _, err = svc.Index(ctx, adjustedCriteria)
 		if err != nil {
 			return c.resp.OnError(ctx, err, OpList)
 		}
@@ -876,6 +923,8 @@ func (c *Controller[T]) Index(ctx Context) error {
 }
 
 func (c *Controller[T]) Create(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpCreate)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpCreate)
@@ -895,7 +944,7 @@ func (c *Controller[T]) Create(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreate)
 	}
 
-	createdRecord, err := c.service.Create(ctx, record)
+	createdRecord, err := svc.Create(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpCreate)
@@ -907,6 +956,8 @@ func (c *Controller[T]) Create(ctx Context) error {
 }
 
 func (c *Controller[T]) CreateBatch(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpCreateBatch)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpCreateBatch)
@@ -926,7 +977,7 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpCreateBatch)
 	}
 
-	createdRecords, err := c.service.CreateBatch(ctx, records)
+	createdRecords, err := svc.CreateBatch(ctx, records)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpCreateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpCreateBatch)
@@ -947,6 +998,8 @@ func (c *Controller[T]) CreateBatch(ctx Context) error {
 }
 
 func (c *Controller[T]) Update(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpUpdate)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpUpdate)
@@ -976,7 +1029,7 @@ func (c *Controller[T]) Update(ctx Context) error {
 	c.Repo.Handlers().SetID(record, id)
 	criteria := c.applyScopeCriteria(nil, meta.scope)
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
-	existingRecord, err := c.service.Show(ctx, idStr, criteria)
+	existingRecord, err := svc.Show(ctx, idStr, criteria)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdate)
@@ -990,7 +1043,7 @@ func (c *Controller[T]) Update(ctx Context) error {
 	// Apply virtual map merge semantics (merge vs replace, delete-with-null).
 	record = mergeVirtualMaps(existingRecord, record, c.virtualFieldDefs, c.mergePolicy)
 
-	updatedRecord, err := c.service.Update(ctx, record)
+	updatedRecord, err := svc.Update(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdate, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpUpdate)
@@ -1002,6 +1055,8 @@ func (c *Controller[T]) Update(ctx Context) error {
 }
 
 func (c *Controller[T]) UpdateBatch(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpUpdateBatch)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
@@ -1025,7 +1080,7 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 	for i, rec := range records {
 		id := c.Repo.Handlers().GetID(rec)
-		existing, err := c.service.Show(ctx, id.String(), criteria)
+		existing, err := svc.Show(ctx, id.String(), criteria)
 		if err != nil {
 			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 			return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdateBatch)
@@ -1039,7 +1094,7 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 		records[i] = merged
 	}
 
-	updatedRecords, err := c.service.UpdateBatch(ctx, records)
+	updatedRecords, err := svc.UpdateBatch(ctx, records)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpUpdateBatch)
@@ -1060,6 +1115,8 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 }
 
 func (c *Controller[T]) Delete(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpDelete)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpDelete)
@@ -1076,13 +1133,13 @@ func (c *Controller[T]) Delete(ctx Context) error {
 	id := ctx.Params("id")
 	criteria := c.applyScopeCriteria(nil, meta.scope)
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
-	record, err := c.service.Show(ctx, id, criteria)
+	record, err := svc.Show(ctx, id, criteria)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, nil, err)
 		return c.resp.OnError(ctx, &NotFoundError{err}, OpDelete)
 	}
 
-	err = c.service.Delete(ctx, record)
+	err = svc.Delete(ctx, record)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDelete, meta, []T{record}, err)
 		return c.resp.OnError(ctx, err, OpDelete)
@@ -1094,6 +1151,8 @@ func (c *Controller[T]) Delete(ctx Context) error {
 }
 
 func (c *Controller[T]) DeleteBatch(ctx Context) error {
+	ctx = c.applyContextFactory(ctx)
+	svc := c.resolvedWriteService()
 	meta, err := c.resolveGuardContext(ctx, OpDeleteBatch)
 	if err != nil {
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
@@ -1113,7 +1172,7 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
 	}
 
-	err = c.service.DeleteBatch(ctx, records)
+	err = svc.DeleteBatch(ctx, records)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)
 		return c.resp.OnError(ctx, err, OpDeleteBatch)
