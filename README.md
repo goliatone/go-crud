@@ -564,6 +564,44 @@ controller := crud.NewController(
 	}),
 )
 
+### Split Read/Write Services
+
+When reads and writes must route to different services, configure the controller with `WithReadService` and/or `WithWriteService`. Read routes (`Index`/`Show`) use the read service when provided, while write routes (`Create`/`Update`/`Delete` and batch variants) use the write service.
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithReadService[*User](readSvc),
+	crud.WithWriteService[*User](writeSvc),
+)
+```
+
+For partial implementations, adapt smaller interfaces with the helpers below:
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithReadService[*User](crud.ReadOnlyService(readSvc)),
+	crud.WithWriteService[*User](crud.WriteOnlyService(writeSvc)),
+)
+```
+
+### Context Factory
+
+Use `WithContextFactory` to inject default context values (locale, environment, tenant) before controller work runs. The factory executes for every operation and can wrap the incoming `crud.Context`.
+
+```go
+controller := crud.NewController(
+	userRepo,
+	crud.WithContextFactory[*User](func(base crud.Context) crud.Context {
+		return &myContextWrapper{
+			Context: base,
+			userCtx: crud.ContextWithRequestID(base.UserContext(), "req-default"),
+		}
+	}),
+)
+```
+
 ### Custom Actions
 
 Expose admin-only commands (approve, deactivate, sync, etc.) without forking controllers by registering custom actions. Handlers receive `ActionContext`, which embeds the router context plus actor/scope metadata resolved by your guard:
