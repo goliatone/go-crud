@@ -2118,6 +2118,234 @@ func TestControllerWithService_UsesServiceHooksAndMetadata(t *testing.T) {
 	assert.Equal(t, "test-user:create", beforeMeta.RouteName)
 }
 
+type contextFactoryWrapper struct {
+	Context
+	userCtx context.Context
+}
+
+func (w *contextFactoryWrapper) UserContext() context.Context {
+	if w.userCtx == nil {
+		return context.Background()
+	}
+	return w.userCtx
+}
+
+func (w *contextFactoryWrapper) SetUserContext(ctx context.Context) {
+	w.userCtx = ctx
+	if setter, ok := w.Context.(userContextSetter); ok {
+		setter.SetUserContext(ctx)
+	}
+}
+
+type contextFactoryCheckService struct {
+	next Service[*TestUser]
+	t    *testing.T
+	key  any
+	seen map[CrudOperation]int
+}
+
+func (s *contextFactoryCheckService) check(ctx Context) {
+	s.t.Helper()
+	value := ctx.UserContext().Value(s.key)
+	require.Equal(s.t, "factory", value)
+	meta := HookMetadataFromContext(ctx.UserContext())
+	if meta.Operation != "" {
+		s.seen[meta.Operation]++
+	}
+}
+
+func (s *contextFactoryCheckService) Create(ctx Context, record *TestUser) (*TestUser, error) {
+	s.check(ctx)
+	return s.next.Create(ctx, record)
+}
+
+func (s *contextFactoryCheckService) CreateBatch(ctx Context, records []*TestUser) ([]*TestUser, error) {
+	s.check(ctx)
+	return s.next.CreateBatch(ctx, records)
+}
+
+func (s *contextFactoryCheckService) Update(ctx Context, record *TestUser) (*TestUser, error) {
+	s.check(ctx)
+	return s.next.Update(ctx, record)
+}
+
+func (s *contextFactoryCheckService) UpdateBatch(ctx Context, records []*TestUser) ([]*TestUser, error) {
+	s.check(ctx)
+	return s.next.UpdateBatch(ctx, records)
+}
+
+func (s *contextFactoryCheckService) Delete(ctx Context, record *TestUser) error {
+	s.check(ctx)
+	return s.next.Delete(ctx, record)
+}
+
+func (s *contextFactoryCheckService) DeleteBatch(ctx Context, records []*TestUser) error {
+	s.check(ctx)
+	return s.next.DeleteBatch(ctx, records)
+}
+
+func (s *contextFactoryCheckService) Index(ctx Context, criteria []repository.SelectCriteria) ([]*TestUser, int, error) {
+	s.check(ctx)
+	return s.next.Index(ctx, criteria)
+}
+
+func (s *contextFactoryCheckService) Show(ctx Context, id string, criteria []repository.SelectCriteria) (*TestUser, error) {
+	s.check(ctx)
+	return s.next.Show(ctx, id, criteria)
+}
+
+func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
+	type ctxKey struct{}
+
+	var factoryCalls int
+	factory := func(ctx Context) Context {
+		factoryCalls++
+		userCtx := context.WithValue(ctx.UserContext(), ctxKey{}, "factory")
+		return &contextFactoryWrapper{
+			Context: ctx,
+			userCtx: userCtx,
+		}
+	}
+
+	var checker *contextFactoryCheckService
+	app, db := setupApp(t,
+		WithContextFactory[*TestUser](factory),
+		WithCommandService[*TestUser](func(defaults Service[*TestUser]) Service[*TestUser] {
+			checker = &contextFactoryCheckService{
+				next: defaults,
+				t:    t,
+				key:  ctxKey{},
+				seen: make(map[CrudOperation]int),
+			}
+			return checker
+		}),
+	)
+	defer db.Close()
+
+	userOne := &TestUser{
+		ID:       uuid.New(),
+		Name:     "User One",
+		Email:    "user-one@example.com",
+		Password: "secret",
+		Age:      21,
+	}
+	userTwo := &TestUser{
+		ID:       uuid.New(),
+		Name:     "User Two",
+		Email:    "user-two@example.com",
+		Password: "secret",
+		Age:      25,
+	}
+	insertTestUsers(t, db, userOne, userTwo)
+
+	createBody := `{"name":"Created","email":"created@example.com","password":"secret","age":30}`
+	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(createBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var created TestUser
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
+
+	req = httptest.NewRequest(http.MethodGet, "/test-users", nil)
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", userOne.ID.String()), nil)
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	updateBody := `{"name":"Updated","email":"updated@example.com","password":"secret","age":31}`
+	req = httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", userOne.ID.String()), strings.NewReader(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	updateBatchPayload := []map[string]any{
+		{
+			"id":       userOne.ID.String(),
+			"name":     "Batch One",
+			"email":    "batch-one@example.com",
+			"password": "secret",
+			"age":      40,
+		},
+		{
+			"id":       userTwo.ID.String(),
+			"name":     "Batch Two",
+			"email":    "batch-two@example.com",
+			"password": "secret",
+			"age":      41,
+		},
+	}
+	buf, err := json.Marshal(updateBatchPayload)
+	require.NoError(t, err)
+	req = httptest.NewRequest(http.MethodPut, "/test-user/batch", bytes.NewBuffer(buf))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	createBatchPayload := []map[string]any{
+		{
+			"name":     "Batch Create One",
+			"email":    "batch-create-one@example.com",
+			"password": "secret",
+			"age":      18,
+		},
+		{
+			"name":     "Batch Create Two",
+			"email":    "batch-create-two@example.com",
+			"password": "secret",
+			"age":      19,
+		},
+	}
+	buf, err = json.Marshal(createBatchPayload)
+	require.NoError(t, err)
+	req = httptest.NewRequest(http.MethodPost, "/test-user/batch", bytes.NewBuffer(buf))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var createdBatch APIListResponse[TestUser]
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&createdBatch))
+	require.Len(t, createdBatch.Data, 2)
+
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", created.ID.String()), nil)
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	deleteBatchPayload := []map[string]any{
+		{"id": createdBatch.Data[0].ID.String()},
+		{"id": createdBatch.Data[1].ID.String()},
+	}
+	buf, err = json.Marshal(deleteBatchPayload)
+	require.NoError(t, err)
+	req = httptest.NewRequest(http.MethodDelete, "/test-user/batch", bytes.NewBuffer(buf))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	expectedOps := []CrudOperation{
+		OpCreate,
+		OpCreateBatch,
+		OpRead,
+		OpList,
+		OpUpdate,
+		OpUpdateBatch,
+		OpDelete,
+		OpDeleteBatch,
+	}
+	for _, op := range expectedOps {
+		assert.Greater(t, checker.seen[op], 0, "expected context factory for %s", op)
+	}
+	assert.Equal(t, len(expectedOps), factoryCalls)
+}
+
 func Test_ParseFieldOperator(t *testing.T) {
 	tests := []struct {
 		name          string
