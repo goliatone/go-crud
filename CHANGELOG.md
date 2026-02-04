@@ -4,6 +4,23 @@
 
 ## <!-- 16 -->➕ Add
 
+- Context factore, read/write services ([628ae18](https://github.com/goliatone/go-crud/commit/628ae18fa777f71cbca6985698d6deea1cd5c0e7))  - (goliatone)
+- Service adapters to options ([40eff2c](https://github.com/goliatone/go-crud/commit/40eff2c5fcd16f67bfae79776f8ae9fbbd987634))  - (goliatone)
+- Service adapters ([bd3a316](https://github.com/goliatone/go-crud/commit/bd3a3160796f5c56bea4432fcd2dcd1af1761c54))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([946d50c](https://github.com/goliatone/go-crud/commit/946d50cd0a98973b2e4456d3d1e8cb34a39d94a6))  - (goliatone)
+- Update test ([7457cc0](https://github.com/goliatone/go-crud/commit/7457cc0f6b7f85dc8415432e38a59fb589343229))  - (goliatone)
+
+# [0.19.0](https://github.com/goliatone/go-crud/compare/v0.18.0...v0.19.0) - (2026-01-29)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.19.0 ([f952f54](https://github.com/goliatone/go-crud/commit/f952f5491c95714ae41d5ec6ab9e3ae8319fc227))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
 - Gql generator ([5ac8f45](https://github.com/goliatone/go-crud/commit/5ac8f4531f363604ef1fb9e1e6052a86295ddf18))  - (goliatone)
 - Gql support for versions ([e0bb839](https://github.com/goliatone/go-crud/commit/e0bb839f434ce2fcee9c5780874ae88fb314f367))  - (goliatone)
 - Gql refresh ([e9eb5c9](https://github.com/goliatone/go-crud/commit/e9eb5c99e197cc2c67f1ce9bb8700121bba05f37))  - (goliatone)
