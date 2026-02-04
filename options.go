@@ -181,6 +181,30 @@ func WithService[T any](service Service[T]) Option[T] {
 	}
 }
 
+// WithContextFactory allows callers to inject default context data before operations execute.
+func WithContextFactory[T any](factory func(Context) Context) Option[T] {
+	return func(c *Controller[T]) {
+		if factory == nil {
+			return
+		}
+		c.contextFactory = factory
+	}
+}
+
+// WithReadService sets the service used for read operations when split services are configured.
+func WithReadService[T any](service Service[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.readService = service
+	}
+}
+
+// WithWriteService sets the service used for write operations when split services are configured.
+func WithWriteService[T any](service Service[T]) Option[T] {
+	return func(c *Controller[T]) {
+		c.writeService = service
+	}
+}
+
 // WithCommandService composes the default repository-backed service with the
 // provided command adapter factory. When the factory is nil the option is a no-op.
 func WithCommandService[T any](factory CommandServiceFactory[T]) Option[T] {
