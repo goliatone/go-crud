@@ -2,6 +2,16 @@
 
 # [unreleased]
 
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([7e42ac7](https://github.com/goliatone/go-crud/commit/7e42ac7a2a49778757c68ad6c82f95b28a56c408))  - (goliatone)
+
+# [0.21.0](https://github.com/goliatone/go-crud/compare/v0.20.0...v0.21.0) - (2026-02-09)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.21.0 ([8cfcc8c](https://github.com/goliatone/go-crud/commit/8cfcc8c143ba04de53d412a38053ff9d8a52a521))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Search support in filters response ([1bba7d9](https://github.com/goliatone/go-crud/commit/1bba7d999e63fd95b0d8d3038bac617b4d92c265))  - (goliatone)

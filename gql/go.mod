@@ -7,9 +7,9 @@ toolchain go1.24.11
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/goliatone/go-crud v0.21.0
-	github.com/goliatone/go-repository-bun v0.12.0
-	github.com/goliatone/go-router v0.43.0
+	github.com/goliatone/go-crud v0.21.1
+	github.com/goliatone/go-repository-bun v0.13.0
+	github.com/goliatone/go-router v0.45.1
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.16
@@ -40,7 +40,8 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-errors v0.10.0 // indirect
 	github.com/goliatone/go-persistence-bun v0.10.0 // indirect
-	github.com/goliatone/hashid v0.1.1 // indirect
+	github.com/goliatone/go-slug v0.1.0 // indirect
+	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
