@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -812,4 +814,161 @@ func TestBuildQueryCriteriaWithLoggerFallback(t *testing.T) {
 	assert.Contains(t, last.message, "filters=")
 	assert.Contains(t, last.message, "query_params=")
 	assert.Nil(t, last.fields)
+}
+
+func TestStrictQueryValidation_AppliesToHTTPAndTypedBuilders(t *testing.T) {
+	defer SetStrictQueryValidation(false)
+	SetStrictQueryValidation(true)
+
+	ctx := newMockContextWithQuery(map[string]string{
+		"name__unknown": "Alice",
+	})
+	_, _, err := BuildQueryCriteria[TestUser](ctx, OpList)
+	require.Error(t, err)
+
+	var typedErr *QueryValidationError
+	require.True(t, errors.As(err, &typedErr))
+	assert.Equal(t, QueryValidationUnsupportedOperator, typedErr.Code)
+	assert.Equal(t, "name", typedErr.Field)
+
+	_, _, err = BuildListCriteriaFromOptions[TestUser](ListQueryOptions{
+		Predicates: []ListQueryPredicate{
+			{Field: "name", Operator: "unknown", Values: []string{"Alice"}},
+		},
+	})
+	require.Error(t, err)
+
+	typedErr = nil
+	require.True(t, errors.As(err, &typedErr))
+	assert.Equal(t, QueryValidationUnsupportedOperator, typedErr.Code)
+	assert.Equal(t, "name", typedErr.Field)
+}
+
+func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
+	SetOperatorMap(DefaultOperatorMap())
+	db := setupTestDB(t)
+	defer db.Close()
+	seedQueryUsers(t, db)
+
+	ctx := newMockContextWithQuery(map[string]string{
+		"limit":    "10",
+		"offset":   "0",
+		"order":    "age desc",
+		"age__gte": "30",
+		"_search":  "example.com",
+	})
+
+	httpCriteria, httpFilters, err := BuildQueryCriteria[TestUser](ctx, OpList, WithSearchColumns("name", "email"))
+	require.NoError(t, err)
+	require.NotNil(t, httpFilters)
+
+	typedCriteria, typedFilters, err := BuildListCriteriaFromOptions[TestUser](ListQueryOptions{
+		Limit:  10,
+		Offset: 0,
+		Order:  "age desc",
+		Search: "example.com",
+		Predicates: []ListQueryPredicate{
+			{Field: "age", Operator: "gte", Values: []string{"30"}},
+		},
+	}, WithSearchColumns("name", "email"))
+	require.NoError(t, err)
+	require.NotNil(t, typedFilters)
+
+	httpRows := executeUserCriteria(t, db, httpCriteria)
+	typedRows := executeUserCriteria(t, db, typedCriteria)
+
+	require.Len(t, httpRows, len(typedRows))
+	for i := range httpRows {
+		assert.Equal(t, httpRows[i].ID, typedRows[i].ID)
+	}
+	assert.Equal(t, httpFilters.Limit, typedFilters.Limit)
+	assert.Equal(t, httpFilters.Offset, typedFilters.Offset)
+	assert.Equal(t, httpFilters.Order, typedFilters.Order)
+	assert.Equal(t, httpFilters.Search, typedFilters.Search)
+}
+
+func TestBuildQueryCriteria_SearchNoColumnsNoOp(t *testing.T) {
+	SetOperatorMap(DefaultOperatorMap())
+	db := setupTestDB(t)
+	defer db.Close()
+	seedQueryUsers(t, db)
+
+	ctx := newMockContextWithQuery(map[string]string{
+		"_search": "example.com",
+	})
+
+	criteria, _, err := BuildQueryCriteria[TestUser](ctx, OpList)
+	require.NoError(t, err)
+
+	rows := executeUserCriteria(t, db, criteria)
+	assert.Len(t, rows, 4)
+}
+
+func TestBuildQueryCriteria_StrictSearchColumns(t *testing.T) {
+	ctx := newMockContextWithQuery(map[string]string{
+		"_search": "alice",
+	})
+
+	_, _, err := BuildQueryCriteria[TestUser](ctx, OpList,
+		WithStrictQueryValidation(true),
+		WithStrictSearchColumns(true),
+	)
+	require.Error(t, err)
+
+	var typedErr *QueryValidationError
+	require.True(t, errors.As(err, &typedErr))
+	assert.Equal(t, QueryValidationSearchColumnsRequired, typedErr.Code)
+}
+
+func TestBuildListCriteriaFromOptions_CanonicalOperatorsWorkWithCustomAliases(t *testing.T) {
+	defer SetOperatorMap(DefaultOperatorMap())
+	SetOperatorMap(map[string]string{
+		"$eq": "=",
+	})
+
+	db := setupTestDB(t)
+	defer db.Close()
+	seedQueryUsers(t, db)
+
+	criteria, _, err := BuildListCriteriaFromOptions[TestUser](ListQueryOptions{
+		Predicates: []ListQueryPredicate{
+			{Field: "name", Operator: "eq", Values: []string{"Alice"}},
+		},
+	})
+	require.NoError(t, err)
+
+	rows := executeUserCriteria(t, db, criteria)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func seedQueryUsers(t *testing.T, db *bun.DB) {
+	t.Helper()
+
+	ctx := context.Background()
+	require.NoError(t, db.ResetModel(ctx, (*TestUser)(nil)))
+
+	users := []TestUser{
+		{ID: uuid.New(), Name: "Alice", Email: "alice@example.com", Age: 30, CreatedAt: time.Now().Add(-48 * time.Hour)},
+		{ID: uuid.New(), Name: "Bob", Email: "bob@sample.com", Age: 25, CreatedAt: time.Now().Add(-36 * time.Hour)},
+		{ID: uuid.New(), Name: "Carol", Email: "carol@example.com", Age: 40, CreatedAt: time.Now().Add(-24 * time.Hour)},
+		{ID: uuid.New(), Name: "Dave", Email: "dave@sample.com", Age: 35, CreatedAt: time.Now().Add(-12 * time.Hour)},
+	}
+
+	for _, user := range users {
+		_, err := db.NewInsert().Model(&user).Exec(ctx)
+		require.NoError(t, err)
+	}
+}
+
+func executeUserCriteria(t *testing.T, db *bun.DB, criteria []repository.SelectCriteria) []TestUser {
+	t.Helper()
+
+	var rows []TestUser
+	query := db.NewSelect().Model(&rows)
+	for _, criterion := range criteria {
+		query = criterion(query)
+	}
+	require.NoError(t, query.Scan(context.Background()))
+	return rows
 }

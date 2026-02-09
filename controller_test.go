@@ -2465,6 +2465,12 @@ func Test_ParseFieldOperator_Custom(t *testing.T) {
 			expectedOp:    "=",
 		},
 		{
+			name:          "Canonical operator remains supported",
+			input:         "name__ilike",
+			expectedField: "name",
+			expectedOp:    "ILIKE",
+		},
+		{
 			name:          "Unknown operator defaults to '='",
 			input:         "status__$unknown",
 			expectedField: "status",
