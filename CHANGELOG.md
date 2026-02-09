@@ -4,6 +4,24 @@
 
 ## <!-- 16 -->➕ Add
 
+- Search support in filters response ([1bba7d9](https://github.com/goliatone/go-crud/commit/1bba7d999e63fd95b0d8d3038bac617b4d92c265))  - (goliatone)
+- Query typed and validation ([5d858b7](https://github.com/goliatone/go-crud/commit/5d858b73bda3c9b47e4eb4607e5571119cced4a4))  - (goliatone)
+- Add _search support in criteria build flow ([56647b3](https://github.com/goliatone/go-crud/commit/56647b3b83924c226f041bfe5a555329963bbddf))  - (goliatone)
+- Support for cannonical operators ([d8ae458](https://github.com/goliatone/go-crud/commit/d8ae45860e39d32a82caf4f6c48ce581baecec24))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([1814769](https://github.com/goliatone/go-crud/commit/18147692114202a259f1a5806b67c7df77e2afdd))  - (goliatone)
+- Update test ([18a1134](https://github.com/goliatone/go-crud/commit/18a11347b73165f981f5c698c696b991072b1e0e))  - (goliatone)
+
+# [0.20.0](https://github.com/goliatone/go-crud/compare/v0.19.0...v0.20.0) - (2026-02-04)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.20.0 ([565e666](https://github.com/goliatone/go-crud/commit/565e6668e0bbbf9b06335af1f13de1ece8a72a05))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
 - Context factore, read/write services ([628ae18](https://github.com/goliatone/go-crud/commit/628ae18fa777f71cbca6985698d6deea1cd5c0e7))  - (goliatone)
 - Service adapters to options ([40eff2c](https://github.com/goliatone/go-crud/commit/40eff2c5fcd16f67bfae79776f8ae9fbbd987634))  - (goliatone)
 - Service adapters ([bd3a316](https://github.com/goliatone/go-crud/commit/bd3a3160796f5c56bea4432fcd2dcd1af1761c54))  - (goliatone)
