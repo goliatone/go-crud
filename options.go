@@ -101,23 +101,19 @@ func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, str
 }
 
 func DefaultOperatorMap() map[string]string {
-	return map[string]string{
-		"eq":    "=",
-		"ne":    "<>",
-		"gt":    ">",
-		"lt":    "<",
-		"gte":   ">=",
-		"lte":   "<=",
-		"in":    "IN",
-		"ilike": "ILIKE",
-		"like":  "LIKE",
-		"and":   "and",
-		"or":    "or",
-	}
+	out := make(map[string]string, len(canonicalOperatorSQL))
+	maps.Copy(out, canonicalOperatorSQL)
+	return out
 }
 
 func SetOperatorMap(om map[string]string) {
-	operatorMap = om
+	if len(om) == 0 {
+		operatorMap = map[string]string{}
+		return
+	}
+	clone := make(map[string]string, len(om))
+	maps.Copy(clone, om)
+	operatorMap = clone
 }
 
 type Option[T any] func(*Controller[T])
@@ -386,21 +382,11 @@ func GetResourceTitle(typ reflect.Type) (string, string) {
 }
 
 func parseFieldOperator(param string) (field string, operator string) {
-	operator = "="
-	field = strings.TrimSpace(param)
-	var exists bool
-	// TODO: support different formats, e.g. field[$operator]=value
-	// Check if param contains "__" to separate field and operator
-	if strings.Contains(param, "__") {
-		parts := strings.SplitN(param, "__", 2)
-		field = parts[0]
-		op := parts[1]
-		operator, exists = operatorMap[op]
-		if !exists {
-			operator = "="
-		}
+	field, resolved, err := parseFieldOperatorWithValidation(param, false)
+	if err != nil {
+		return strings.TrimSpace(param), "="
 	}
-	return
+	return field, resolved.sql
 }
 
 func getAllowedFields[T any]() map[string]string {
