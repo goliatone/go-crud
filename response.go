@@ -35,6 +35,7 @@ type Filters struct {
 	Limit     int            `json:"limit,omitempty"`
 	Offset    int            `json:"offset,omitempty"`
 	Page      int            `json:"page,omitempty"`
+	Search    string         `json:"search,omitempty"`
 	Adjusted  bool           `json:"adjusted,omitempty"`
 	Count     int            `json:"count,omitempty"`
 	Order     []Order        `json:"order,omitempty"`
