@@ -371,6 +371,35 @@ Lifecycle hooks now receive the same information via `HookContext.Actor`, `HookC
 
 Additional filter parameters follow the `{field}__{operator}` convention emitted by the spec (for example: `?email__ilike=@example.com`, `?age__gte=21`, `?status__or=active,pending`). These placeholders in the OpenAPI document are a reminder that **any** model field can be paired with the supported operators (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`) to build expressive queries.
 
+### Typed List Criteria (Non-HTTP)
+
+For service-layer integrations, you can build repository criteria without creating a synthetic `crud.Context`:
+
+```go
+opts := crud.ListQueryOptions{
+	Limit:  25,
+	Offset: 0,
+	Order:  "created_at desc",
+	Search: "alice",
+	Predicates: []crud.ListQueryPredicate{
+		{Field: "status", Operator: "in", Values: []string{"active", "pending"}},
+	},
+}
+
+criteria, filters, err := crud.BuildListCriteriaFromOptions[*User](
+	opts,
+	crud.WithSearchColumns("name", "email"),
+	crud.WithStrictQueryValidation(false), // keep current fallback behavior by default
+)
+```
+
+Parity notes:
+
+- Typed and HTTP query builders share operator parsing, aliases (`SetOperatorMap`), and strict-mode validation.
+- `_search` is opt-in: configure searchable columns with `WithSearchColumns`.
+- Search matches OR across configured columns and ANDs with other predicates.
+- Without search columns, `_search` is a no-op unless strict search checks are enabled (`WithStrictSearchColumns(true)` + strict validation).
+
 ### Options Response Shortcut
 
 When a client appends `?format=options` to the list endpoint (e.g. `GET /users?format=options`), the controller returns a simplified payload:
