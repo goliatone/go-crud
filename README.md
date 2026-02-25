@@ -864,6 +864,16 @@ if err := crudrpc.RegisterResourceEndpoints(server, controller, crudrpc.Resource
 }
 ```
 
+`RegisterResourceEndpoints` is endpoint-first and emits explicit
+`cmdrpc.EndpointDefinition` values. Custom registrars should implement:
+
+```go
+type Registrar interface {
+    RegisterEndpoint(def cmdrpc.EndpointDefinition) error
+    RegisterEndpoints(defs ...cmdrpc.EndpointDefinition) error
+}
+```
+
 Registered methods:
 
 - `crud.user.create`
@@ -893,6 +903,9 @@ Request payloads use an envelope shape:
 
 `meta` values are mapped into `crud.Context` so scope guards, field policies,
 hooks, and activity emitters observe the same request metadata model.
+
+The RPC envelope/meta contracts are shared with `go-command/rpc`:
+`RequestMeta`, `RequestEnvelope[T]`, `ResponseEnvelope[T]`, and `Error`.
 
 
 ## License
