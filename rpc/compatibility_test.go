@@ -2,12 +2,18 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-command"
 	commandrpc "github.com/goliatone/go-command/rpc"
+	"github.com/goliatone/go-router"
+	"github.com/goliatone/go-router/rpcfiber"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,38 +23,11 @@ type compatEnvelopeData struct {
 	Name string `json:"name"`
 }
 
-func TestSharedRPCContractShapeCompatibility(t *testing.T) {
-	t.Run("request meta", func(t *testing.T) {
-		assertTypeShapeCompatible(
-			t,
-			reflect.TypeFor[RequestMeta](),
-			reflect.TypeFor[commandrpc.RequestMeta](),
-		)
-	})
-
-	t.Run("request envelope", func(t *testing.T) {
-		assertTypeShapeCompatible(
-			t,
-			reflect.TypeFor[RequestEnvelope[compatEnvelopeData]](),
-			reflect.TypeFor[commandrpc.RequestEnvelope[compatEnvelopeData]](),
-		)
-	})
-
-	t.Run("response envelope", func(t *testing.T) {
-		assertTypeShapeCompatible(
-			t,
-			reflect.TypeFor[ResponseEnvelope[compatEnvelopeData]](),
-			reflect.TypeFor[commandrpc.ResponseEnvelope[compatEnvelopeData]](),
-		)
-	})
-
-	t.Run("error envelope", func(t *testing.T) {
-		assertTypeShapeCompatible(
-			t,
-			reflect.TypeFor[Error](),
-			reflect.TypeFor[commandrpc.Error](),
-		)
-	})
+func TestSharedRPCContractAliasesGoCommandTypes(t *testing.T) {
+	assert.Equal(t, reflect.TypeFor[RequestMeta](), reflect.TypeFor[commandrpc.RequestMeta]())
+	assert.Equal(t, reflect.TypeFor[RequestEnvelope[compatEnvelopeData]](), reflect.TypeFor[commandrpc.RequestEnvelope[compatEnvelopeData]]())
+	assert.Equal(t, reflect.TypeFor[ResponseEnvelope[compatEnvelopeData]](), reflect.TypeFor[commandrpc.ResponseEnvelope[compatEnvelopeData]]())
+	assert.Equal(t, reflect.TypeFor[Error](), reflect.TypeFor[commandrpc.Error]())
 }
 
 func TestRegisterResourceEndpointsCompatibleWithGoCommandRPCServer(t *testing.T) {
@@ -60,7 +39,7 @@ func TestRegisterResourceEndpointsCompatibleWithGoCommandRPCServer(t *testing.T)
 
 	createMsg, err := server.NewRequestForMethod("crud.user.create")
 	require.NoError(t, err)
-	_, ok := createMsg.(RequestEnvelope[CreateData[*rpcUser]])
+	_, ok := createMsg.(*RequestEnvelope[CreateData[*rpcUser]])
 	require.True(t, ok)
 
 	now := time.Now().UTC()
@@ -99,98 +78,91 @@ func TestRegisterResourceEndpointsCompatibleWithGoCommandRPCServer(t *testing.T)
 	assert.Equal(t, createRes.Data.Email, showRes.Data.Email)
 }
 
-func TestGoCommandServerRegisterSignatureCompatibility(t *testing.T) {
+func TestRegistrarInterfaceCompatibleWithGoCommandRPCServer(t *testing.T) {
 	var _ Registrar = (*commandrpc.Server)(nil)
-
-	serverType := reflect.TypeFor[*commandrpc.Server]()
-	method, ok := serverType.MethodByName("Register")
-	require.True(t, ok)
-
-	require.Equal(t, 4, method.Type.NumIn())
-	assert.Equal(t, reflect.TypeFor[command.RPCConfig](), method.Type.In(1))
-	assert.Equal(t, reflect.TypeFor[any](), method.Type.In(2))
-	assert.Equal(t, reflect.TypeFor[command.CommandMeta](), method.Type.In(3))
-
-	require.Equal(t, 1, method.Type.NumOut())
-	assert.Equal(t, reflect.TypeFor[error](), method.Type.Out(0))
 }
 
-func TestGoCommandServerRegisterAcceptsGoCrudFunctionHandlerPath(t *testing.T) {
-	server := commandrpc.NewServer()
-	method := "compat.delete"
+func TestRegisterResourceEndpointsWithGoRouterFiberMount(t *testing.T) {
+	controller, _, _ := setupRPCController(t)
+	srv := commandrpc.NewServer()
 
-	handler := func(_ context.Context, _ RequestEnvelope[DeleteData]) (ResponseEnvelope[DeleteResult], error) {
-		return ResponseEnvelope[DeleteResult]{Data: DeleteResult{Deleted: true}}, nil
+	require.NoError(t, RegisterResourceEndpoints(srv, controller, ResourceRegistrationOptions{Resource: "user"}))
+
+	adapter := router.NewFiberAdapter()
+	r := adapter.Router()
+	require.NoError(t, rpcfiber.MountFiber(r, srv))
+	app := adapter.WrappedRouter()
+
+	endpointsResp := testRPCRequest(t, app, http.MethodGet, "/api/rpc/endpoints", "", nil)
+	require.Equal(t, http.StatusOK, endpointsResp.StatusCode)
+
+	var discovery struct {
+		Endpoints []commandrpc.Endpoint `json:"endpoints"`
 	}
+	decodeRPCResponse(t, endpointsResp, &discovery)
+	assert.GreaterOrEqual(t, len(discovery.Endpoints), 8)
+	assert.Contains(t, endpointMethods(discovery.Endpoints), "crud.user.create")
+	assert.Contains(t, endpointMethods(discovery.Endpoints), "crud.user.show")
 
-	err := server.Register(command.RPCConfig{Method: method}, handler, command.CommandMeta{})
-	require.NoError(t, err)
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	createBody := `{"method":"crud.user.create","params":{"data":{"record":{"id":"` + uuid.NewString() + `","name":"Fiber User","email":"fiber-user@example.com","created_at":"` + now + `","updated_at":"` + now + `"}},"meta":{"actorId":"payload-actor","requestId":"req-payload"}}}`
+	createResp := testRPCRequest(t, app, http.MethodPost, "/api/rpc?tenant=query-tenant", createBody, map[string]string{
+		"X-Correlation-ID": "corr-header",
+	})
+	require.Equal(t, http.StatusOK, createResp.StatusCode)
 
-	endpoint, ok := server.Endpoint(method)
-	require.True(t, ok)
-	assert.Equal(t, method, endpoint.Method)
-	assert.Equal(t, commandrpc.HandlerKindQuery, endpoint.HandlerKind)
+	var createOut ResponseEnvelope[*rpcUser]
+	decodeRPCResponse(t, createResp, &createOut)
+	require.Nil(t, createOut.Error)
+	require.NotNil(t, createOut.Data)
+	assert.Equal(t, "Fiber User", createOut.Data.Name)
 
-	out, err := server.Invoke(context.Background(), method, RequestEnvelope[DeleteData]{Data: DeleteData{ID: "1"}})
-	require.NoError(t, err)
+	showPayload := `{"method":"crud.user.show","params":{"data":{"id":"` + createOut.Data.ID.String() + `"},"meta":{"actorId":"payload-actor"}}}`
+	showResp := testRPCRequest(t, app, http.MethodPost, "/api/rpc", showPayload, nil)
+	require.Equal(t, http.StatusOK, showResp.StatusCode)
 
-	res, ok := out.(ResponseEnvelope[DeleteResult])
-	require.True(t, ok)
-	assert.True(t, res.Data.Deleted)
+	var showOut ResponseEnvelope[*rpcUser]
+	decodeRPCResponse(t, showResp, &showOut)
+	require.Nil(t, showOut.Error)
+	require.NotNil(t, showOut.Data)
+	assert.Equal(t, createOut.Data.Email, showOut.Data.Email)
 }
 
-func assertTypeShapeCompatible(t *testing.T, left reflect.Type, right reflect.Type) {
+func endpointMethods(endpoints []commandrpc.Endpoint) []string {
+	out := make([]string, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		out = append(out, endpoint.Method)
+	}
+	return out
+}
+
+func testRPCRequest(
+	t *testing.T,
+	app interface {
+		Test(req *http.Request, msTimeout ...int) (*http.Response, error)
+	},
+	method string,
+	target string,
+	body string,
+	headers map[string]string,
+) *http.Response {
 	t.Helper()
-	require.NotNil(t, left)
-	require.NotNil(t, right)
 
-	if left.Kind() != right.Kind() {
-		t.Fatalf("kind mismatch at root: %s != %s", left.Kind(), right.Kind())
+	req := httptest.NewRequest(method, target, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 
-	assertTypeShapeCompatibleAtPath(t, left, right, left.String())
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	return resp
 }
 
-func assertTypeShapeCompatibleAtPath(t *testing.T, left reflect.Type, right reflect.Type, path string) {
+func decodeRPCResponse(t *testing.T, resp *http.Response, target any) {
 	t.Helper()
-	require.NotNil(t, left)
-	require.NotNil(t, right)
-	require.Equalf(t, left.Kind(), right.Kind(), "kind mismatch at %s", path)
-
-	switch left.Kind() {
-	case reflect.Struct:
-		require.Equalf(t, left.NumField(), right.NumField(), "field count mismatch at %s", path)
-		for i := range left.NumField() {
-			lf := left.Field(i)
-			rf := right.Field(i)
-			require.Equalf(t, lf.Name, rf.Name, "field name mismatch at %s[%d]", path, i)
-			require.Equalf(t, lf.Tag.Get("json"), rf.Tag.Get("json"), "json tag mismatch at %s.%s", path, lf.Name)
-			require.Equalf(t, lf.Anonymous, rf.Anonymous, "anonymous field mismatch at %s.%s", path, lf.Name)
-			assertTypeShapeCompatibleAtPath(t, lf.Type, rf.Type, path+"."+lf.Name)
-		}
-	case reflect.Pointer, reflect.Slice, reflect.Array:
-		assertTypeShapeCompatibleAtPath(t, left.Elem(), right.Elem(), path+"[]")
-	case reflect.Map:
-		assertTypeShapeCompatibleAtPath(t, left.Key(), right.Key(), path+"<key>")
-		assertTypeShapeCompatibleAtPath(t, left.Elem(), right.Elem(), path+"<value>")
-	case reflect.Interface:
-		require.Equalf(t, left.NumMethod(), right.NumMethod(), "interface method count mismatch at %s", path)
-		for i := range left.NumMethod() {
-			lm := left.Method(i)
-			rm := right.Method(i)
-			require.Equalf(t, lm.Name, rm.Name, "interface method mismatch at %s[%d]", path, i)
-			assertTypeShapeCompatibleAtPath(t, lm.Type, rm.Type, path+"."+lm.Name)
-		}
-	case reflect.Func:
-		require.Equalf(t, left.NumIn(), right.NumIn(), "func input mismatch at %s", path)
-		require.Equalf(t, left.NumOut(), right.NumOut(), "func output mismatch at %s", path)
-		for i := range left.NumIn() {
-			assertTypeShapeCompatibleAtPath(t, left.In(i), right.In(i), path+".in")
-		}
-		for i := range left.NumOut() {
-			assertTypeShapeCompatibleAtPath(t, left.Out(i), right.Out(i), path+".out")
-		}
-	default:
-		require.Equalf(t, left.String(), right.String(), "type mismatch at %s", path)
-	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, target), string(raw))
 }

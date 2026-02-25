@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-command"
+	commandrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
@@ -28,31 +28,34 @@ type rpcUser struct {
 	UpdatedAt     time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
-type registeredHandler struct {
-	opts    command.RPCConfig
-	handler any
-	meta    command.CommandMeta
-}
-
 type fakeRegistrar struct {
-	handlers map[string]registeredHandler
+	endpoints map[string]commandrpc.EndpointDefinition
 }
 
 func newFakeRegistrar() *fakeRegistrar {
-	return &fakeRegistrar{handlers: map[string]registeredHandler{}}
+	return &fakeRegistrar{endpoints: map[string]commandrpc.EndpointDefinition{}}
 }
 
-func (f *fakeRegistrar) Register(opts command.RPCConfig, handler any, meta command.CommandMeta) error {
-	if opts.Method == "" {
+func (f *fakeRegistrar) RegisterEndpoint(def commandrpc.EndpointDefinition) error {
+	if def == nil {
+		return fmt.Errorf("endpoint definition required")
+	}
+	method := def.Spec().Method
+	if method == "" {
 		return fmt.Errorf("method required")
 	}
-	if _, exists := f.handlers[opts.Method]; exists {
-		return fmt.Errorf("method already registered: %s", opts.Method)
+	if _, exists := f.endpoints[method]; exists {
+		return fmt.Errorf("method already registered: %s", method)
 	}
-	f.handlers[opts.Method] = registeredHandler{
-		opts:    opts,
-		handler: handler,
-		meta:    meta,
+	f.endpoints[method] = def
+	return nil
+}
+
+func (f *fakeRegistrar) RegisterEndpoints(defs ...commandrpc.EndpointDefinition) error {
+	for _, def := range defs {
+		if err := f.RegisterEndpoint(def); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -95,13 +98,24 @@ func setupRPCController(t *testing.T) (*crud.Controller[*rpcUser], repository.Re
 	return controller, repo, db
 }
 
-func mustHandler[T any](t *testing.T, registrar *fakeRegistrar, method string) T {
+func mustEndpoint(t *testing.T, registrar *fakeRegistrar, method string) commandrpc.EndpointDefinition {
 	t.Helper()
-	entry, ok := registrar.handlers[method]
-	require.True(t, ok, "missing handler for method %s", method)
-	handler, ok := entry.handler.(T)
-	require.True(t, ok, "unexpected handler type for method %s", method)
-	return handler
+	entry, ok := registrar.endpoints[method]
+	require.True(t, ok, "missing endpoint for method %s", method)
+	return entry
+}
+
+func mustInvokeEndpoint[Req any, Res any](
+	t *testing.T,
+	def commandrpc.EndpointDefinition,
+	req RequestEnvelope[Req],
+) ResponseEnvelope[Res] {
+	t.Helper()
+	out, err := def.Invoke(context.Background(), &req)
+	require.NoError(t, err)
+	res, ok := out.(ResponseEnvelope[Res])
+	require.True(t, ok)
+	return res
 }
 
 func TestRegisterResourceEndpointsRegistersExpectedMethods(t *testing.T) {
@@ -113,14 +127,19 @@ func TestRegisterResourceEndpointsRegistersExpectedMethods(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Contains(t, registrar.handlers, "crud.user.create")
-	assert.Contains(t, registrar.handlers, "crud.user.create_batch")
-	assert.Contains(t, registrar.handlers, "crud.user.show")
-	assert.Contains(t, registrar.handlers, "crud.user.index")
-	assert.Contains(t, registrar.handlers, "crud.user.update")
-	assert.Contains(t, registrar.handlers, "crud.user.update_batch")
-	assert.Contains(t, registrar.handlers, "crud.user.delete")
-	assert.Contains(t, registrar.handlers, "crud.user.delete_batch")
+	assert.Contains(t, registrar.endpoints, "crud.user.create")
+	assert.Contains(t, registrar.endpoints, "crud.user.create_batch")
+	assert.Contains(t, registrar.endpoints, "crud.user.show")
+	assert.Contains(t, registrar.endpoints, "crud.user.index")
+	assert.Contains(t, registrar.endpoints, "crud.user.update")
+	assert.Contains(t, registrar.endpoints, "crud.user.update_batch")
+	assert.Contains(t, registrar.endpoints, "crud.user.delete")
+	assert.Contains(t, registrar.endpoints, "crud.user.delete_batch")
+
+	assert.Equal(t, commandrpc.MethodKindCommand, mustEndpoint(t, registrar, "crud.user.create").Spec().Kind)
+	assert.Equal(t, commandrpc.MethodKindQuery, mustEndpoint(t, registrar, "crud.user.show").Spec().Kind)
+	assert.Equal(t, commandrpc.MethodKindQuery, mustEndpoint(t, registrar, "crud.user.index").Spec().Kind)
+	assert.Equal(t, commandrpc.MethodKindCommand, mustEndpoint(t, registrar, "crud.user.delete").Spec().Kind)
 }
 
 func TestRegisterResourceEndpointsInfersResourceNameForPointerModels(t *testing.T) {
@@ -133,8 +152,8 @@ func TestRegisterResourceEndpointsInfersResourceNameForPointerModels(t *testing.
 	})
 
 	resource, _ := crud.GetResourceName(reflect.TypeFor[*rpcUser]())
-	assert.Contains(t, registrar.handlers, "crud."+resource+".create")
-	assert.Contains(t, registrar.handlers, "crud."+resource+".index")
+	assert.Contains(t, registrar.endpoints, "crud."+resource+".create")
+	assert.Contains(t, registrar.endpoints, "crud."+resource+".index")
 }
 
 func TestRegisterResourceEndpointsRoundTrip(t *testing.T) {
@@ -146,11 +165,12 @@ func TestRegisterResourceEndpointsRoundTrip(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	create := mustHandler[func(context.Context, RequestEnvelope[CreateData[*rpcUser]]) (ResponseEnvelope[*rpcUser], error)](
-		t, registrar, "crud.user.create",
-	)
+	createEndpoint := mustEndpoint(t, registrar, "crud.user.create")
+	createReq, ok := createEndpoint.NewRequest().(*RequestEnvelope[CreateData[*rpcUser]])
+	require.True(t, ok)
+	require.NotNil(t, createReq)
 
-	createOut, err := create(context.Background(), RequestEnvelope[CreateData[*rpcUser]]{
+	*createReq = RequestEnvelope[CreateData[*rpcUser]]{
 		Data: CreateData[*rpcUser]{
 			Record: &rpcUser{
 				ID:        uuid.New(),
@@ -165,101 +185,105 @@ func TestRegisterResourceEndpointsRoundTrip(t *testing.T) {
 			Roles:   []string{"admin"},
 			Tenant:  "acme",
 		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, createOut.Data)
-	assert.Equal(t, "Alice", createOut.Data.Name)
+	}
 
-	show := mustHandler[func(context.Context, RequestEnvelope[ShowData]) (ResponseEnvelope[*rpcUser], error)](
-		t, registrar, "crud.user.show",
-	)
-	showOut, err := show(context.Background(), RequestEnvelope[ShowData]{
-		Data: ShowData{ID: createOut.Data.ID.String()},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
+	createOut, err := createEndpoint.Invoke(context.Background(), createReq)
 	require.NoError(t, err)
-	require.NotNil(t, showOut.Data)
-	assert.Equal(t, createOut.Data.Email, showOut.Data.Email)
+	createRes, ok := createOut.(ResponseEnvelope[*rpcUser])
+	require.True(t, ok)
+	require.NotNil(t, createRes.Data)
+	assert.Equal(t, "Alice", createRes.Data.Name)
 
-	index := mustHandler[func(context.Context, RequestEnvelope[IndexData[crud.ListQueryOptions]]) (ResponseEnvelope[ListResult[*rpcUser]], error)](
-		t, registrar, "crud.user.index",
-	)
-	indexOut, err := index(context.Background(), RequestEnvelope[IndexData[crud.ListQueryOptions]]{
-		Data: IndexData[crud.ListQueryOptions]{
-			Options: crud.ListQueryOptions{Limit: 10, Offset: 0},
+	showRes := mustInvokeEndpoint[ShowData, *rpcUser](
+		t,
+		mustEndpoint(t, registrar, "crud.user.show"),
+		RequestEnvelope[ShowData]{
+			Data: ShowData{ID: createRes.Data.ID.String()},
+			Meta: RequestMeta{ActorID: "actor-1"},
 		},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, indexOut.Data.Count, 1)
-
-	update := mustHandler[func(context.Context, RequestEnvelope[UpdateData[*rpcUser]]) (ResponseEnvelope[*rpcUser], error)](
-		t, registrar, "crud.user.update",
 	)
-	updateOut, err := update(context.Background(), RequestEnvelope[UpdateData[*rpcUser]]{
-		Data: UpdateData[*rpcUser]{
-			ID: createOut.Data.ID.String(),
-			Record: &rpcUser{
-				Name: "Alice Updated",
+	require.NotNil(t, showRes.Data)
+	assert.Equal(t, createRes.Data.Email, showRes.Data.Email)
+
+	indexRes := mustInvokeEndpoint[IndexData[crud.ListQueryOptions], ListResult[*rpcUser]](
+		t,
+		mustEndpoint(t, registrar, "crud.user.index"),
+		RequestEnvelope[IndexData[crud.ListQueryOptions]]{
+			Data: IndexData[crud.ListQueryOptions]{
+				Options: crud.ListQueryOptions{Limit: 10, Offset: 0},
 			},
+			Meta: RequestMeta{ActorID: "actor-1"},
 		},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, updateOut.Data)
-	assert.Equal(t, "Alice Updated", updateOut.Data.Name)
-
-	deleteOne := mustHandler[func(context.Context, RequestEnvelope[DeleteData]) (ResponseEnvelope[DeleteResult], error)](
-		t, registrar, "crud.user.delete",
 	)
-	deleteOut, err := deleteOne(context.Background(), RequestEnvelope[DeleteData]{
-		Data: DeleteData{ID: createOut.Data.ID.String()},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
-	require.NoError(t, err)
-	assert.True(t, deleteOut.Data.Deleted)
+	assert.GreaterOrEqual(t, indexRes.Data.Count, 1)
 
-	createBatch := mustHandler[func(context.Context, RequestEnvelope[CreateBatchData[*rpcUser]]) (ResponseEnvelope[ListResult[*rpcUser]], error)](
-		t, registrar, "crud.user.create_batch",
-	)
-	batchOut, err := createBatch(context.Background(), RequestEnvelope[CreateBatchData[*rpcUser]]{
-		Data: CreateBatchData[*rpcUser]{
-			Records: []*rpcUser{
-				{
-					ID:        uuid.New(),
-					Name:      "Bob",
-					Email:     "bob@example.com",
-					CreatedAt: time.Now().UTC(),
-					UpdatedAt: time.Now().UTC(),
-				},
-				{
-					ID:        uuid.New(),
-					Name:      "Carol",
-					Email:     "carol@example.com",
-					CreatedAt: time.Now().UTC(),
-					UpdatedAt: time.Now().UTC(),
+	updateRes := mustInvokeEndpoint[UpdateData[*rpcUser], *rpcUser](
+		t,
+		mustEndpoint(t, registrar, "crud.user.update"),
+		RequestEnvelope[UpdateData[*rpcUser]]{
+			Data: UpdateData[*rpcUser]{
+				ID: createRes.Data.ID.String(),
+				Record: &rpcUser{
+					Name: "Alice Updated",
 				},
 			},
+			Meta: RequestMeta{ActorID: "actor-1"},
 		},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
-	require.NoError(t, err)
-	require.Len(t, batchOut.Data.Items, 2)
-
-	deleteBatch := mustHandler[func(context.Context, RequestEnvelope[DeleteBatchData[*rpcUser]]) (ResponseEnvelope[DeleteBatchResult], error)](
-		t, registrar, "crud.user.delete_batch",
 	)
-	deleteBatchOut, err := deleteBatch(context.Background(), RequestEnvelope[DeleteBatchData[*rpcUser]]{
-		Data: DeleteBatchData[*rpcUser]{
-			IDs: []string{
-				batchOut.Data.Items[0].ID.String(),
-				batchOut.Data.Items[1].ID.String(),
-			},
+	require.NotNil(t, updateRes.Data)
+	assert.Equal(t, "Alice Updated", updateRes.Data.Name)
+
+	deleteRes := mustInvokeEndpoint[DeleteData, DeleteResult](
+		t,
+		mustEndpoint(t, registrar, "crud.user.delete"),
+		RequestEnvelope[DeleteData]{
+			Data: DeleteData{ID: createRes.Data.ID.String()},
+			Meta: RequestMeta{ActorID: "actor-1"},
 		},
-		Meta: RequestMeta{ActorID: "actor-1"},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, 2, deleteBatchOut.Data.Count)
+	)
+	assert.True(t, deleteRes.Data.Deleted)
+
+	createBatchRes := mustInvokeEndpoint[CreateBatchData[*rpcUser], ListResult[*rpcUser]](
+		t,
+		mustEndpoint(t, registrar, "crud.user.create_batch"),
+		RequestEnvelope[CreateBatchData[*rpcUser]]{
+			Data: CreateBatchData[*rpcUser]{
+				Records: []*rpcUser{
+					{
+						ID:        uuid.New(),
+						Name:      "Bob",
+						Email:     "bob@example.com",
+						CreatedAt: time.Now().UTC(),
+						UpdatedAt: time.Now().UTC(),
+					},
+					{
+						ID:        uuid.New(),
+						Name:      "Carol",
+						Email:     "carol@example.com",
+						CreatedAt: time.Now().UTC(),
+						UpdatedAt: time.Now().UTC(),
+					},
+				},
+			},
+			Meta: RequestMeta{ActorID: "actor-1"},
+		},
+	)
+	require.Len(t, createBatchRes.Data.Items, 2)
+
+	deleteBatchRes := mustInvokeEndpoint[DeleteBatchData[*rpcUser], DeleteBatchResult](
+		t,
+		mustEndpoint(t, registrar, "crud.user.delete_batch"),
+		RequestEnvelope[DeleteBatchData[*rpcUser]]{
+			Data: DeleteBatchData[*rpcUser]{
+				IDs: []string{
+					createBatchRes.Data.Items[0].ID.String(),
+					createBatchRes.Data.Items[1].ID.String(),
+				},
+			},
+			Meta: RequestMeta{ActorID: "actor-1"},
+		},
+	)
+	assert.Equal(t, 2, deleteBatchRes.Data.Count)
 
 	records, _, err := repo.List(context.Background())
 	require.NoError(t, err)

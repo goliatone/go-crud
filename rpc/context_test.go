@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	commandrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-crud"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -94,6 +95,41 @@ func TestRequestContextHeaderLookupCaseInsensitive(t *testing.T) {
 	assert.Equal(t, "req-1", ctx.Header("X-Request-ID"))
 	assert.Equal(t, "req-1", ctx.Header("x-request-id"))
 	assert.Equal(t, "corr-1", ctx.Header("X-Correlation-ID"))
+}
+
+func TestRequestContextMapsSharedRequestMetaSemantics(t *testing.T) {
+	sharedMeta := commandrpc.RequestMeta{
+		ActorID:       "actor-1",
+		Roles:         []string{"owner"},
+		Tenant:        "acme",
+		RequestID:     "req-1",
+		CorrelationID: "corr-1",
+		Permissions:   []string{"users:read"},
+		Scope: map[string]any{
+			"tenant_id": "acme",
+		},
+		Headers: map[string]string{
+			"x-request-id": "req-1",
+		},
+		Params: map[string]string{
+			"id": "42",
+		},
+		Query: map[string][]string{
+			"include": []string{"profile"},
+		},
+	}
+
+	ctx := newRequestContext(context.Background(), sharedMeta)
+
+	actor := crud.ActorFromContext(ctx.UserContext())
+	assert.Equal(t, "actor-1", actor.ActorID)
+	assert.Equal(t, "acme", actor.TenantID)
+	assert.Equal(t, "owner", actor.Role)
+	assert.Equal(t, "42", ctx.Params("id"))
+	assert.Equal(t, "req-1", ctx.Header("X-Request-ID"))
+	assert.Equal(t, "profile", ctx.Query("include"))
+	assert.Equal(t, "req-1", crud.RequestIDFromContext(ctx.UserContext()))
+	assert.Equal(t, "corr-1", crud.CorrelationIDFromContext(ctx.UserContext()))
 }
 
 func toScopeFilterMap(scope crud.ScopeFilter) map[string]crud.ScopeColumnFilter {
