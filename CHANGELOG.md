@@ -2,6 +2,26 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Task to release rpc ([d4bf50a](https://github.com/goliatone/go-crud/commit/d4bf50a377b18b81cda016835e8a7a833aba607a))  - (goliatone)
+- Update to handle rpc meta ([6cf4d7c](https://github.com/goliatone/go-crud/commit/6cf4d7cbb2c0024b5669ed7db788d37145ce56f3))  - (goliatone)
+- Rpc example ([358df88](https://github.com/goliatone/go-crud/commit/358df888b454e728a4b0d993bdad67feeaf16ac9))  - (goliatone)
+- Rpc package ([3301999](https://github.com/goliatone/go-crud/commit/33019993f7413dec88f1ee4a2b831aac266e2c20))  - (goliatone)
+- Controller ops ([88ee8b7](https://github.com/goliatone/go-crud/commit/88ee8b760f11153b71a14e4bbaf8afe84f14a968))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([e13d6d0](https://github.com/goliatone/go-crud/commit/e13d6d0addf8902f266261ec79b8aac5ed8e596d))  - (goliatone)
+- Update deps ([4ad759e](https://github.com/goliatone/go-crud/commit/4ad759e370b585817b570774626f140f47656d95))  - (goliatone)
+- Update test ([43ad91c](https://github.com/goliatone/go-crud/commit/43ad91ca17c52102b5f2e5525dcf1846a35ef464))  - (goliatone)
+
+# [0.21.1](https://github.com/goliatone/go-crud/compare/v0.21.0...v0.21.1) - (2026-02-09)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.21.1 ([60527e5](https://github.com/goliatone/go-crud/commit/60527e589e7bba157d50bfeaa93518f80d3f58a9))  - (goliatone)
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update deps ([7e42ac7](https://github.com/goliatone/go-crud/commit/7e42ac7a2a49778757c68ad6c82f95b28a56c408))  - (goliatone)
