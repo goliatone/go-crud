@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/goliatone/go-command"
+	commandrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 )
@@ -15,7 +15,8 @@ const defaultMethodPrefix = "crud"
 
 // Registrar represents an RPC server compatible with go-command/rpc.Server.
 type Registrar interface {
-	Register(opts command.RPCConfig, handler any, meta command.CommandMeta) error
+	RegisterEndpoint(def commandrpc.EndpointDefinition) error
+	RegisterEndpoints(defs ...commandrpc.EndpointDefinition) error
 }
 
 // ResourceRegistrationOptions configures CRUD endpoint registration.
@@ -56,151 +57,150 @@ func RegisterResourceEndpoints[T any](
 		return strings.Join([]string{prefix, resource, op}, ".")
 	}
 
-	register := func(method string, handler any) error {
-		return server.Register(command.RPCConfig{Method: method}, handler, command.CommandMeta{})
-	}
-
-	if err := register(methodFor("create"), func(
-		ctx context.Context,
-		req RequestEnvelope[CreateData[T]],
-	) (ResponseEnvelope[T], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		record, err := controller.CreateRecord(rpcCtx, req.Data.Record)
-		if err != nil {
-			return ResponseEnvelope[T]{}, err
-		}
-		return ResponseEnvelope[T]{Data: record}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("create_batch"), func(
-		ctx context.Context,
-		req RequestEnvelope[CreateBatchData[T]],
-	) (ResponseEnvelope[ListResult[T]], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		records, err := controller.CreateRecords(rpcCtx, req.Data.Records)
-		if err != nil {
-			return ResponseEnvelope[ListResult[T]]{}, err
-		}
-		return ResponseEnvelope[ListResult[T]]{
-			Data: ListResult[T]{Items: records, Count: len(records)},
-		}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("show"), func(
-		ctx context.Context,
-		req RequestEnvelope[ShowData],
-	) (ResponseEnvelope[T], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		id := strings.TrimSpace(req.Data.ID)
-		if id == "" {
-			id = strings.TrimSpace(req.Meta.Params["id"])
-		}
-		record, err := controller.ShowByID(rpcCtx, id, req.Data.Criteria)
-		if err != nil {
-			return ResponseEnvelope[T]{}, err
-		}
-		return ResponseEnvelope[T]{Data: record}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("index"), func(
-		ctx context.Context,
-		req RequestEnvelope[IndexData[crud.ListQueryOptions]],
-	) (ResponseEnvelope[ListResult[T]], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		criteria, err := buildIndexCriteria[T](req.Data.Options, req.Data.Criteria)
-		if err != nil {
-			return ResponseEnvelope[ListResult[T]]{}, err
-		}
-		records, count, err := controller.IndexWith(rpcCtx, criteria)
-		if err != nil {
-			return ResponseEnvelope[ListResult[T]]{}, err
-		}
-		return ResponseEnvelope[ListResult[T]]{
-			Data: ListResult[T]{Items: records, Count: count},
-		}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("update"), func(
-		ctx context.Context,
-		req RequestEnvelope[UpdateData[T]],
-	) (ResponseEnvelope[T], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		id := strings.TrimSpace(req.Data.ID)
-		if id == "" {
-			id = strings.TrimSpace(req.Meta.Params["id"])
-		}
-		record, err := controller.UpdateRecord(rpcCtx, id, req.Data.Record)
-		if err != nil {
-			return ResponseEnvelope[T]{}, err
-		}
-		return ResponseEnvelope[T]{Data: record}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("update_batch"), func(
-		ctx context.Context,
-		req RequestEnvelope[UpdateBatchData[T]],
-	) (ResponseEnvelope[ListResult[T]], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		records, err := controller.UpdateRecords(rpcCtx, req.Data.Records)
-		if err != nil {
-			return ResponseEnvelope[ListResult[T]]{}, err
-		}
-		return ResponseEnvelope[ListResult[T]]{
-			Data: ListResult[T]{Items: records, Count: len(records)},
-		}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("delete"), func(
-		ctx context.Context,
-		req RequestEnvelope[DeleteData],
-	) (ResponseEnvelope[DeleteResult], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		id := strings.TrimSpace(req.Data.ID)
-		if id == "" {
-			id = strings.TrimSpace(req.Meta.Params["id"])
-		}
-		if err := controller.DeleteByID(rpcCtx, id); err != nil {
-			return ResponseEnvelope[DeleteResult]{}, err
-		}
-		return ResponseEnvelope[DeleteResult]{Data: DeleteResult{Deleted: true}}, nil
-	}); err != nil {
-		return err
-	}
-
-	if err := register(methodFor("delete_batch"), func(
-		ctx context.Context,
-		req RequestEnvelope[DeleteBatchData[T]],
-	) (ResponseEnvelope[DeleteBatchResult], error) {
-		rpcCtx := newRequestContext(ctx, req.Meta)
-		records := req.Data.Records
-		if len(records) == 0 && len(req.Data.IDs) > 0 {
-			parsed, err := controller.RecordsFromIDs(req.Data.IDs)
+	defs := []commandrpc.EndpointDefinition{
+		commandrpc.NewEndpoint[CreateData[T], T](commandrpc.EndpointSpec{
+			Method: methodFor("create"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[CreateData[T]],
+		) (ResponseEnvelope[T], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			record, err := controller.CreateRecord(rpcCtx, req.Data.Record)
 			if err != nil {
+				return ResponseEnvelope[T]{}, err
+			}
+			return ResponseEnvelope[T]{Data: record}, nil
+		}),
+		commandrpc.NewEndpoint[CreateBatchData[T], ListResult[T]](commandrpc.EndpointSpec{
+			Method: methodFor("create_batch"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[CreateBatchData[T]],
+		) (ResponseEnvelope[ListResult[T]], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			records, err := controller.CreateRecords(rpcCtx, req.Data.Records)
+			if err != nil {
+				return ResponseEnvelope[ListResult[T]]{}, err
+			}
+			return ResponseEnvelope[ListResult[T]]{
+				Data: ListResult[T]{Items: records, Count: len(records)},
+			}, nil
+		}),
+		commandrpc.NewEndpoint[ShowData, T](commandrpc.EndpointSpec{
+			Method: methodFor("show"),
+			Kind:   commandrpc.MethodKindQuery,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[ShowData],
+		) (ResponseEnvelope[T], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			id := strings.TrimSpace(req.Data.ID)
+			if id == "" {
+				id = strings.TrimSpace(req.Meta.Params["id"])
+			}
+			record, err := controller.ShowByID(rpcCtx, id, req.Data.Criteria)
+			if err != nil {
+				return ResponseEnvelope[T]{}, err
+			}
+			return ResponseEnvelope[T]{Data: record}, nil
+		}),
+		commandrpc.NewEndpoint[IndexData[crud.ListQueryOptions], ListResult[T]](commandrpc.EndpointSpec{
+			Method: methodFor("index"),
+			Kind:   commandrpc.MethodKindQuery,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[IndexData[crud.ListQueryOptions]],
+		) (ResponseEnvelope[ListResult[T]], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			criteria, err := buildIndexCriteria[T](req.Data.Options, req.Data.Criteria)
+			if err != nil {
+				return ResponseEnvelope[ListResult[T]]{}, err
+			}
+			records, count, err := controller.IndexWith(rpcCtx, criteria)
+			if err != nil {
+				return ResponseEnvelope[ListResult[T]]{}, err
+			}
+			return ResponseEnvelope[ListResult[T]]{
+				Data: ListResult[T]{Items: records, Count: count},
+			}, nil
+		}),
+		commandrpc.NewEndpoint[UpdateData[T], T](commandrpc.EndpointSpec{
+			Method: methodFor("update"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[UpdateData[T]],
+		) (ResponseEnvelope[T], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			id := strings.TrimSpace(req.Data.ID)
+			if id == "" {
+				id = strings.TrimSpace(req.Meta.Params["id"])
+			}
+			record, err := controller.UpdateRecord(rpcCtx, id, req.Data.Record)
+			if err != nil {
+				return ResponseEnvelope[T]{}, err
+			}
+			return ResponseEnvelope[T]{Data: record}, nil
+		}),
+		commandrpc.NewEndpoint[UpdateBatchData[T], ListResult[T]](commandrpc.EndpointSpec{
+			Method: methodFor("update_batch"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[UpdateBatchData[T]],
+		) (ResponseEnvelope[ListResult[T]], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			records, err := controller.UpdateRecords(rpcCtx, req.Data.Records)
+			if err != nil {
+				return ResponseEnvelope[ListResult[T]]{}, err
+			}
+			return ResponseEnvelope[ListResult[T]]{
+				Data: ListResult[T]{Items: records, Count: len(records)},
+			}, nil
+		}),
+		commandrpc.NewEndpoint[DeleteData, DeleteResult](commandrpc.EndpointSpec{
+			Method: methodFor("delete"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[DeleteData],
+		) (ResponseEnvelope[DeleteResult], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			id := strings.TrimSpace(req.Data.ID)
+			if id == "" {
+				id = strings.TrimSpace(req.Meta.Params["id"])
+			}
+			if err := controller.DeleteByID(rpcCtx, id); err != nil {
+				return ResponseEnvelope[DeleteResult]{}, err
+			}
+			return ResponseEnvelope[DeleteResult]{Data: DeleteResult{Deleted: true}}, nil
+		}),
+		commandrpc.NewEndpoint[DeleteBatchData[T], DeleteBatchResult](commandrpc.EndpointSpec{
+			Method: methodFor("delete_batch"),
+			Kind:   commandrpc.MethodKindCommand,
+		}, func(
+			ctx context.Context,
+			req RequestEnvelope[DeleteBatchData[T]],
+		) (ResponseEnvelope[DeleteBatchResult], error) {
+			rpcCtx := newRequestContext(ctx, req.Meta)
+			records := req.Data.Records
+			if len(records) == 0 && len(req.Data.IDs) > 0 {
+				parsed, err := controller.RecordsFromIDs(req.Data.IDs)
+				if err != nil {
+					return ResponseEnvelope[DeleteBatchResult]{}, err
+				}
+				records = parsed
+			}
+			if err := controller.DeleteRecords(rpcCtx, records); err != nil {
 				return ResponseEnvelope[DeleteBatchResult]{}, err
 			}
-			records = parsed
-		}
-		if err := controller.DeleteRecords(rpcCtx, records); err != nil {
-			return ResponseEnvelope[DeleteBatchResult]{}, err
-		}
-		return ResponseEnvelope[DeleteBatchResult]{Data: DeleteBatchResult{Count: len(records)}}, nil
-	}); err != nil {
-		return err
+			return ResponseEnvelope[DeleteBatchResult]{Data: DeleteBatchResult{Count: len(records)}}, nil
+		}),
 	}
 
-	return nil
+	return server.RegisterEndpoints(defs...)
 }
 
 func resolveResourceName[T any](explicit string) string {
