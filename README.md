@@ -843,6 +843,57 @@ The List endpoint supports:
   - Available operators: `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`
   - Multiple values: `?name__or=John,Jack`
 
+## RPC Integration (go-command)
+
+`go-crud` includes `github.com/goliatone/go-crud/rpc`, which exposes controller
+operations through the go-command RPC method adapter while preserving guard,
+policy, hook, merge, and activity semantics.
+
+```go
+import (
+	cmdrpc "github.com/goliatone/go-command/rpc"
+	crudrpc "github.com/goliatone/go-crud/rpc"
+)
+
+server := cmdrpc.NewServer(cmdrpc.WithFailureMode(cmdrpc.FailureModeRecover))
+
+if err := crudrpc.RegisterResourceEndpoints(server, controller, crudrpc.ResourceRegistrationOptions{
+	Resource: "user",
+}); err != nil {
+	panic(err)
+}
+```
+
+Registered methods:
+
+- `crud.user.create`
+- `crud.user.create_batch`
+- `crud.user.show`
+- `crud.user.index`
+- `crud.user.update`
+- `crud.user.update_batch`
+- `crud.user.delete`
+- `crud.user.delete_batch`
+
+Request payloads use an envelope shape:
+
+```json
+{
+  "data": {},
+  "meta": {
+    "actorId": "user-1",
+    "roles": ["admin"],
+    "tenant": "acme",
+    "requestId": "req-1",
+    "correlationId": "corr-1",
+    "scope": {}
+  }
+}
+```
+
+`meta` values are mapped into `crud.Context` so scope guards, field policies,
+hooks, and activity emitters observe the same request metadata model.
+
 
 ## License
 
