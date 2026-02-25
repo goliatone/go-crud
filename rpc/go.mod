@@ -6,7 +6,7 @@ toolchain go1.24.11
 
 require (
 	github.com/goliatone/go-command v0.16.0
-	github.com/goliatone/go-crud v0.22.1
+	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-repository-bun v0.13.0
 	github.com/goliatone/go-router v0.50.0
 	github.com/google/uuid v1.6.0

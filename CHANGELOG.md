@@ -1,6 +1,10 @@
 # Changelog
 
-# [unreleased]
+# [0.22.1](https://github.com/goliatone/go-crud/compare/v0.22.0...v0.22.1) - (2026-02-25)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.22.1 ([3dd434f](https://github.com/goliatone/go-crud/commit/3dd434fb24720ec3a831f683c0f160a42a100685))  - (goliatone)
 
 ## <!-- 2 -->🚜 Refactor
 
