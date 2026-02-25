@@ -5,9 +5,10 @@ go 1.24.10
 toolchain go1.24.11
 
 require (
-	github.com/goliatone/go-command v0.15.0
+	github.com/goliatone/go-command v0.16.0
 	github.com/goliatone/go-crud v0.22.0
 	github.com/goliatone/go-repository-bun v0.13.0
+	github.com/goliatone/go-router v0.50.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/stretchr/testify v1.11.1
@@ -40,7 +41,6 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-errors v0.10.0 // indirect
 	github.com/goliatone/go-persistence-bun v0.10.0 // indirect
-	github.com/goliatone/go-router v0.45.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect

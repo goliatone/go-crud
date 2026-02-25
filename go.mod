@@ -11,7 +11,7 @@ require (
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-repository-bun v0.13.0
-	github.com/goliatone/go-router v0.45.1
+	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-users v0.16.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
@@ -22,7 +22,6 @@ require (
 )
 
 require (
-	github.com/alecthomas/kong v1.13.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
@@ -40,7 +39,6 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
-	github.com/goliatone/go-command v0.15.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
