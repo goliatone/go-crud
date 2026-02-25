@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -120,6 +121,20 @@ func TestRegisterResourceEndpointsRegistersExpectedMethods(t *testing.T) {
 	assert.Contains(t, registrar.handlers, "crud.user.update_batch")
 	assert.Contains(t, registrar.handlers, "crud.user.delete")
 	assert.Contains(t, registrar.handlers, "crud.user.delete_batch")
+}
+
+func TestRegisterResourceEndpointsInfersResourceNameForPointerModels(t *testing.T) {
+	controller, _, _ := setupRPCController(t)
+	registrar := newFakeRegistrar()
+
+	require.NotPanics(t, func() {
+		err := RegisterResourceEndpoints(registrar, controller, ResourceRegistrationOptions{})
+		require.NoError(t, err)
+	})
+
+	resource, _ := crud.GetResourceName(reflect.TypeFor[*rpcUser]())
+	assert.Contains(t, registrar.handlers, "crud."+resource+".create")
+	assert.Contains(t, registrar.handlers, "crud."+resource+".index")
 }
 
 func TestRegisterResourceEndpointsRoundTrip(t *testing.T) {
