@@ -1215,34 +1215,6 @@ func decodeDeleteBatchIDs(body []byte) ([]string, error) {
 	return ids, nil
 }
 
-func (c *Controller[T]) recordsFromIDs(ids []string) ([]T, error) {
-	handlers := c.Repo.Handlers()
-	if handlers.SetID == nil {
-		return nil, fmt.Errorf("missing record id setter")
-	}
-
-	records := make([]T, 0, len(ids))
-	for _, rawID := range ids {
-		id := strings.TrimSpace(rawID)
-		if id == "" {
-			return nil, fmt.Errorf("empty record id")
-		}
-		parsed, err := uuid.Parse(id)
-		if err != nil {
-			return nil, err
-		}
-
-		var record T
-		if handlers.NewRecord != nil {
-			record = handlers.NewRecord()
-		}
-		handlers.SetID(record, parsed)
-		records = append(records, record)
-	}
-
-	return records, nil
-}
-
 func shouldReturnOptions(ctx Context) bool {
 	return strings.EqualFold(strings.TrimSpace(ctx.Query("format")), "options")
 }
