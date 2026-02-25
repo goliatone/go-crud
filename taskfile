@@ -285,6 +285,31 @@ function gql:sync {
     (cd gql && go mod tidy)
 }
 
+##
+## -----
+##
+## rpc:sync
+##
+## Keep rpc module's go-crud requirement in sync
+## with the release tag.
+##
+## Arguments:
+## @arg 1 {string} tag
+function rpc:sync {
+    local tag=${1}
+
+    if [ -z "$tag" ]; then
+        exit 1
+    fi
+
+    if [ ! -f "rpc/go.mod" ]; then
+        return 0
+    fi
+
+    (cd rpc && go mod edit -require=github.com/goliatone/go-crud@v${tag})
+    (cd rpc && go mod tidy)
+}
+
 
 ##
 ## -----
@@ -324,19 +349,28 @@ function release {
     # Update version file
     version:set "${tag}"
 
-    # Sync gql module to the new tag
+    # Sync submodules to the new tag
     gql:sync "${tag}"
+    rpc:sync "${tag}"
 
     # Add updated version file to git
     git add "${VERSION_FILE}" CHANGELOG.md
     if [ -f "gql/go.mod" ]; then
         git add gql/go.mod gql/go.sum
     fi
+    if [ -f "rpc/go.mod" ]; then
+        git add rpc/go.mod rpc/go.sum
+    fi
     git commit -m "release: v${tag}"
 
     # Create a new tag
     git tag -a "v${tag}" -m "${message}"
-    git tag -a "gql/v${tag}" -m "gql release: v${tag}"
+    if [ -f "gql/go.mod" ]; then
+        git tag -a "gql/v${tag}" -m "gql release: v${tag}"
+    fi
+    if [ -f "rpc/go.mod" ]; then
+        git tag -a "rpc/v${tag}" -m "rpc release: v${tag}"
+    fi
 
     # Push tags and trigger release 🚀 🥳
     git push --follow-tags
