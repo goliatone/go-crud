@@ -2,10 +2,24 @@
 
 # [unreleased]
 
+## <!-- 2 -->🚜 Refactor
+
+- Udpate rpc api ([c233b2f](https://github.com/goliatone/go-crud/commit/c233b2f322783ceb223e10cb94615fb90278c192))  - (goliatone)
+- Clean contract ([b2b60c3](https://github.com/goliatone/go-crud/commit/b2b60c3974f5fbae5e79df52e9d0c19546efd84a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([75d7b9b](https://github.com/goliatone/go-crud/commit/75d7b9b40911dd4fbfa57922344b3ca7e32d084d))  - (goliatone)
+- Update test ([55fd516](https://github.com/goliatone/go-crud/commit/55fd51670742868f20c41cbe12f056d950d27dd9))  - (goliatone)
+
+# [0.22.0](https://github.com/goliatone/go-crud/compare/v0.21.1...v0.22.0) - (2026-02-25)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.22.0 ([4423cc0](https://github.com/goliatone/go-crud/commit/4423cc0e0648ffb1a1b4ef45274f74831c78d4ac))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
-- Rpc endpoint-first registrar migration for `go-crud/rpc` (remove legacy `(RPCConfig, handler, meta)` registration path)  - (goliatone)
-- Rpc Fiber transport integration coverage against `go-command/rpc` + `go-router/rpcfiber`  - (goliatone)
 - Task to release rpc ([d4bf50a](https://github.com/goliatone/go-crud/commit/d4bf50a377b18b81cda016835e8a7a833aba607a))  - (goliatone)
 - Update to handle rpc meta ([6cf4d7c](https://github.com/goliatone/go-crud/commit/6cf4d7cbb2c0024b5669ed7db788d37145ce56f3))  - (goliatone)
 - Rpc example ([358df88](https://github.com/goliatone/go-crud/commit/358df888b454e728a4b0d993bdad67feeaf16ac9))  - (goliatone)

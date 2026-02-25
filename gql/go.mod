@@ -7,9 +7,9 @@ toolchain go1.24.11
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/goliatone/go-crud v0.22.0
+	github.com/goliatone/go-crud v0.22.1
 	github.com/goliatone/go-repository-bun v0.13.0
-	github.com/goliatone/go-router v0.45.1
+	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.16
