@@ -2,7 +2,9 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -47,31 +49,33 @@ func newRequestContext(base context.Context, meta RequestMeta) *requestContext {
 		userCtx:  ctx,
 		params:   cloneStringMap(meta.Params),
 		query:    cloneQueryMap(meta.Query),
-		headers:  cloneStringMap(meta.Headers),
+		headers:  normalizeHeaders(meta.Headers),
 		response: nil,
 	}
 }
 
 func actorFromMeta(meta RequestMeta) crud.ActorContext {
+	roles := normalizeStringSlice(meta.Roles)
+	permissions := normalizeStringSlice(meta.Permissions)
+
 	actor := crud.ActorContext{
 		ActorID:  strings.TrimSpace(meta.ActorID),
 		TenantID: strings.TrimSpace(meta.Tenant),
 	}
-	if len(meta.Roles) > 0 {
-		roles := make([]string, 0, len(meta.Roles))
-		for _, role := range meta.Roles {
-			if trimmed := strings.TrimSpace(role); trimmed != "" {
-				roles = append(roles, trimmed)
-			}
-		}
+
+	if len(roles) > 0 {
+		actor.Role = roles[0]
+	}
+	if len(roles) > 0 || len(permissions) > 0 {
+		actor.Metadata = map[string]any{}
 		if len(roles) > 0 {
-			actor.Role = roles[0]
-			actor.Metadata = map[string]any{
-				"roles":       roles,
-				"permissions": append([]string(nil), meta.Permissions...),
-			}
+			actor.Metadata["roles"] = roles
+		}
+		if len(permissions) > 0 {
+			actor.Metadata["permissions"] = permissions
 		}
 	}
+
 	return actor
 }
 
@@ -82,7 +86,7 @@ func scopeFromMeta(raw map[string]any) crud.ScopeFilter {
 	}
 
 	scope.Raw = cloneAnyMap(raw)
-	if bypass, ok := raw["bypass"].(bool); ok {
+	if bypass, ok := asBool(raw["bypass"]); ok {
 		scope.Bypass = bypass
 	}
 
@@ -91,24 +95,8 @@ func scopeFromMeta(raw map[string]any) crud.ScopeFilter {
 	}
 
 	for _, key := range []string{"columnFilters", "column_filters"} {
-		filters, ok := raw[key].([]any)
-		if !ok || len(filters) == 0 {
-			continue
-		}
-		for _, item := range filters {
-			entry, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			column, _ := entry["column"].(string)
-			operator, _ := entry["operator"].(string)
-			values := asStringSlice(entry["values"])
-			if len(values) == 0 {
-				if single, ok := entry["value"].(string); ok {
-					values = []string{single}
-				}
-			}
-			scope.AddColumnFilter(column, operator, values...)
+		for _, filter := range readColumnFilters(raw[key]) {
+			scope.AddColumnFilter(filter.Column, filter.Operator, filter.Values...)
 		}
 	}
 
@@ -163,47 +151,233 @@ func cloneAnyMap(in map[string]any) map[string]any {
 }
 
 func readStringMap(raw any) (map[string]string, bool) {
-	source, ok := raw.(map[string]any)
+	source, ok := mapAsStringAny(raw)
 	if !ok {
 		return nil, false
 	}
 	out := make(map[string]string, len(source))
 	for key, value := range source {
-		if str, ok := value.(string); ok {
+		if str, ok := asString(value); ok {
 			out[key] = str
 		}
 	}
 	return out, true
 }
 
+func readColumnFilters(raw any) []crud.ScopeColumnFilter {
+	items, ok := asAnySlice(raw)
+	if !ok || len(items) == 0 {
+		return nil
+	}
+
+	filters := make([]crud.ScopeColumnFilter, 0, len(items))
+	for _, item := range items {
+		entry, ok := mapAsStringAny(item)
+		if !ok || len(entry) == 0 {
+			continue
+		}
+
+		column, _ := asString(entry["column"])
+		operator, _ := asString(entry["operator"])
+		values := asStringSlice(entry["values"])
+		if len(values) == 0 {
+			values = asStringSlice(entry["value"])
+		}
+		if strings.TrimSpace(column) == "" || len(values) == 0 {
+			continue
+		}
+
+		filters = append(filters, crud.ScopeColumnFilter{
+			Column:   column,
+			Operator: operator,
+			Values:   values,
+		})
+	}
+
+	return filters
+}
+
 func asStringSlice(raw any) []string {
+	if value, ok := asString(raw); ok {
+		return []string{value}
+	}
+
 	switch typed := raw.(type) {
 	case nil:
 		return nil
+	case []string:
+		return normalizeStringSlice(typed)
+	}
+
+	items, ok := asAnySlice(raw)
+	if !ok {
+		return nil
+	}
+
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if value, ok := asString(item); ok {
+			out = append(out, value)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func asAnySlice(raw any) ([]any, bool) {
+	if raw == nil {
+		return nil, false
+	}
+	if typed, ok := raw.([]any); ok {
+		return typed, true
+	}
+
+	value := reflect.ValueOf(raw)
+	if value.Kind() != reflect.Slice && value.Kind() != reflect.Array {
+		return nil, false
+	}
+
+	out := make([]any, 0, value.Len())
+	for i := range value.Len() {
+		out = append(out, value.Index(i).Interface())
+	}
+	return out, true
+}
+
+func mapAsStringAny(raw any) (map[string]any, bool) {
+	if raw == nil {
+		return nil, false
+	}
+
+	switch typed := raw.(type) {
+	case map[string]any:
+		return typed, true
+	case map[string]string:
+		out := make(map[string]any, len(typed))
+		for key, value := range typed {
+			out[key] = value
+		}
+		return out, true
+	}
+
+	value := reflect.ValueOf(raw)
+	if value.Kind() != reflect.Map {
+		return nil, false
+	}
+
+	out := make(map[string]any, value.Len())
+	iter := value.MapRange()
+	for iter.Next() {
+		key, ok := asString(iter.Key().Interface())
+		if !ok {
+			continue
+		}
+		out[key] = iter.Value().Interface()
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
+}
+
+func asString(raw any) (string, bool) {
+	switch typed := raw.(type) {
 	case string:
 		if trimmed := strings.TrimSpace(typed); trimmed != "" {
-			return []string{trimmed}
+			return trimmed, true
 		}
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, value := range typed {
-			if trimmed := strings.TrimSpace(value); trimmed != "" {
-				out = append(out, trimmed)
-			}
+	case []byte:
+		if trimmed := strings.TrimSpace(string(typed)); trimmed != "" {
+			return trimmed, true
 		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if str, ok := item.(string); ok {
-				if trimmed := strings.TrimSpace(str); trimmed != "" {
-					out = append(out, trimmed)
-				}
-			}
+	case json.Number:
+		if trimmed := strings.TrimSpace(typed.String()); trimmed != "" {
+			return trimmed, true
 		}
-		return out
+	case fmt.Stringer:
+		if trimmed := strings.TrimSpace(typed.String()); trimmed != "" {
+			return trimmed, true
+		}
+	case bool:
+		return strconv.FormatBool(typed), true
+	case int:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int8:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int16:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int32:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int64:
+		return strconv.FormatInt(typed, 10), true
+	case uint:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint8:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint16:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint32:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint64:
+		return strconv.FormatUint(typed, 10), true
+	case uintptr:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case float32:
+		return strconv.FormatFloat(float64(typed), 'f', -1, 32), true
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64), true
 	}
-	return nil
+	return "", false
+}
+
+func asBool(raw any) (bool, bool) {
+	switch typed := raw.(type) {
+	case bool:
+		return typed, true
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(typed))
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return false, false
+}
+
+func normalizeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeHeaders(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		lookupKey := headerLookupKey(key)
+		if lookupKey == "" {
+			continue
+		}
+		out[lookupKey] = value
+	}
+	return out
+}
+
+func headerLookupKey(key string) string {
+	return strings.ToLower(strings.TrimSpace(key))
 }
 
 func (c *requestContext) UserContext() context.Context {
@@ -286,7 +460,7 @@ func (c *requestContext) Body() []byte {
 }
 
 func (c *requestContext) Header(key string) string {
-	return c.headers[key]
+	return c.headers[headerLookupKey(key)]
 }
 
 func (c *requestContext) Status(status int) crud.Response {
