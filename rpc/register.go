@@ -207,8 +207,19 @@ func resolveResourceName[T any](explicit string) string {
 	if value := strings.TrimSpace(explicit); value != "" {
 		return value
 	}
-	var zero T
-	typ := reflect.TypeOf(zero)
+
+	typ := reflect.TypeFor[T]()
+	if typ == nil {
+		return ""
+	}
+	if typ.Kind() == reflect.Ptr {
+		if typ.Elem().Kind() != reflect.Struct {
+			return ""
+		}
+	} else if typ.Kind() != reflect.Struct {
+		return ""
+	}
+
 	resource, _ := crud.GetResourceName(typ)
 	return strings.TrimSpace(resource)
 }
