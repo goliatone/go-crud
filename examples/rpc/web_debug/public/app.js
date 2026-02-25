@@ -29,7 +29,13 @@ async function fetchJSON(url, options = {}) {
   const response = await fetch(url, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || `HTTP ${response.status}`);
+    const errorMessage = typeof payload.error === "string"
+      ? payload.error
+      : (payload.error && (payload.error.message || payload.error.code)) || `HTTP ${response.status}`;
+    const error = new Error(errorMessage);
+    error.payload = payload;
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -74,8 +80,6 @@ function buildMeta() {
 
 async function callRPC(method, params, label = "") {
   const request = {
-    jsonrpc: "2.0",
-    id: nextRequestID(),
     method,
     params,
   };
@@ -93,15 +97,15 @@ async function callRPC(method, params, label = "") {
     isError = !!responsePayload.error;
   } catch (error) {
     isError = true;
-    responsePayload = {
-      jsonrpc: "2.0",
-      id: request.id,
-      error: {
-        code: -32099,
-        message: "network request failed",
-        data: String(error.message || error),
-      },
-    };
+    responsePayload = (error && error.payload && error.payload.error)
+      ? error.payload
+      : {
+          error: {
+            code: "RPC_NETWORK_FAILED",
+            message: "network request failed",
+            details: { cause: String(error.message || error) },
+          },
+        };
   }
 
   const durationMS = Math.round((performance.now() - startedAt) * 100) / 100;
@@ -119,7 +123,7 @@ async function callRPC(method, params, label = "") {
     throw new Error(responsePayload.error.message || "RPC error");
   }
 
-  return responsePayload.result;
+  return responsePayload;
 }
 
 function pushLog(entry) {
@@ -222,7 +226,7 @@ function escapeHTML(value) {
 }
 
 async function loadEndpoints() {
-  const payload = await fetchJSON("/api/endpoints");
+  const payload = await fetchJSON("/api/rpc/endpoints");
   state.endpoints = payload.endpoints || [];
   renderEndpoints();
 }

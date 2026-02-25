@@ -5,10 +5,12 @@ go 1.24.10
 toolchain go1.24.11
 
 require (
-	github.com/goliatone/go-command v0.15.0
-	github.com/goliatone/go-crud v0.21.1
+	github.com/gofiber/fiber/v2 v2.52.10
+	github.com/goliatone/go-command v0.16.0
+	github.com/goliatone/go-crud v0.22.0
 	github.com/goliatone/go-crud/rpc v0.21.1
 	github.com/goliatone/go-repository-bun v0.13.0
+	github.com/goliatone/go-router v0.50.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/uptrace/bun v1.2.16
@@ -33,14 +35,12 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/gofiber/fiber/v2 v2.52.10 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-errors v0.10.0 // indirect
 	github.com/goliatone/go-persistence-bun v0.10.0 // indirect
-	github.com/goliatone/go-router v0.45.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
@@ -87,3 +87,5 @@ replace github.com/goliatone/go-crud/rpc => ../../../rpc
 replace github.com/goliatone/go-command => ../../../../go-command
 
 replace github.com/goliatone/go-repository-bun => ../../../../go-repository-bun
+
+replace github.com/goliatone/go-router => ../../../../go-router

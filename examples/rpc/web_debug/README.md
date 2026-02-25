@@ -2,7 +2,7 @@
 
 This example adapts the `go-command` RPC web debug console to `go-crud/rpc`.
 
-It registers a `User` CRUD controller into a `go-command/rpc.Server`, exposes the RPC methods through a JSON-RPC HTTP bridge, and provides a browser UI to inspect full request/response payloads.
+It registers a `User` CRUD controller into a `go-command/rpc.Server`, mounts transport routes using `go-router/rpcfiber`, and provides a browser UI to inspect full request/response payloads.
 
 ## What it demonstrates
 
@@ -34,12 +34,10 @@ go run .
 
 Open `http://localhost:8092`.
 
-## JSON-RPC request shape
+## RPC request shape
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": "req-1",
   "method": "crud.user.create",
   "params": {
     "data": {

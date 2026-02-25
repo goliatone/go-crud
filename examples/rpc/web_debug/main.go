@@ -4,21 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-crud"
 	crudrpc "github.com/goliatone/go-crud/rpc"
 	repository "github.com/goliatone/go-repository-bun"
+	"github.com/goliatone/go-router"
+	"github.com/goliatone/go-router/rpcfiber"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/uptrace/bun"
@@ -39,9 +39,10 @@ type User struct {
 }
 
 type App struct {
-	rpc  *cmdrpc.Server
-	repo repository.Repository[*User]
-	db   *bun.DB
+	server router.Server[*fiber.App]
+	rpc    *cmdrpc.Server
+	repo   repository.Repository[*User]
+	db     *bun.DB
 }
 
 func NewApp() (*App, error) {
@@ -111,7 +112,101 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("register resource endpoints: %w", err)
 	}
 
-	return &App{rpc: rpcServer, repo: repo, db: db}, nil
+	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{
+			AppName:           "go-crud RPC web debug",
+			EnablePrintRoutes: true,
+		})
+	})
+
+	if err := registerRoutes(server.Router(), repo, rpcServer); err != nil {
+		_ = db.Close()
+		_ = sqldb.Close()
+		return nil, err
+	}
+
+	return &App{server: server, rpc: rpcServer, repo: repo, db: db}, nil
+}
+
+func registerRoutes(
+	r router.Router[*fiber.App],
+	repo repository.Repository[*User],
+	rpcServer *cmdrpc.Server,
+) error {
+	publicSub, err := fs.Sub(publicFiles, "public")
+	if err != nil {
+		return fmt.Errorf("load embedded public files: %w", err)
+	}
+
+	publicHandler := router.HandlerFromHTTP(http.StripPrefix("/public/", http.FileServer(http.FS(publicSub))))
+	r.Get("/", handleIndex)
+	r.Get("/public/*", publicHandler)
+	r.Head("/public/*", publicHandler)
+	r.Get("/api/state", handleState(repo))
+
+	if err := rpcfiber.MountFiber(r, rpcServer); err != nil {
+		return fmt.Errorf("mount rpc fiber routes: %w", err)
+	}
+
+	return nil
+}
+
+func handleIndex(ctx router.Context) error {
+	content, err := publicFiles.ReadFile("public/index.html")
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to load index"})
+	}
+	ctx.SetHeader(router.HeaderContentType, "text/html; charset=utf-8")
+	return ctx.Send(content)
+}
+
+type appState struct {
+	Count      int            `json:"count"`
+	LastID     string         `json:"lastId,omitempty"`
+	LastName   string         `json:"lastName,omitempty"`
+	LastTenant string         `json:"lastTenant,omitempty"`
+	Tenants    map[string]int `json:"tenants"`
+}
+
+func handleState(repo repository.Repository[*User]) router.HandlerFunc {
+	return func(ctx router.Context) error {
+		records, _, err := repo.List(ctx.Context())
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		}
+
+		state := appState{
+			Count:   len(records),
+			Tenants: map[string]int{},
+		}
+
+		for _, record := range records {
+			if record == nil {
+				continue
+			}
+			state.Tenants[record.TenantID]++
+		}
+
+		sort.Slice(records, func(i, j int) bool {
+			left := records[i]
+			right := records[j]
+			if left == nil {
+				return false
+			}
+			if right == nil {
+				return true
+			}
+			return left.UpdatedAt.After(right.UpdatedAt)
+		})
+
+		if len(records) > 0 && records[0] != nil {
+			state.LastID = records[0].ID.String()
+			state.LastName = records[0].Name
+			state.LastTenant = records[0].TenantID
+		}
+
+		return ctx.JSON(http.StatusOK, map[string]any{"state": state})
+	}
 }
 
 func seedData(repo repository.Repository[*User]) error {
@@ -192,237 +287,11 @@ func (a *App) Close() error {
 	return a.db.Close()
 }
 
-func (a *App) Routes() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", a.handleIndex)
-	mux.Handle("/public/", http.StripPrefix("/public/", a.staticFiles()))
-	mux.HandleFunc("/api/endpoints", a.handleEndpoints)
-	mux.HandleFunc("/api/state", a.handleState)
-	mux.HandleFunc("/api/rpc", a.handleRPC)
-	return mux
-}
-
-func (a *App) staticFiles() http.Handler {
-	sub, err := fs.Sub(publicFiles, "public")
-	if err != nil {
-		panic(err)
+func (a *App) Serve(addr string) error {
+	if a == nil || a.server == nil {
+		return fmt.Errorf("app server not initialized")
 	}
-	return http.FileServer(http.FS(sub))
-}
-
-func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	content, err := publicFiles.ReadFile("public/index.html")
-	if err != nil {
-		http.Error(w, "failed to load index", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(content)
-}
-
-func (a *App) handleEndpoints(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		a.writeRPCError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	a.writeJSON(w, http.StatusOK, map[string]any{"endpoints": a.rpc.EndpointsMeta()})
-}
-
-type appState struct {
-	Count      int            `json:"count"`
-	LastID     string         `json:"lastId,omitempty"`
-	LastName   string         `json:"lastName,omitempty"`
-	LastTenant string         `json:"lastTenant,omitempty"`
-	Tenants    map[string]int `json:"tenants"`
-}
-
-func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		a.writeRPCError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	records, _, err := a.repo.List(r.Context())
-	if err != nil {
-		a.writeRPCError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	state := appState{
-		Count:   len(records),
-		Tenants: map[string]int{},
-	}
-
-	for _, record := range records {
-		if record == nil {
-			continue
-		}
-		state.Tenants[record.TenantID]++
-	}
-
-	sort.Slice(records, func(i, j int) bool {
-		left := records[i]
-		right := records[j]
-		if left == nil {
-			return false
-		}
-		if right == nil {
-			return true
-		}
-		return left.UpdatedAt.After(right.UpdatedAt)
-	})
-
-	if len(records) > 0 && records[0] != nil {
-		state.LastID = records[0].ID.String()
-		state.LastName = records[0].Name
-		state.LastTenant = records[0].TenantID
-	}
-
-	a.writeJSON(w, http.StatusOK, map[string]any{"state": state})
-}
-
-type jsonRPCRequest struct {
-	JSONRPC string          `json:"jsonrpc,omitempty"`
-	ID      any             `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type jsonRPCResponse struct {
-	JSONRPC string        `json:"jsonrpc"`
-	ID      any           `json:"id,omitempty"`
-	Result  any           `json:"result,omitempty"`
-	Error   *jsonRPCError `json:"error,omitempty"`
-}
-
-type jsonRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
-}
-
-func (a *App) handleRPC(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		a.writeJSON(w, http.StatusMethodNotAllowed, jsonRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &jsonRPCError{Code: -32600, Message: "method not allowed"},
-		})
-		return
-	}
-
-	var req jsonRPCRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		a.writeJSON(w, http.StatusBadRequest, jsonRPCResponse{
-			JSONRPC: "2.0",
-			Error:   &jsonRPCError{Code: -32700, Message: "invalid JSON payload", Data: err.Error()},
-		})
-		return
-	}
-	if req.Method == "" {
-		a.writeJSON(w, http.StatusBadRequest, jsonRPCResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error:   &jsonRPCError{Code: -32600, Message: "method is required"},
-		})
-		return
-	}
-
-	prototype, err := a.rpc.NewRequestForMethod(req.Method)
-	if err != nil {
-		a.writeJSON(w, http.StatusOK, jsonRPCResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &jsonRPCError{
-				Code:    -32601,
-				Message: "method not found",
-				Data:    err.Error(),
-			},
-		})
-		return
-	}
-
-	payload, err := decodeRPCPayload(req.Params, prototype)
-	if err != nil {
-		a.writeJSON(w, http.StatusOK, jsonRPCResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &jsonRPCError{
-				Code:    -32602,
-				Message: "invalid method params",
-				Data:    err.Error(),
-			},
-		})
-		return
-	}
-
-	result, err := a.rpc.Invoke(r.Context(), req.Method, payload)
-	if err != nil {
-		a.writeJSON(w, http.StatusOK, jsonRPCResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &jsonRPCError{
-				Code:    -32000,
-				Message: "rpc invocation failed",
-				Data:    err.Error(),
-			},
-		})
-		return
-	}
-
-	a.writeJSON(w, http.StatusOK, jsonRPCResponse{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result:  result,
-	})
-}
-
-func decodeRPCPayload(raw json.RawMessage, prototype any) (any, error) {
-	if prototype == nil {
-		if hasPayload(raw) {
-			return nil, errors.New("method does not accept params")
-		}
-		return nil, nil
-	}
-	if !hasPayload(raw) {
-		return prototype, nil
-	}
-
-	value := reflect.ValueOf(prototype)
-	if !value.IsValid() {
-		return nil, errors.New("invalid method request type")
-	}
-
-	if value.Kind() == reflect.Ptr {
-		if err := json.Unmarshal(raw, prototype); err != nil {
-			return nil, err
-		}
-		return prototype, nil
-	}
-
-	target := reflect.New(value.Type())
-	if err := json.Unmarshal(raw, target.Interface()); err != nil {
-		return nil, err
-	}
-	return target.Elem().Interface(), nil
-}
-
-func hasPayload(raw json.RawMessage) bool {
-	trimmed := strings.TrimSpace(string(raw))
-	return trimmed != "" && trimmed != "null"
-}
-
-func (a *App) writeRPCError(w http.ResponseWriter, status int, msg string) {
-	a.writeJSON(w, status, map[string]any{"error": msg})
-}
-
-func (a *App) writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	return a.server.Serve(addr)
 }
 
 func main() {
@@ -436,11 +305,14 @@ func main() {
 		}
 	}()
 
+	app.server.Router().PrintRoutes()
+
 	addr := ":8092"
 	log.Printf("go-crud RPC web debug demo listening on http://localhost%s", addr)
-	log.Printf("Use the UI to call methods like crud.user.create and crud.user.index")
+	log.Printf("RPC invoke endpoint: POST http://localhost%s/api/rpc", addr)
+	log.Printf("RPC discovery endpoint: GET http://localhost%s/api/rpc/endpoints", addr)
 
-	if err := http.ListenAndServe(addr, app.Routes()); err != nil {
+	if err := app.Serve(addr); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
 }
