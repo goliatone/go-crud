@@ -1,33 +1,29 @@
-module github.com/goliatone/go-crud
+module github.com/goliatone/go-crud/rpc
 
 go 1.24.10
 
 toolchain go1.24.11
 
 require (
-	dario.cat/mergo v1.0.2
-	github.com/ettle/strcase v0.2.0
-	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-errors v0.10.0
-	github.com/goliatone/go-persistence-bun v0.10.0
+	github.com/goliatone/go-command v0.15.0
+	github.com/goliatone/go-crud v0.21.1
 	github.com/goliatone/go-repository-bun v0.13.0
-	github.com/goliatone/go-router v0.45.1
-	github.com/goliatone/go-users v0.16.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
-	github.com/uptrace/bun/extra/bundebug v1.2.16
 )
 
 require (
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/alecthomas/kong v1.13.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/flosch/pongo2/v6 v6.0.0 // indirect
@@ -37,11 +33,14 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
+	github.com/gofiber/fiber/v2 v2.52.10 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
-	github.com/goliatone/go-command v0.15.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
+	github.com/goliatone/go-errors v0.10.0 // indirect
+	github.com/goliatone/go-persistence-bun v0.10.0 // indirect
+	github.com/goliatone/go-router v0.45.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
@@ -60,6 +59,7 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/uptrace/bun/dbfixture v1.2.16 // indirect
+	github.com/uptrace/bun/extra/bundebug v1.2.16 // indirect
 	github.com/uptrace/bun/extra/bunotel v1.2.16 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -78,3 +78,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/goliatone/go-crud => ../
