@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>go-crud RPC Debug Console</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="app-title">
+        <span class="app-logo">go-crud</span>
+        <h1>RPC Debug Console</h1>
+      </div>
+      <p class="app-subtitle">Trigger crud.user.* methods and inspect raw request/response payloads</p>
+    </header>
+
+    <div class="app-body">
+      <aside class="sidebar" id="sidebar">
+        <section class="panel">
+          <h2>Quick Actions</h2>
+          <div class="field-row">
+            <label for="actor-id">Actor ID</label>
+            <input id="actor-id" type="text" value="demo-admin" placeholder="meta.actorId" />
+          </div>
+          <div class="field-row">
+            <label for="tenant-id">Tenant</label>
+            <input id="tenant-id" type="text" value="tenant-alpha" placeholder="meta.tenant" />
+          </div>
+          <div class="field-row">
+            <label for="user-name">User Name</label>
+            <input id="user-name" type="text" value="Demo User" placeholder="Record name" />
+          </div>
+          <div class="field-row">
+            <label for="user-email">User Email</label>
+            <input id="user-email" type="email" value="demo.user@example.com" placeholder="Record email" />
+          </div>
+
+          <div class="button-row">
+            <button id="btn-create">Create</button>
+            <button id="btn-list" class="btn-secondary">List</button>
+            <button id="btn-show" class="btn-secondary">Show Last</button>
+            <button id="btn-update" class="btn-secondary">Update Last</button>
+            <button id="btn-delete" class="btn-danger">Delete Last</button>
+          </div>
+
+          <div class="state-box">
+            <div class="state-item primary">
+              <span>Total Users</span>
+              <strong id="state-count">0</strong>
+            </div>
+            <div class="state-item">
+              <span>Last ID</span>
+              <strong id="state-last-id">-</strong>
+            </div>
+            <div class="state-item">
+              <span>Last Name</span>
+              <strong id="state-last-name">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Endpoints</h2>
+          <div id="endpoint-list" class="endpoint-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Custom RPC Call</h2>
+          <p class="hint">Click an endpoint to populate this form, then edit JSON as needed.</p>
+          <div class="field-row">
+            <label for="method-name">Method</label>
+            <input id="method-name" type="text" value="crud.user.index" placeholder="e.g. crud.user.create" />
+          </div>
+          <div class="field-row">
+            <label for="params-json">Params JSON</label>
+            <textarea id="params-json" spellcheck="false" placeholder="{}">{
+  "data": {
+    "options": {
+      "limit": 10,
+      "offset": 0,
+      "order": "created_at desc"
+    }
+  },
+  "meta": {
+    "actorId": "demo-admin",
+    "tenant": "tenant-alpha"
+  }
+}</textarea>
+          </div>
+          <div class="button-row">
+            <button id="btn-send-custom">Send Request</button>
+          </div>
+        </section>
+      </aside>
+
+      <div class="resize-handle" id="resize-handle"></div>
+
+      <main class="main-panel">
+        <div class="log-header">
+          <h2>Request Log</h2>
+          <span class="log-count" id="log-count">0 requests</span>
+        </div>
+        <div class="log-scroll" id="log-scroll">
+          <div id="traffic-log" class="traffic-log"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>
