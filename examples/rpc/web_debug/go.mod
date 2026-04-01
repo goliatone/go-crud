@@ -7,7 +7,7 @@ toolchain go1.24.11
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/goliatone/go-command v0.16.0
-	github.com/goliatone/go-crud v0.22.0
+	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-crud/rpc v0.21.1
 	github.com/goliatone/go-repository-bun v0.13.0
 	github.com/goliatone/go-router v0.50.0
