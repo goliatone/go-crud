@@ -3,6 +3,7 @@ package activity
 import (
 	"context"
 	"errors"
+	"maps"
 	"strings"
 	"time"
 )
@@ -106,8 +107,6 @@ func cloneMap(src map[string]any) map[string]any {
 		return nil
 	}
 	dst := make(map[string]any, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
