@@ -3,6 +3,7 @@ package crud
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -120,10 +121,7 @@ func normalizeListPagination(opts ListQueryOptions) (int, int) {
 		if perPage <= 0 {
 			perPage = DefaultLimit
 		}
-		page := opts.Page
-		if page < 1 {
-			page = 1
-		}
+		page := max(opts.Page, 1)
 		return perPage, (page - 1) * perPage
 	}
 
@@ -229,7 +227,7 @@ func normalizeStringValues(values []string) []string {
 	}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			if trimmed := strings.TrimSpace(part); trimmed != "" {
 				out = append(out, trimmed)
 			}
@@ -316,9 +314,7 @@ func (c *listQueryOptionsContext) Queries() map[string]string {
 	if c == nil {
 		return out
 	}
-	for key, value := range c.queryMap {
-		out[key] = value
-	}
+	maps.Copy(out, c.queryMap)
 	return out
 }
 

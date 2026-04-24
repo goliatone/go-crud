@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"maps"
 	"reflect"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func extractVirtualFieldDefsFromType(modelType reflect.Type) []VirtualFieldDef {
 func extractVirtualFieldDefsForType(modelType reflect.Type, allowZeroTag string) []VirtualFieldDef {
 	var defs []VirtualFieldDef
 	t := modelType
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
@@ -89,9 +90,7 @@ func extractVirtualFieldDefsForType(modelType reflect.Type, allowZeroTag string)
 func buildVirtualProperty(def VirtualFieldDef) map[string]any {
 	prop := map[string]any{}
 	appendVirtualExtensions(prop, def)
-	for k, v := range mapGoTypeToOpenAPI(def.FieldType) {
-		prop[k] = v
-	}
+	maps.Copy(prop, mapGoTypeToOpenAPI(def.FieldType))
 	return prop
 }
 
@@ -126,7 +125,7 @@ func mapGoTypeToOpenAPI(t reflect.Type) map[string]any {
 	case reflect.Map:
 		schema["type"] = "object"
 	case reflect.Struct:
-		if t == reflect.TypeOf(time.Time{}) {
+		if t == reflect.TypeFor[time.Time]() {
 			schema["type"] = "string"
 			schema["format"] = "date-time"
 			break

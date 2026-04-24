@@ -25,10 +25,7 @@ func normalizePagination(filters *Filters, count int) bool {
 	if filters.Offset >= count {
 		adjusted = true
 		if filters.Limit > 0 {
-			maxPage := (count + filters.Limit - 1) / filters.Limit
-			if maxPage < 1 {
-				maxPage = 1
-			}
+			maxPage := max((count+filters.Limit-1)/filters.Limit, 1)
 			filters.Offset = (maxPage - 1) * filters.Limit
 		} else {
 			filters.Offset = 0

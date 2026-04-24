@@ -3,6 +3,7 @@ package crud
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"reflect"
 	"strings"
@@ -717,15 +718,11 @@ func wrapFieldMapProviderWithVirtuals(base FieldMapProvider, defs []VirtualField
 			out = map[string]string{}
 		} else {
 			copied := make(map[string]string, len(out)+len(defs))
-			for k, v := range out {
-				copied[k] = v
-			}
+			maps.Copy(copied, out)
 			out = copied
 		}
 		virtuals := buildVirtualFieldMapExpressions(defs, cfg)
-		for k, v := range virtuals {
-			out[k] = v
-		}
+		maps.Copy(out, virtuals)
 		return out
 	}
 }
@@ -1491,9 +1488,7 @@ func cloneLabels(src map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(src))
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 
@@ -1502,9 +1497,7 @@ func cloneAnyMap(src map[string]any) map[string]any {
 		return nil
 	}
 	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 

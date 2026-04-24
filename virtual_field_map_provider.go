@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"maps"
 	"reflect"
 )
 
@@ -12,9 +13,7 @@ func NewVirtualFieldMapProvider(cfg VirtualFieldHandlerConfig, base FieldMapProv
 		out := map[string]string{}
 		if base != nil {
 			if m := base(t); len(m) > 0 {
-				for k, v := range m {
-					out[k] = v
-				}
+				maps.Copy(out, m)
 			}
 		}
 		defs := extractVirtualFieldDefsForType(t, cfg.AllowZeroTag)

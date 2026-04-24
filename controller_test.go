@@ -1750,29 +1750,28 @@ func TestGetResourceName(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc // Capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel() // Optional: Run tests in parallel
 
 			switch tc.name {
 			case "TestUser":
-				singular, plural := GetResourceName(reflect.TypeOf(TestUser{}))
+				singular, plural := GetResourceName(reflect.TypeFor[TestUser]())
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "OrderItem":
-				singular, plural := GetResourceName(reflect.TypeOf(OrderItem{}))
+				singular, plural := GetResourceName(reflect.TypeFor[OrderItem]())
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "Person":
-				singular, plural := GetResourceName(reflect.TypeOf(Person{}))
+				singular, plural := GetResourceName(reflect.TypeFor[Person]())
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "Category":
-				singular, plural := GetResourceName(reflect.TypeOf(Category{}))
+				singular, plural := GetResourceName(reflect.TypeFor[Category]())
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			case "ModelWithTag":
-				singular, plural := GetResourceName(reflect.TypeOf(ModelWithTag{}))
+				singular, plural := GetResourceName(reflect.TypeFor[ModelWithTag]())
 				assert.Equal(t, tc.expectedSingular, singular)
 				assert.Equal(t, tc.expectedPlural, plural)
 			default:
@@ -1804,7 +1803,7 @@ func TestRegisterRoutes(t *testing.T) {
 
 	controller.RegisterRoutes(router)
 
-	singular, plural := GetResourceName(reflect.TypeOf(TestUser{}))
+	singular, plural := GetResourceName(reflect.TypeFor[TestUser]())
 
 	// Expected routes
 	expectedRoutes := []struct {
@@ -1876,7 +1875,7 @@ func TestRegisterRoutesWithBatchRouteSegment(t *testing.T) {
 
 	controller.RegisterRoutes(router)
 
-	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+	singular, _ := GetResourceName(reflect.TypeFor[TestUser]())
 
 	expectedRoutes := []struct {
 		Name   string
@@ -1942,7 +1941,7 @@ func TestRegisterRoutesWithDisabledOperation(t *testing.T) {
 
 	controller.RegisterRoutes(router)
 
-	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+	singular, _ := GetResourceName(reflect.TypeFor[TestUser]())
 
 	deleteRoute := fmt.Sprintf("%s:%s", singular, OpDelete)
 	assert.False(t, fiberRouteExists(app, deleteRoute), "delete route should not be registered when disabled")
@@ -1981,7 +1980,7 @@ func TestRegisterRoutesWithMethodOverride(t *testing.T) {
 
 	controller.RegisterRoutes(router)
 
-	singular, _ := GetResourceName(reflect.TypeOf(TestUser{}))
+	singular, _ := GetResourceName(reflect.TypeFor[TestUser]())
 
 	updateRoute := fmt.Sprintf("%s:%s", singular, OpUpdate)
 	route := app.GetRoute(updateRoute)

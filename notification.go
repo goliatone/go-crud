@@ -2,6 +2,7 @@ package crud
 
 import (
 	"context"
+	"maps"
 	"strings"
 )
 
@@ -81,9 +82,7 @@ func WithNotificationMetadata(metadata map[string]any) NotificationEventOption {
 		if evt.Metadata == nil {
 			evt.Metadata = make(map[string]any, len(metadata))
 		}
-		for k, v := range metadata {
-			evt.Metadata[k] = v
-		}
+		maps.Copy(evt.Metadata, metadata)
 	}
 }
 

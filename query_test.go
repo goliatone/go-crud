@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -115,9 +116,7 @@ func (m *mockContext) QueryInt(key string, defaultValue ...int) int {
 func (m *mockContext) Queries() map[string]string {
 	// Return a copy to avoid mutation
 	out := make(map[string]string, len(m.queryMap))
-	for k, v := range m.queryMap {
-		out[k] = v
-	}
+	maps.Copy(out, m.queryMap)
 	return out
 }
 
@@ -190,12 +189,8 @@ func (l *recordingLogger) Error(format string, args ...any) {
 
 func (l *recordingLogger) WithFields(fields Fields) Logger {
 	merged := make(Fields, len(l.fields)+len(fields))
-	for k, v := range l.fields {
-		merged[k] = v
-	}
-	for k, v := range fields {
-		merged[k] = v
-	}
+	maps.Copy(merged, l.fields)
+	maps.Copy(merged, fields)
 
 	return &recordingLogger{
 		state:  l.state,
@@ -218,9 +213,7 @@ func (l *recordingLogger) log(level string, format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 
 	snapshot := make(Fields, len(l.fields))
-	for k, v := range l.fields {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, l.fields)
 
 	l.state.entries = append(l.state.entries, logEntry{
 		level:   level,
@@ -493,7 +486,7 @@ func TestBuildQueryCriteria(t *testing.T) {
 }
 
 func TestBuildIncludeTree(t *testing.T) {
-	meta := getRelationMetadataForType(reflect.TypeOf(Page{}))
+	meta := getRelationMetadataForType(reflect.TypeFor[Page]())
 	require.NotNil(t, meta)
 
 	nodes, err := buildIncludeTree("Blocks.Translations.locale__eq=es", meta)
@@ -530,7 +523,7 @@ func TestFieldMapProviderOverrides(t *testing.T) {
 		return nil
 	}
 
-	registerQueryConfig(reflect.TypeOf(Custom{}), provider)
+	registerQueryConfig(reflect.TypeFor[Custom](), provider)
 
 	fields := getAllowedFields[Custom]()
 	require.Contains(t, fields, "display_title")
@@ -574,7 +567,7 @@ func TestFieldMapProviderNestedRelations(t *testing.T) {
 		}
 	}
 
-	registerQueryConfig(reflect.TypeOf(NestedPage{}), provider)
+	registerQueryConfig(reflect.TypeFor[NestedPage](), provider)
 
 	include := "Blocks.Translations.locale_alias__eq=es"
 	ctx := newMockContextWithQuery(map[string]string{

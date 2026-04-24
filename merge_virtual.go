@@ -11,12 +11,12 @@ func mergeVirtualMaps[T any](current, incoming T, defs []VirtualFieldDef, policy
 		return incoming
 	}
 	cv := reflect.ValueOf(current)
-	if cv.Kind() == reflect.Ptr && !cv.IsNil() {
+	if cv.Kind() == reflect.Pointer && !cv.IsNil() {
 		cv = cv.Elem()
 	}
 
 	iv := reflect.ValueOf(incoming)
-	isPtr := iv.Kind() == reflect.Ptr
+	isPtr := iv.Kind() == reflect.Pointer
 	if isPtr {
 		if iv.IsNil() {
 			return incoming
@@ -148,7 +148,7 @@ func isJSONNull(v reflect.Value) bool {
 		return true
 	}
 	switch v.Kind() {
-	case reflect.Interface, reflect.Ptr, reflect.Slice, reflect.Map:
+	case reflect.Interface, reflect.Pointer, reflect.Slice, reflect.Map:
 		if v.IsNil() {
 			return true
 		}

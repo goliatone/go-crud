@@ -61,7 +61,7 @@ func collectRelationResourceTypesRecursive(current reflect.Type, visited map[ref
 		}
 
 		childType := field.Type
-		for childType.Kind() == reflect.Ptr || childType.Kind() == reflect.Slice || childType.Kind() == reflect.Array {
+		for childType.Kind() == reflect.Pointer || childType.Kind() == reflect.Slice || childType.Kind() == reflect.Array {
 			childType = childType.Elem()
 		}
 

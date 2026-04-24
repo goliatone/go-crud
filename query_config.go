@@ -137,7 +137,7 @@ func buildRelationMetadata(typ reflect.Type, provider FieldMapProvider, visited 
 		}
 
 		childType := field.Type
-		for childType.Kind() == reflect.Ptr || childType.Kind() == reflect.Slice || childType.Kind() == reflect.Array {
+		for childType.Kind() == reflect.Pointer || childType.Kind() == reflect.Slice || childType.Kind() == reflect.Array {
 			childType = childType.Elem()
 		}
 
@@ -283,7 +283,7 @@ func indirectType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
 	}
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t

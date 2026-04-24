@@ -2,6 +2,7 @@ package crud
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -170,9 +171,7 @@ func cloneRequestBody(body *router.RequestBody) *router.RequestBody {
 	cloned := *body
 	if len(body.Content) > 0 {
 		cloned.Content = make(map[string]any, len(body.Content))
-		for k, v := range body.Content {
-			cloned.Content[k] = v
-		}
+		maps.Copy(cloned.Content, body.Content)
 	}
 	return &cloned
 }

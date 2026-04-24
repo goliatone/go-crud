@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -27,15 +28,11 @@ func (a ActorContext) Clone() ActorContext {
 	clone := a
 	if len(a.ResourceRoles) > 0 {
 		clone.ResourceRoles = make(map[string]string, len(a.ResourceRoles))
-		for k, v := range a.ResourceRoles {
-			clone.ResourceRoles[k] = v
-		}
+		maps.Copy(clone.ResourceRoles, a.ResourceRoles)
 	}
 	if len(a.Metadata) > 0 {
 		clone.Metadata = make(map[string]any, len(a.Metadata))
-		for k, v := range a.Metadata {
-			clone.Metadata[k] = v
-		}
+		maps.Copy(clone.Metadata, a.Metadata)
 	}
 	return clone
 }
@@ -105,15 +102,11 @@ func (sf ScopeFilter) clone() ScopeFilter {
 	}
 	if len(sf.Labels) > 0 {
 		clone.Labels = make(map[string]string, len(sf.Labels))
-		for k, v := range sf.Labels {
-			clone.Labels[k] = v
-		}
+		maps.Copy(clone.Labels, sf.Labels)
 	}
 	if len(sf.Raw) > 0 {
 		clone.Raw = make(map[string]any, len(sf.Raw))
-		for k, v := range sf.Raw {
-			clone.Raw[k] = v
-		}
+		maps.Copy(clone.Raw, sf.Raw)
 	}
 	return clone
 }

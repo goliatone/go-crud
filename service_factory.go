@@ -714,7 +714,7 @@ func extractObjectInfo[T any](record T) (string, string) {
 	if rt == nil {
 		return "", ""
 	}
-	if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
 		rv = rv.Elem()
 		rt = rt.Elem()
 	}

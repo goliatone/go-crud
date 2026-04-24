@@ -141,7 +141,7 @@ func (h *VirtualFieldHandler[T]) AfterLoadBatch(ctx HookContext, models []T) err
 func (h *VirtualFieldHandler[T]) processAfterLoad(_ HookContext, model T) (T, error) {
 	v := reflect.ValueOf(model)
 
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return model, nil
 		}
@@ -175,7 +175,7 @@ func (h *VirtualFieldHandler[T]) applyAfterLoad(v reflect.Value) error {
 		}
 
 		mapVal := targetField
-		if mapVal.Kind() == reflect.Ptr {
+		if mapVal.Kind() == reflect.Pointer {
 			if mapVal.IsNil() {
 				continue
 			}
@@ -184,7 +184,7 @@ func (h *VirtualFieldHandler[T]) applyAfterLoad(v reflect.Value) error {
 
 		if h.config.CopyMetadata {
 			copied := copyMap(mapVal)
-			if targetField.Kind() == reflect.Ptr {
+			if targetField.Kind() == reflect.Pointer {
 				ptr := reflect.New(mapVal.Type())
 				ptr.Elem().Set(copied)
 				targetField.Set(ptr)
@@ -263,7 +263,7 @@ func hasStringMapField(t reflect.Type, name string) bool {
 		return false
 	}
 	ft := sf.Type
-	if ft.Kind() == reflect.Ptr {
+	if ft.Kind() == reflect.Pointer {
 		ft = ft.Elem()
 	}
 	if ft.Kind() != reflect.Map {
@@ -273,7 +273,7 @@ func hasStringMapField(t reflect.Type, name string) bool {
 }
 
 func shouldSkipField(v reflect.Value, allowZero bool) bool {
-	if v.Kind() == reflect.Ptr && v.IsNil() {
+	if v.Kind() == reflect.Pointer && v.IsNil() {
 		return true
 	}
 	if allowZero {
@@ -283,7 +283,7 @@ func shouldSkipField(v reflect.Value, allowZero bool) bool {
 }
 
 func extractValue(v reflect.Value) any {
-	if v.Kind() == reflect.Ptr && !v.IsNil() {
+	if v.Kind() == reflect.Pointer && !v.IsNil() {
 		return v.Elem().Interface()
 	}
 	return v.Interface()
@@ -299,7 +299,7 @@ func copyMap(v reflect.Value) reflect.Value {
 }
 
 func ensureStringMap(v reflect.Value, def VirtualFieldDef) error {
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return nil
 		}
@@ -313,7 +313,7 @@ func ensureStringMap(v reflect.Value, def VirtualFieldDef) error {
 
 func valueOfModel[T any](model T) (reflect.Value, error) {
 	v := reflect.ValueOf(model)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return reflect.Value{}, fmt.Errorf("nil model")
 		}
@@ -338,8 +338,8 @@ func setFieldValue(field reflect.Value, value any) error {
 	targetType := field.Type()
 
 	// Handle pointers by descending into Elem.
-	if targetType.Kind() == reflect.Ptr {
-		if val.Kind() == reflect.Ptr {
+	if targetType.Kind() == reflect.Pointer {
+		if val.Kind() == reflect.Pointer {
 			if val.IsNil() {
 				field.Set(reflect.Zero(targetType))
 				return nil
@@ -371,7 +371,7 @@ func setFieldValue(field reflect.Value, value any) error {
 
 func isNilValue(v reflect.Value) bool {
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface, reflect.Func, reflect.Chan:
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface, reflect.Func, reflect.Chan:
 		return v.IsNil()
 	default:
 		return false
@@ -380,7 +380,7 @@ func isNilValue(v reflect.Value) bool {
 
 func isZeroValue(v reflect.Value) bool {
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+	case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
 		return v.IsNil()
 	default:
 		return v.IsZero()

@@ -206,8 +206,8 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 
 	// Handle ORDER clauses
 	if order != "" {
-		orders := strings.Split(order, ",")
-		for _, o := range orders {
+		orders := strings.SplitSeq(order, ",")
+		for o := range orders {
 			parts := strings.Fields(strings.TrimSpace(o))
 			if len(parts) > 0 {
 				field := parts[0]
@@ -441,7 +441,7 @@ func normalizeIncludeParams(ctx Context) string {
 	}
 	parts := make([]string, 0, len(values))
 	for _, raw := range values {
-		for _, item := range strings.Split(raw, ",") {
+		for item := range strings.SplitSeq(raw, ",") {
 			if val := strings.TrimSpace(item); val != "" {
 				parts = append(parts, val)
 			}
@@ -548,8 +548,8 @@ func buildIncludeTree(includeParam string, meta *relationMetadata, strict ...boo
 		strictValidation = strict[0]
 	}
 
-	paths := strings.Split(includeParam, ",")
-	for _, raw := range paths {
+	paths := strings.SplitSeq(includeParam, ",")
+	for raw := range paths {
 		path := strings.TrimSpace(raw)
 		if path == "" {
 			continue
