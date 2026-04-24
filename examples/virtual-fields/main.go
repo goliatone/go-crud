@@ -42,7 +42,7 @@ func main() {
 
 	cfg := crud.VirtualFieldHandlerConfig{
 		// Preserve virtual keys in Metadata; set to pointer to false to strip.
-		PreserveVirtualKeys: crud.BoolPtr(true),
+		PreserveVirtualKeys: new(true),
 	}
 
 	_ = crud.NewController(repo,
