@@ -121,8 +121,8 @@ func buildRelationMetadata(typ reflect.Type, provider FieldMapProvider, visited 
 		children: make(map[string]*relationMetadata),
 	}
 
-	for i := 0; i < base.NumField(); i++ {
-		field := base.Field(i)
+	for field := range base.Fields() {
+		field := field
 		if !field.IsExported() {
 			continue
 		}
@@ -199,8 +199,8 @@ func getOrBuildFieldMap(typ reflect.Type, provider FieldMapProvider) map[string]
 
 func buildDefaultFieldMap(typ reflect.Type) map[string]string {
 	fields := make(map[string]string)
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
+	for field := range typ.Fields() {
+		field := field
 		if !field.IsExported() {
 			continue
 		}

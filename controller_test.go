@@ -1933,8 +1933,8 @@ func TestRegisterRoutesWithDisabledOperation(t *testing.T) {
 		WithDeserializer(testUserDeserializer),
 		WithRouteConfig[*TestUser](RouteConfig{
 			Operations: map[CrudOperation]RouteOptions{
-				OpDelete:      {Enabled: BoolPtr(false)},
-				OpDeleteBatch: {Enabled: BoolPtr(false)},
+				OpDelete:      {Enabled: new(false)},
+				OpDeleteBatch: {Enabled: new(false)},
 			},
 		}),
 	)

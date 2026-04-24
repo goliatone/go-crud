@@ -72,7 +72,7 @@ func WithAllowedFields(fields map[string]string) QueryBuilderOption {
 // Unsupported operators return QueryValidationError instead of falling back to eq.
 func WithStrictQueryValidation(enabled bool) QueryBuilderOption {
 	return func(cfg *queryBuilderConfig) {
-		cfg.strictValidation = BoolPtr(enabled)
+		cfg.strictValidation = new(enabled)
 	}
 }
 
@@ -92,7 +92,7 @@ func WithSearchColumns(columns ...string) QueryBuilderOption {
 // is provided and no searchable columns are configured/resolved.
 func WithStrictSearchColumns(enabled bool) QueryBuilderOption {
 	return func(cfg *queryBuilderConfig) {
-		cfg.strictSearchColumns = BoolPtr(enabled)
+		cfg.strictSearchColumns = new(enabled)
 	}
 }
 

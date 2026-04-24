@@ -36,13 +36,16 @@ func DefaultRouteConfig() RouteConfig {
 	return RouteConfig{}
 }
 
+//go:fix inline
 func BoolPtr(v bool) *bool {
-	return &v
+	return new(v)
 }
 
 // StringPtr returns a pointer to a string value.
+//
+//go:fix inline
 func StringPtr(v string) *string {
-	return &v
+	return new(v)
 }
 
 func (rc RouteConfig) merge(other RouteConfig) RouteConfig {

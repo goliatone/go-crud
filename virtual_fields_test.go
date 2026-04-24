@@ -13,11 +13,12 @@ type virtualModel struct {
 	Active   bool           `bun:"-" json:"active" crud:"virtual:Metadata,allow_zero"`
 }
 
-func strPtr(v string) *string { return &v }
+//go:fix inline
+func strPtr(v string) *string { return new(v) }
 
 func TestVirtualFieldHandler_BeforeSave_PointerMovesValue(t *testing.T) {
 	handler := NewVirtualFieldHandlerWithConfig[*virtualModel](VirtualFieldHandlerConfig{})
-	model := &virtualModel{Author: strPtr("John")}
+	model := &virtualModel{Author: new("John")}
 
 	err := handler.BeforeSave(HookContext{}, model)
 	require.NoError(t, err)
