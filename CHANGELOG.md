@@ -1,5 +1,18 @@
 # Changelog
 
+# [unreleased]
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([b9369f3](https://github.com/goliatone/go-crud/commit/b9369f328a9eaafbb3a39f9df5491cca4fa970c1))  - (goliatone)
+- Code quality ([94277ad](https://github.com/goliatone/go-crud/commit/94277addfa4fc416fb27755acbe8b20efadca7ba))  - (goliatone)
+
+# [0.23.0](https://github.com/goliatone/go-crud/compare/v0.22.1...v0.23.0) - (2026-02-25)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.23.0 ([d74e126](https://github.com/goliatone/go-crud/commit/d74e126c6bc4ec74094de9ba965e4fba36a5d421))  - (goliatone)
+
 # [0.22.1](https://github.com/goliatone/go-crud/compare/v0.22.0...v0.22.1) - (2026-02-25)
 
 ## <!-- 12 -->🔖 Releases
