@@ -60,6 +60,14 @@ type ActionContext[T any] struct {
 	Operation     CrudOperation
 }
 
+// Header exposes request headers from the embedded context when the adapter supports them.
+func (actx ActionContext[T]) Header(key string) string {
+	if provider, ok := actx.Context.(RequestHeaderProvider); ok && provider != nil {
+		return provider.Header(key)
+	}
+	return ""
+}
+
 type resolvedAction[T any] struct {
 	action     Action[T]
 	slug       string
