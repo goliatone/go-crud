@@ -681,7 +681,7 @@ handler := crud.CommandBackedActionHandler(crud.CommandBackedActionConfig[*User,
 })
 ```
 
-Enhanced requests opt in with `X-GoAdmin-Enhance: 1` or `Accept: application/vnd.go-admin.enhanced+json`. Browser form posts with an HTML `Accept` and form content type are detected as `MutationResponseModeHTML`; JSON clients that do not send the enhanced marker remain `MutationResponseModeJSON`. Downstream packages such as `go-admin` should consume these helpers through a released `go-crud` version or a local `replace github.com/goliatone/go-crud => ../go-crud` while developing both modules together.
+Enhanced requests opt in with `X-Enhanced-Action: 1` or `Accept: application/vnd.crud.enhanced+json` by default. Hosts can use `DetectMutationRequestWithConfig` to provide app-specific header names, values, and media types without changing command or responder code. Browser form posts with an HTML `Accept` and form content type are detected as `MutationResponseModeHTML`; JSON clients that do not send the enhanced marker remain `MutationResponseModeJSON`. Downstream packages such as `go-admin` should consume these helpers through a released `go-crud` version or a local `replace github.com/goliatone/go-crud => ../go-crud` while developing both modules together.
 
 The enhanced envelope is intentionally transport-adjacent only. go-crud defines detection and typed mutation/action plumbing; go-admin or another host owns templates, DOM selectors, toasts, and flash storage. A typical host response body is:
 
