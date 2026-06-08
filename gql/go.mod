@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/goliatone/go-crud v0.23.1
+	github.com/goliatone/go-crud v0.24.0
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
 	github.com/goliatone/go-template v0.3.1

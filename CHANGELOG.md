@@ -2,6 +2,22 @@
 
 # [unreleased]
 
+## <!-- 16 -->➕ Add
+
+- Enhanced action ([6cec686](https://github.com/goliatone/go-crud/commit/6cec6862e208355e682a9ce88b5a5e743c888c29))  - (goliatone)
+- Action command ([19b4257](https://github.com/goliatone/go-crud/commit/19b4257b8d6c355257ae92069d9bab80c26f1a8a))  - (goliatone)
+- Header action ([95dac44](https://github.com/goliatone/go-crud/commit/95dac44b7d25af321f778634acc1be8f8f8cbaaa))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([fdbc612](https://github.com/goliatone/go-crud/commit/fdbc612182b61e8d82f29532f268aa487249010c))  - (goliatone)
+
+# [0.23.1](https://github.com/goliatone/go-crud/compare/v0.23.0...v0.23.1) - (2026-06-06)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.23.1 ([4797b75](https://github.com/goliatone/go-crud/commit/4797b75c16b8364bce653d794288ecef94fd0cac))  - (goliatone)
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update deps ([b9369f3](https://github.com/goliatone/go-crud/commit/b9369f328a9eaafbb3a39f9df5491cca4fa970c1))  - (goliatone)
