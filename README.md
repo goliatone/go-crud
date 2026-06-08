@@ -240,6 +240,7 @@ components:
         - field: tenant_id
           operator: "="
           description: Matches actor tenant
+```
 
 Expose these hints with:
 
@@ -656,6 +657,53 @@ controller := crud.NewController(
 
 Record actions mount under `/{singular}/:id/actions/{slug}` while collection actions use `/{plural}/actions/{slug}`. Each action automatically appears in the generated OpenAPI (including the `x-admin-actions` vendor extension) so admin clients can discover the extra endpoints.
 
+For SSR-first admin actions, keep the action handler as a transport adapter and delegate business work to a command-shaped executor. The responder receives the typed command result plus `DetectMutationRequest` output, so it can choose normal JSON, redirect/flash, or enhanced fragment responses without duplicating mutation logic:
+
+```go
+handler := crud.CommandBackedActionHandler(crud.CommandBackedActionConfig[*User, DeactivateUser, DeactivateUserResult]{
+	Decode: func(actx crud.ActionContext[*User]) (DeactivateUser, error) {
+		return DeactivateUser{
+			UserID:  actx.Params("id"),
+			ActorID: actx.Actor.ActorID,
+		}, nil
+	},
+	Command: crud.ActionCommandFunc[DeactivateUser, DeactivateUserResult](
+		func(ctx context.Context, input DeactivateUser) (DeactivateUserResult, error) {
+			return commandBus.DeactivateUser(ctx, input)
+		},
+	),
+	Respond: func(actx crud.ActionContext[*User], req crud.MutationRequest, res crud.MutationResponse[DeactivateUserResult]) error {
+		if req.Mode == crud.MutationResponseModeEnhanced {
+			return enhancedResponder.Respond(actx, res)
+		}
+		return actx.Status(res.Status).JSON(res.Data)
+	},
+})
+```
+
+Enhanced requests opt in with `X-GoAdmin-Enhance: 1` or `Accept: application/vnd.go-admin.enhanced+json`. Browser form posts with an HTML `Accept` and form content type are detected as `MutationResponseModeHTML`; JSON clients that do not send the enhanced marker remain `MutationResponseModeJSON`. Downstream packages such as `go-admin` should consume these helpers through a released `go-crud` version or a local `replace github.com/goliatone/go-crud => ../go-crud` while developing both modules together.
+
+The enhanced envelope is intentionally transport-adjacent only. go-crud defines detection and typed mutation/action plumbing; go-admin or another host owns templates, DOM selectors, toasts, and flash storage. A typical host response body is:
+
+```json
+{
+  "version": 1,
+  "ok": true,
+  "toasts": [{ "type": "success", "message": "Updated." }],
+  "fragments": [
+    {
+      "selector": "[data-resource-summary]",
+      "mode": "replace",
+      "html": "<section data-resource-summary>...</section>"
+    }
+  ],
+  "redirect": "/admin/resources/123"
+}
+```
+
+Keep existing API callers compatible by returning that envelope only when `DetectMutationRequest` reports `MutationResponseModeEnhanced`. Normal JSON clients should receive the same resource/action payload they received before the enhanced action was added.
+
+```go
 // or wrap the default repository service with command adapters:
 controller := crud.NewController(
 	userRepo,
