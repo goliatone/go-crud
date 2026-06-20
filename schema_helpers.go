@@ -43,7 +43,6 @@ func collectRelationResourceTypesRecursive(current reflect.Type, visited map[ref
 	visited[base] = struct{}{}
 
 	for field := range base.Fields() {
-		field := field
 		if !field.IsExported() {
 			continue
 		}

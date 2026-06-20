@@ -122,7 +122,6 @@ func buildRelationMetadata(typ reflect.Type, provider FieldMapProvider, visited 
 	}
 
 	for field := range base.Fields() {
-		field := field
 		if !field.IsExported() {
 			continue
 		}
@@ -200,7 +199,6 @@ func getOrBuildFieldMap(typ reflect.Type, provider FieldMapProvider) map[string]
 func buildDefaultFieldMap(typ reflect.Type) map[string]string {
 	fields := make(map[string]string)
 	for field := range typ.Fields() {
-		field := field
 		if !field.IsExported() {
 			continue
 		}

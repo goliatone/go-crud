@@ -242,7 +242,7 @@ func acceptsMediaType(header, mediaType string) bool {
 	if header == "" || mediaType == "" {
 		return false
 	}
-	for _, part := range strings.Split(header, ",") {
+	for part := range strings.SplitSeq(header, ",") {
 		item := strings.TrimSpace(part)
 		if idx := strings.Index(item, ";"); idx >= 0 {
 			item = strings.TrimSpace(item[:idx])
