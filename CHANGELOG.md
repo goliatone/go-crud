@@ -2,6 +2,27 @@
 
 # [unreleased]
 
+## <!-- 1 -->🐛 Bug Fixes
+
+- Normalize serialization path ([ac054a5](https://github.com/goliatone/go-crud/commit/ac054a53d8411e23b62e549ec0183912ba47fd37))  - (goliatone)
+- Code quality ([9e4d516](https://github.com/goliatone/go-crud/commit/9e4d5163cf3b16d2d36ec653cf69584d6b2f2529))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Go query bun package ([e851d13](https://github.com/goliatone/go-crud/commit/e851d1364cbab7608fb475142de937ebcce4aa40))  - (goliatone)
+- Move bun query management to go-query-bun ([4fb62a4](https://github.com/goliatone/go-crud/commit/4fb62a4836a9f223a4960257df7ba5d0dc9682af))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([f768b38](https://github.com/goliatone/go-crud/commit/f768b3841466bef537bd9153a6b1e230825b50f8))  - (goliatone)
+- Update deps ([9d964e9](https://github.com/goliatone/go-crud/commit/9d964e900bde13ed79538dae20cc746e63a9a9b4))  - (goliatone)
+
+# [0.24.0](https://github.com/goliatone/go-crud/compare/v0.23.1...v0.24.0) - (2026-06-08)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.24.0 ([cf31881](https://github.com/goliatone/go-crud/commit/cf31881ca7371ca4c4d8407df8ffa6b401cf8394))  - (goliatone)
+
 ## <!-- 16 -->➕ Add
 
 - Enhanced action ([6cec686](https://github.com/goliatone/go-crud/commit/6cec6862e208355e682a9ce88b5a5e743c888c29))  - (goliatone)
