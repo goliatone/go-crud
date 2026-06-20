@@ -1,19 +1,19 @@
 package crud
 
 import (
-	persistence "github.com/goliatone/go-persistence-bun"
+	querybun "github.com/goliatone/go-crud/pkg/go-query-bun"
 )
 
 const (
-	VirtualDialectPostgres = persistence.VirtualDialectPostgres
-	VirtualDialectSQLite   = persistence.VirtualDialectSQLite
+	VirtualDialectPostgres = querybun.VirtualDialectPostgres
+	VirtualDialectSQLite   = querybun.VirtualDialectSQLite
 )
 
 // VirtualFieldExpr returns a SQL snippet for the given dialect to access a virtual field.
 // When asJSON is false, text extraction is used (suitable for comparisons/order-by).
 // When asJSON is true, the raw JSON value is returned.
 func VirtualFieldExpr(dialect, sourceField, key string, asJSON bool) string {
-	return persistence.VirtualFieldExpr(dialect, sourceField, key, asJSON)
+	return querybun.VirtualFieldExpr(dialect, sourceField, key, asJSON)
 }
 
 func buildVirtualFieldMapExpressions(defs []VirtualFieldDef, cfg VirtualFieldHandlerConfig) map[string]string {

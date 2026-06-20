@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"sync/atomic"
+
+	querybun "github.com/goliatone/go-crud/pkg/go-query-bun"
 )
 
 // QueryValidationErrorCode identifies query validation failure categories.
@@ -59,34 +61,6 @@ type resolvedOperator struct {
 	sql       string
 }
 
-var canonicalOperatorSQL = map[string]string{
-	"eq":    "=",
-	"ne":    "<>",
-	"gt":    ">",
-	"lt":    "<",
-	"gte":   ">=",
-	"lte":   "<=",
-	"in":    "IN",
-	"ilike": "ILIKE",
-	"like":  "LIKE",
-	"and":   "and",
-	"or":    "or",
-}
-
-var canonicalOperatorBySQL = map[string]string{
-	"=":     "eq",
-	"<>":    "ne",
-	">":     "gt",
-	"<":     "lt",
-	">=":    "gte",
-	"<=":    "lte",
-	"IN":    "in",
-	"ILIKE": "ilike",
-	"LIKE":  "like",
-	"AND":   "and",
-	"OR":    "or",
-}
-
 func parseFieldOperatorWithValidation(param string, strict bool) (string, resolvedOperator, error) {
 	field := strings.TrimSpace(param)
 	operatorToken := "eq"
@@ -97,82 +71,18 @@ func parseFieldOperatorWithValidation(param string, strict bool) (string, resolv
 		operatorToken = strings.TrimSpace(parts[1])
 	}
 
-	op, err := resolveOperatorToken(operatorToken, field, strict)
+	op, err := querybun.ResolveOperator(operatorToken, field, querybun.Config{
+		OperatorMap:                  operatorMap,
+		StrictValidation:             strict,
+		FallbackUnsupportedOperators: true,
+	})
 	if err != nil {
-		return field, resolvedOperator{}, err
+		return field, resolvedOperator{}, convertQueryBunError(err)
 	}
 
-	return field, op, nil
-}
-
-func resolveOperatorToken(token, field string, strict bool) (resolvedOperator, error) {
-	rawToken := strings.TrimSpace(token)
-	normalized := normalizeOperatorToken(rawToken)
-	if normalized == "" {
-		normalized = "eq"
-	}
-
-	// Canonical operators always work, even if SetOperatorMap replaces aliases.
-	if canonicalSQL, ok := canonicalOperatorSQL[normalized]; ok {
-		sqlOp := canonicalSQL
-		if mapped, ok := operatorMap[normalized]; ok {
-			if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-				sqlOp = trimmed
-			}
-		}
-		return resolvedOperator{
-			token:     normalized,
-			canonical: normalized,
-			sql:       sqlOp,
-		}, nil
-	}
-
-	if mapped, ok := operatorMap[normalized]; ok {
-		if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-			canonical := canonicalOperatorForSQL(trimmed)
-			if canonical != "" {
-				return resolvedOperator{
-					token:     normalized,
-					canonical: canonical,
-					sql:       trimmed,
-				}, nil
-			}
-		}
-	}
-
-	if strict {
-		return resolvedOperator{}, &QueryValidationError{
-			Code:     QueryValidationUnsupportedOperator,
-			Field:    strings.TrimSpace(field),
-			Operator: rawToken,
-		}
-	}
-
-	eqSQL := canonicalOperatorSQL["eq"]
-	if mapped, ok := operatorMap["eq"]; ok {
-		if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-			eqSQL = trimmed
-		}
-	}
-
-	return resolvedOperator{
-		token:     "eq",
-		canonical: "eq",
-		sql:       eqSQL,
+	return field, resolvedOperator{
+		token:     op.Token,
+		canonical: op.Canonical,
+		sql:       op.SQL,
 	}, nil
-}
-
-func canonicalOperatorForSQL(sql string) string {
-	if canonical, ok := canonicalOperatorBySQL[normalizeSQLOperator(sql)]; ok {
-		return canonical
-	}
-	return ""
-}
-
-func normalizeOperatorToken(op string) string {
-	return strings.ToLower(strings.TrimSpace(op))
-}
-
-func normalizeSQLOperator(op string) string {
-	return strings.ToUpper(strings.TrimSpace(op))
 }
