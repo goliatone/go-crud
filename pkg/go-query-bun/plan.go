@@ -47,8 +47,10 @@ type Metadata struct {
 // BuildQueryPlan builds a separated, reusable query plan from list options.
 func BuildQueryPlan(opts ListOptions, cfg Config) (Plan, error) {
 	cfg = normalizeConfig(cfg)
+	opts, searchUnsupported := normalizeSearchOptions(opts)
 
 	var plan Plan
+	plan.Unsupported = append(plan.Unsupported, searchUnsupported...)
 
 	pagination, limit, offset, page := BuildPaginationCriteria(opts, cfg)
 	plan.Pagination = pagination
@@ -90,6 +92,85 @@ func BuildQueryPlan(opts ListOptions, cfg Config) (Plan, error) {
 	}
 
 	return plan, nil
+}
+
+func normalizeSearchOptions(opts ListOptions) (ListOptions, []UnsupportedPredicate) {
+	search := strings.TrimSpace(opts.Search)
+
+	if len(opts.Predicates) > 0 {
+		predicates := make([]Predicate, 0, len(opts.Predicates))
+		unsupported := make([]UnsupportedPredicate, 0)
+		for _, predicate := range opts.Predicates {
+			if !isSearchField(predicate.Field) {
+				predicates = append(predicates, predicate)
+				continue
+			}
+			values, ok := NormalizeValueStrings(predicate.Values)
+			if !ok {
+				unsupported = append(unsupported, unsupportedSearchPredicate(predicate.Field, predicate.Operator, predicate.RawKey, predicate.RawValue, UnsupportedValueShape))
+				continue
+			}
+			if len(values) == 0 {
+				unsupported = append(unsupported, unsupportedSearchPredicate(predicate.Field, predicate.Operator, predicate.RawKey, predicate.RawValue, UnsupportedEmptyValue))
+				continue
+			}
+			if search == "" {
+				search = values[0]
+			}
+		}
+		opts.Predicates = predicates
+		opts.Search = search
+		return opts, unsupported
+	}
+
+	if len(opts.Filters) == 0 {
+		opts.Search = search
+		return opts, nil
+	}
+
+	filters := make(map[string]any, len(opts.Filters))
+	unsupported := make([]UnsupportedPredicate, 0)
+	for rawKey, rawValue := range opts.Filters {
+		field, operator := ParsePredicateKey(rawKey)
+		if !isSearchField(field) {
+			filters[rawKey] = rawValue
+			continue
+		}
+		values, ok := NormalizeValueStrings(rawValue)
+		if !ok {
+			unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedValueShape))
+			continue
+		}
+		if len(values) == 0 {
+			unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedEmptyValue))
+			continue
+		}
+		if search == "" {
+			search = values[0]
+		}
+	}
+
+	opts.Filters = filters
+	opts.Search = search
+	return opts, unsupported
+}
+
+func isSearchField(field string) bool {
+	return strings.EqualFold(strings.TrimSpace(field), "_search")
+}
+
+func unsupportedSearchPredicate(field, operator, rawKey string, rawValue any, reason UnsupportedReason) UnsupportedPredicate {
+	normalizedOperator := strings.ToLower(strings.TrimSpace(operator))
+	if normalizedOperator == "" {
+		normalizedOperator = "eq"
+	}
+	return UnsupportedPredicate{
+		Field:    strings.TrimSpace(field),
+		Operator: normalizedOperator,
+		RawKey:   rawKey,
+		RawValue: rawValue,
+		Reason:   reason,
+	}
 }
 
 // NormalizeIncludes returns trimmed, comma-split include requests.
