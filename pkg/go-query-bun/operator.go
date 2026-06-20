@@ -121,10 +121,12 @@ func ResolveOperator(token, field string, cfg Config) (Operator, error) {
 }
 
 func effectiveOperatorMap(operators map[string]string) map[string]string {
-	if operators != nil {
-		return cloneOperatorMap(operators)
+	effective := DefaultOperatorMap()
+	if operators == nil {
+		return effective
 	}
-	return DefaultOperatorMap()
+	maps.Copy(effective, operators)
+	return effective
 }
 
 func canonicalOperatorForSQL(sql string) string {
