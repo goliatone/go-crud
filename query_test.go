@@ -746,6 +746,44 @@ func TestBuildQueryCriteriaRepeatedIncludeParams(t *testing.T) {
 	assert.ElementsMatch(t, []string{"Profile", "Company"}, filters.Include)
 }
 
+func TestBuildQueryCriteria_OpReadSkipsListCriteria(t *testing.T) {
+	SetOperatorMap(DefaultOperatorMap())
+
+	ctx := newMockContextWithQuery(map[string]string{
+		"limit":   "1",
+		"offset":  "2",
+		"order":   "age desc",
+		"name":    "Alice",
+		"_search": "example.com",
+		"select":  "id,name",
+		"include": "Profiles",
+	})
+
+	criteria, filters, err := BuildQueryCriteria[TestUser](ctx, OpRead, WithSearchColumns("name", "email"))
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+
+	assert.Equal(t, string(OpRead), filters.Operation)
+	assert.Equal(t, 1, filters.Limit)
+	assert.Equal(t, 2, filters.Offset)
+	assert.ElementsMatch(t, []string{"id", "name"}, filters.Fields)
+	assert.ElementsMatch(t, []string{"Profiles"}, filters.Include)
+
+	db := setupTestDB(t)
+	defer db.Close()
+
+	query := db.NewSelect().Model((*TestUser)(nil))
+	for _, criterion := range criteria {
+		query = criterion(query)
+	}
+
+	sql := query.String()
+	assert.NotContains(t, sql, "WHERE")
+	assert.NotContains(t, sql, "ORDER BY")
+	assert.NotContains(t, sql, "LIMIT 1")
+	assert.NotContains(t, sql, "OFFSET 2")
+}
+
 func TestBuildQueryCriteriaWithLoggerEnabled(t *testing.T) {
 	ctx := newMockContextWithQuery(map[string]string{
 		"limit": "5",
@@ -878,6 +916,23 @@ func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
 	assert.Equal(t, httpFilters.Offset, typedFilters.Offset)
 	assert.Equal(t, httpFilters.Order, typedFilters.Order)
 	assert.Equal(t, httpFilters.Search, typedFilters.Search)
+}
+
+func TestBuildListCriteriaFromOptions_IncludesRelations(t *testing.T) {
+	criteria, filters, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
+		Include: []string{"Profile.status=active", "Company"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	require.NotEmpty(t, criteria)
+
+	assert.ElementsMatch(t, []string{"Profile", "Company"}, filters.Include)
+	require.Len(t, filters.Relations, 1)
+	assert.Equal(t, "Profile", filters.Relations[0].Name)
+	require.Len(t, filters.Relations[0].Filters, 1)
+	assert.Equal(t, "status", filters.Relations[0].Filters[0].Field)
+	assert.Equal(t, "=", filters.Relations[0].Filters[0].Operator)
+	assert.Equal(t, "active", filters.Relations[0].Filters[0].Value)
 }
 
 func TestBuildQueryCriteria_SearchNoColumnsNoOp(t *testing.T) {
