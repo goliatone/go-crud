@@ -116,3 +116,29 @@ func TestOperatorMapsAreCopied(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, Operator{Token: "$eq", Canonical: "eq", SQL: "="}, operator)
 }
+
+func TestResolveOperator_PerPlanAliasesOverlayPackageDefaults(t *testing.T) {
+	defer SetDefaultOperatorMap(CanonicalOperatorMap())
+	SetDefaultOperatorMap(map[string]string{"$eq": "="})
+
+	cfg := Config{OperatorMap: map[string]string{"$like": "LIKE"}}
+
+	operator, err := ResolveOperator("$eq", "name", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, Operator{Token: "$eq", Canonical: "eq", SQL: "="}, operator)
+
+	operator, err = ResolveOperator("$like", "name", cfg)
+	require.NoError(t, err)
+	assert.Equal(t, Operator{Token: "$like", Canonical: "like", SQL: "LIKE"}, operator)
+}
+
+func TestResolveOperator_PerPlanAliasesOverridePackageDefaults(t *testing.T) {
+	defer SetDefaultOperatorMap(CanonicalOperatorMap())
+	SetDefaultOperatorMap(map[string]string{"$cmp": "="})
+
+	operator, err := ResolveOperator("$cmp", "name", Config{
+		OperatorMap: map[string]string{"$cmp": "<>"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, Operator{Token: "$cmp", Canonical: "ne", SQL: "<>"}, operator)
+}

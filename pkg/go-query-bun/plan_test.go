@@ -44,6 +44,54 @@ func TestBuildQueryPlan_PopulatesIndependentSections(t *testing.T) {
 	assert.Equal(t, []string{"Profiles", "Company"}, plan.Metadata.Include)
 }
 
+func TestBuildQueryPlan_SearchFromReservedFilter(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	plan, err := BuildQueryPlan(ListOptions{
+		Filters: map[string]any{
+			"_search": "ali",
+		},
+	}, Config{
+		AllowedFields: filterAllowedFields(),
+		SearchColumns: []string{"name"},
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, plan.Filters)
+	assert.NotEmpty(t, plan.Search)
+	assert.Empty(t, plan.Unsupported)
+	assert.Equal(t, "ali", plan.Metadata.Search)
+
+	rows := executeFilterUserCriteria(t, db, plan.ListCriteria())
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func TestBuildQueryPlan_SearchFromReservedPredicate(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	plan, err := BuildQueryPlan(ListOptions{
+		Predicates: []Predicate{
+			{Field: "_search", Operator: "eq", Values: []string{"car"}},
+		},
+	}, Config{
+		AllowedFields: filterAllowedFields(),
+		SearchColumns: []string{"name"},
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, plan.Filters)
+	assert.NotEmpty(t, plan.Search)
+	assert.Empty(t, plan.Unsupported)
+	assert.Equal(t, "car", plan.Metadata.Search)
+
+	rows := executeFilterUserCriteria(t, db, plan.ListCriteria())
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Carol", rows[0].Name)
+}
+
 func TestPlanListCriteriaOrder(t *testing.T) {
 	pagination := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
 	order := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })

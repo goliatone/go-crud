@@ -918,6 +918,50 @@ func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
 	assert.Equal(t, httpFilters.Search, typedFilters.Search)
 }
 
+func TestBuildListCriteriaFromOptions_SearchCompatibility(t *testing.T) {
+	defer SetOperatorMap(DefaultOperatorMap())
+	SetOperatorMap(DefaultOperatorMap())
+
+	db := setupTestDB(t)
+	defer db.Close()
+	seedQueryUsers(t, db)
+
+	tests := []struct {
+		name string
+		opts ListQueryOptions
+	}{
+		{
+			name: "reserved filter",
+			opts: ListQueryOptions{
+				Order:   "name asc",
+				Filters: map[string]any{"_search": "sample.com"},
+			},
+		},
+		{
+			name: "reserved predicate",
+			opts: ListQueryOptions{
+				Order: "name asc",
+				Predicates: []ListQueryPredicate{
+					{Field: "_search", Operator: "eq", Values: []string{"sample.com"}},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			criteria, filters, err := BuildListCriteriaFromOptions[TestUser](tt.opts, WithSearchColumns("email"))
+			require.NoError(t, err)
+			require.NotNil(t, filters)
+			assert.Equal(t, "sample.com", filters.Search)
+
+			rows := executeUserCriteria(t, db, criteria)
+			require.Len(t, rows, 2)
+			assert.Equal(t, []string{"Bob", "Dave"}, []string{rows[0].Name, rows[1].Name})
+		})
+	}
+}
+
 func TestBuildListCriteriaFromOptions_IncludesRelations(t *testing.T) {
 	criteria, filters, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
 		Include: []string{"Profile.status=active", "Company"},
