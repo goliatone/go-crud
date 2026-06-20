@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-crud/pkg/activity"
+	querybun "github.com/goliatone/go-crud/pkg/go-query-bun"
 	"github.com/goliatone/go-router"
 )
 
@@ -104,19 +105,19 @@ func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, str
 }
 
 func DefaultOperatorMap() map[string]string {
-	out := make(map[string]string, len(canonicalOperatorSQL))
-	maps.Copy(out, canonicalOperatorSQL)
-	return out
+	return querybun.CanonicalOperatorMap()
 }
 
 func SetOperatorMap(om map[string]string) {
 	if len(om) == 0 {
 		operatorMap = map[string]string{}
+		querybun.SetDefaultOperatorMap(operatorMap)
 		return
 	}
 	clone := make(map[string]string, len(om))
 	maps.Copy(clone, om)
 	operatorMap = clone
+	querybun.SetDefaultOperatorMap(clone)
 }
 
 type Option[T any] func(*Controller[T])

@@ -1,14 +1,15 @@
 package crud
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	querybun "github.com/goliatone/go-crud/pkg/go-query-bun"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 )
 
 type relationFilter struct {
@@ -23,30 +24,6 @@ type relationIncludeNode struct {
 	requestName string
 	filters     []relationFilter
 	children    map[string]*relationIncludeNode
-}
-
-type queryCriteria struct {
-	op         CrudOperation
-	pagination []repository.SelectCriteria
-	selected   []repository.SelectCriteria
-	order      []repository.SelectCriteria
-	included   []repository.SelectCriteria
-	filters    []repository.SelectCriteria
-}
-
-func (q *queryCriteria) compute() []repository.SelectCriteria {
-	out := []repository.SelectCriteria{}
-
-	if q.op == OpList {
-		out = append(out, q.pagination...)
-		out = append(out, q.order...)
-		out = append(out, q.filters...)
-	}
-
-	out = append(out, q.selected...)
-	out = append(out, q.included...)
-
-	return out
 }
 
 type QueryBuilderOption func(*queryBuilderConfig)
@@ -157,273 +134,192 @@ func paginationCriteria(limit, offset int) repository.SelectCriteria {
 // GET /users?include=Profile.status=outdated
 // TODO: Support /projects?include=Message&include=Company
 func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderConfig) ([]repository.SelectCriteria, *Filters, error) {
-	strictValidation := cfg.strictValidationEnabled()
-
-	// Parse known query parameters
-	limit := ctx.QueryInt("limit", DefaultLimit)
-	offset := ctx.QueryInt("offset", DefaultOffset)
-	order := ctx.Query("order")
-	selectFields := ctx.Query("select")
-	include := normalizeIncludeParams(ctx)
-
-	filters := &Filters{
-		Limit:     limit,
-		Offset:    offset,
-		Operation: string(op),
-	}
-
-	criteria := &queryCriteria{op: op}
-
-	// Basic limit/offset criteria
-	criteria.pagination = append(criteria.pagination, paginationCriteria(limit, offset))
-
-	// For fields that are allowable.
-	// E.g. "name" => "name", "created_at" => "created_at", etc.
-	allowedFieldsMap := cfg.allowedFields
-	if len(allowedFieldsMap) == 0 {
-		allowedFieldsMap = getAllowedFields[T]()
-	}
-
-	// Handle SELECT fields
-	if selectFields != "" {
-		fields := strings.Split(selectFields, ",")
-		var columns []string
-		for _, field := range fields {
-			columnName, ok := allowedFieldsMap[field]
-			if !ok {
-				//TODO: log info
-				continue // skip, unknown fields!
-			}
-			columns = append(columns, columnName)
-		}
-		if len(columns) > 0 {
-			criteria.selected = append(criteria.selected, func(q *bun.SelectQuery) *bun.SelectQuery {
-				return q.Column(columns...)
-			})
-			filters.Fields = columns
-		}
-	}
-
-	// Handle ORDER clauses
-	if order != "" {
-		orders := strings.SplitSeq(order, ",")
-		for o := range orders {
-			parts := strings.Fields(strings.TrimSpace(o))
-			if len(parts) > 0 {
-				field := parts[0]
-				direction := "ASC" // default direction
-				if len(parts) > 1 {
-					direction = getDirection(parts[1])
-				}
-
-				// Check if field is allowed
-				columnName, ok := allowedFieldsMap[field]
-				if ok {
-					filters.Order = append(filters.Order, Order{
-						Field: columnName,
-						Dir:   direction,
-					})
-				}
-			}
-		}
-
-		criteria.order = append(criteria.order, func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, o := range filters.Order {
-				orderClause := fmt.Sprintf("%s %s", o.Field, o.Dir)
-				q = q.OrderExpr(orderClause)
-			}
-			return q
-		})
-	}
-
-	// Handle includes
-	if include != "" {
-		meta := getRelationMetadataForType(typeOf[T]())
-		includeNodes, err := buildIncludeTree(include, meta, strictValidation)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if len(includeNodes) > 0 {
-			includePaths, relationInfos := collectIncludeDetails(includeNodes)
-			filters.Include = append(filters.Include, includePaths...)
-			descriptor := getRelationDescriptorForType(typeOf[T]())
-			filters.Relations = mergeRelationInfos(includePaths, relationInfos, descriptor)
-
-			rootKeys := sortedRelationKeys(includeNodes)
-			for _, key := range rootKeys {
-				node := includeNodes[key]
-				if node == nil {
-					continue
-				}
-				criteria.included = append(criteria.included, func(n *relationIncludeNode) repository.SelectCriteria {
-					return func(q *bun.SelectQuery) *bun.SelectQuery {
-						return includeRelation(q, n)
-					}
-				}(node))
-			}
-		}
-	}
-
-	// Build WHERE conditions from other query params
-	excludeParams := map[string]bool{
-		"limit":   true,
-		"offset":  true,
-		"order":   true,
-		"select":  true,
-		"include": true,
-		"_search": true,
-	}
-
 	queryParams := ctx.Queries()
-
-	andConditions := []func(*bun.SelectQuery) *bun.SelectQuery{}
-	orGroups := []func(*bun.SelectQuery) *bun.SelectQuery{}
-
-	// For each parameter, if it's not in excludeParams, record a where condition
-	for param, values := range queryParams {
-		if excludeParams[param] {
-			continue
-		}
-
-		field, operatorSpec, err := parseFieldOperatorWithValidation(param, strictValidation)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		columnName, ok := allowedFieldsMap[field]
-		if !ok {
-			continue
-		}
-
-		switch operatorSpec.canonical {
-		case "and":
-			valuesList := strings.Split(values, ",")
-			cleaned := make([]string, 0, len(valuesList))
-			for _, value := range valuesList {
-				if v := strings.TrimSpace(value); v != "" {
-					cleaned = append(cleaned, v)
-				}
-			}
-			if len(cleaned) == 0 {
-				continue
-			}
-
-			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
-				eqOperator := resolveSQLOperator("eq")
-				for _, v := range cleaned {
-					q = q.Where(fmt.Sprintf("%s %s ?", columnName, eqOperator), v)
-				}
-				return q
-			})
-		case "or":
-			valuesList := strings.Split(values, ",")
-			cleaned := make([]string, 0, len(valuesList))
-			for _, value := range valuesList {
-				if v := strings.TrimSpace(value); v != "" {
-					cleaned = append(cleaned, v)
-				}
-			}
-			if len(cleaned) == 0 {
-				continue
-			}
-
-			// OR always groups comparisons with the base equality operator.
-			orComparisonOp := resolveSQLOperator("eq")
-			if orComparisonOp == "" {
-				orComparisonOp = "="
-			}
-
-			orGroups = append(orGroups, func(q *bun.SelectQuery) *bun.SelectQuery {
-				for i, v := range cleaned {
-					if i == 0 {
-						q = q.Where(fmt.Sprintf("%s %s ?", columnName, orComparisonOp), v)
-					} else {
-						q = q.WhereOr(fmt.Sprintf("%s %s ?", columnName, orComparisonOp), v)
-					}
-				}
-				return q
-			})
-		default:
-			splitted := strings.Split(values, ",")
-			cleaned := make([]string, 0, len(splitted))
-			for _, value := range splitted {
-				if v := strings.TrimSpace(value); v != "" {
-					cleaned = append(cleaned, v)
-				}
-			}
-			if len(cleaned) == 0 {
-				continue
-			}
-
-			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
-				if operatorSpec.canonical == "in" {
-					q = q.Where(fmt.Sprintf("%s IN (?)", columnName), bun.In(cleaned))
-					return q
-				}
-				for _, v := range cleaned {
-					q = q.Where(fmt.Sprintf("%s %s ?", columnName, operatorSpec.sql), v)
-				}
-				return q
-			})
-		}
+	opts := queryBunOptionsFromContext(ctx, queryParams)
+	plan, err := querybun.BuildQueryPlan(opts, queryBunConfig[T](cfg))
+	if err != nil {
+		return nil, nil, convertQueryBunError(err)
 	}
 
-	searchTerm := strings.TrimSpace(queryParams["_search"])
-	if searchTerm != "" {
-		filters.Search = searchTerm
-
-		searchColumns := resolveSearchColumns(cfg.searchColumns, allowedFieldsMap)
-		if len(searchColumns) == 0 {
-			if strictValidation && cfg.strictSearchColumnsEnabled() {
-				return nil, nil, &QueryValidationError{
-					Code:   QueryValidationSearchColumnsRequired,
-					Search: searchTerm,
-				}
-			}
-		} else {
-			pattern := "%" + searchTerm + "%"
-			andConditions = append(andConditions, func(q *bun.SelectQuery) *bun.SelectQuery {
-				return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-					for i, column := range searchColumns {
-						if i == 0 {
-							q = applySearchWhere(q, column, pattern)
-						} else {
-							q = applySearchWhereOr(q, column, pattern)
-						}
-					}
-					return q
-				})
-			})
-		}
+	filters := filtersFromQueryBunPlan(plan, op)
+	criteria := adaptQueryBunCriteria(plan.ListCriteria())
+	if op != OpList {
+		criteria = adaptQueryBunCriteria(plan.ReadCriteria())
 	}
 
-	criteria.filters = append(criteria.filters, func(q *bun.SelectQuery) *bun.SelectQuery {
-		for _, fn := range andConditions {
-			q = fn(q)
-		}
-
-		if len(orGroups) > 0 {
-			q = q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-				for i, grp := range orGroups {
-					if i == 0 {
-						q = grp(q)
-					} else {
-						q = q.WhereGroup(" OR ", grp)
-					}
-				}
-				return q
-			})
-		}
-
-		return q
-	})
+	includeCriteria, includePaths, relations, err := buildIncludeCriteriaForType[T](strings.Join(filters.Include, ","), cfg.strictValidationEnabled())
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(includePaths) > 0 {
+		filters.Include = includePaths
+		filters.Relations = relations
+		criteria = append(criteria, includeCriteria...)
+	}
 
 	if cfg.trace != nil {
 		cfg.trace.debug(filters, queryParams)
 	}
 
-	return criteria.compute(), filters, nil
+	return criteria, filters, nil
+}
+
+func queryBunOptionsFromContext(ctx Context, queryParams map[string]string) querybun.ListOptions {
+	limit := ctx.QueryInt("limit", DefaultLimit)
+	offset := ctx.QueryInt("offset", DefaultOffset)
+	include := normalizeIncludeParams(ctx)
+
+	filters := make(map[string]any)
+	for param, value := range queryParams {
+		if isReservedQueryParam(param) {
+			continue
+		}
+		filters[param] = value
+	}
+
+	var selectFields []string
+	if raw := strings.TrimSpace(ctx.Query("select")); raw != "" {
+		selectFields = []string{raw}
+	}
+
+	var includes []string
+	if include != "" {
+		includes = []string{include}
+	}
+
+	return querybun.ListOptions{
+		Limit:     limit,
+		LimitSet:  true,
+		Offset:    offset,
+		OffsetSet: true,
+		Order:     ctx.Query("order"),
+		Search:    ctx.Query("_search"),
+		Filters:   filters,
+		Select:    selectFields,
+		Include:   includes,
+	}
+}
+
+func isReservedQueryParam(param string) bool {
+	switch param {
+	case "limit", "offset", "order", "select", "include", "_search":
+		return true
+	default:
+		return false
+	}
+}
+
+func queryBunConfig[T any](cfg queryBuilderConfig) querybun.Config {
+	allowedFieldsMap := cfg.allowedFields
+	if len(allowedFieldsMap) == 0 {
+		allowedFieldsMap = getAllowedFields[T]()
+	}
+	return querybun.Config{
+		AllowedFields:                allowedFieldsMap,
+		SearchColumns:                cfg.searchColumns,
+		OperatorMap:                  operatorMap,
+		StrictValidation:             cfg.strictValidationEnabled(),
+		StrictSearchColumns:          cfg.strictSearchColumnsEnabled(),
+		FallbackUnsupportedOperators: true,
+		DefaultLimit:                 DefaultLimit,
+		DefaultOffset:                DefaultOffset,
+	}
+}
+
+func adaptQueryBunCriteria(criteria []querybun.Criteria) []repository.SelectCriteria {
+	if len(criteria) == 0 {
+		return nil
+	}
+	out := make([]repository.SelectCriteria, 0, len(criteria))
+	for _, criterion := range criteria {
+		if criterion == nil {
+			continue
+		}
+		fn := criterion
+		out = append(out, func(q *bun.SelectQuery) *bun.SelectQuery {
+			return fn(q)
+		})
+	}
+	return out
+}
+
+func filtersFromQueryBunPlan(plan querybun.Plan, op CrudOperation) *Filters {
+	filters := &Filters{
+		Operation: string(op),
+		Limit:     plan.Metadata.Limit,
+		Offset:    plan.Metadata.Offset,
+		Search:    plan.Metadata.Search,
+	}
+	if len(plan.Metadata.Order) > 0 {
+		filters.Order = make([]Order, len(plan.Metadata.Order))
+		for i, order := range plan.Metadata.Order {
+			filters.Order[i] = Order{Field: order.Field, Dir: order.Dir}
+		}
+	}
+	filters.Fields = append([]string{}, plan.Metadata.Fields...)
+	filters.Include = append([]string{}, plan.Metadata.Include...)
+	return filters
+}
+
+func buildIncludeCriteriaForType[T any](include string, strictValidation bool) ([]repository.SelectCriteria, []string, []RelationInfo, error) {
+	if strings.TrimSpace(include) == "" {
+		return nil, nil, nil, nil
+	}
+	meta := getRelationMetadataForType(typeOf[T]())
+	includeNodes, err := buildIncludeTree(include, meta, strictValidation)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(includeNodes) == 0 {
+		return nil, nil, nil, nil
+	}
+
+	includePaths, relationInfos := collectIncludeDetails(includeNodes)
+	descriptor := getRelationDescriptorForType(typeOf[T]())
+	relations := mergeRelationInfos(includePaths, relationInfos, descriptor)
+
+	rootKeys := sortedRelationKeys(includeNodes)
+	criteria := make([]repository.SelectCriteria, 0, len(rootKeys))
+	for _, key := range rootKeys {
+		node := includeNodes[key]
+		if node == nil {
+			continue
+		}
+		criteria = append(criteria, func(n *relationIncludeNode) repository.SelectCriteria {
+			return func(q *bun.SelectQuery) *bun.SelectQuery {
+				return includeRelation(q, n)
+			}
+		}(node))
+	}
+
+	return criteria, includePaths, relations, nil
+}
+
+func convertQueryBunError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var validationErr *querybun.ValidationError
+	if !errors.As(err, &validationErr) {
+		return err
+	}
+	switch validationErr.Code {
+	case querybun.ValidationUnsupportedOperator:
+		return &QueryValidationError{
+			Code:     QueryValidationUnsupportedOperator,
+			Field:    validationErr.Field,
+			Operator: validationErr.Operator,
+			Search:   validationErr.Search,
+		}
+	case querybun.ValidationSearchColumnsRequired:
+		return &QueryValidationError{
+			Code:   QueryValidationSearchColumnsRequired,
+			Field:  validationErr.Field,
+			Search: validationErr.Search,
+		}
+	default:
+		return err
+	}
 }
 
 func normalizeIncludeParams(ctx Context) string {
@@ -451,90 +347,6 @@ func normalizeIncludeParams(ctx Context) string {
 		return ""
 	}
 	return strings.Join(parts, ",")
-}
-
-func getDirection(dir string) string {
-	dir = strings.TrimSpace(strings.ToUpper(dir))
-	if dir == "ASC" || dir == "DESC" {
-		return dir
-	}
-	return "ASC"
-}
-
-func resolveSQLOperator(op string) string {
-	token := strings.ToLower(strings.TrimSpace(op))
-	if mapped, ok := operatorMap[token]; ok && strings.TrimSpace(mapped) != "" {
-		return strings.TrimSpace(mapped)
-	}
-	if mapped, ok := canonicalOperatorSQL[token]; ok {
-		return mapped
-	}
-	return op
-}
-
-func resolveSearchColumns(configured []string, allowedFields map[string]string) []string {
-	if len(configured) == 0 {
-		return nil
-	}
-
-	allowedColumns := make(map[string]struct{}, len(allowedFields))
-	for _, column := range allowedFields {
-		if trimmed := strings.TrimSpace(column); trimmed != "" {
-			allowedColumns[strings.ToLower(trimmed)] = struct{}{}
-		}
-	}
-
-	dedup := make(map[string]struct{}, len(configured))
-	out := make([]string, 0, len(configured))
-
-	for _, raw := range configured {
-		candidate := strings.TrimSpace(raw)
-		if candidate == "" {
-			continue
-		}
-
-		resolved := ""
-		if mapped, ok := allowedFields[candidate]; ok {
-			resolved = strings.TrimSpace(mapped)
-		} else if _, ok := allowedColumns[strings.ToLower(candidate)]; ok {
-			resolved = candidate
-		}
-
-		if resolved == "" {
-			continue
-		}
-		key := strings.ToLower(resolved)
-		if _, exists := dedup[key]; exists {
-			continue
-		}
-		dedup[key] = struct{}{}
-		out = append(out, resolved)
-	}
-
-	return out
-}
-
-func applySearchWhere(q *bun.SelectQuery, column, pattern string) *bun.SelectQuery {
-	if supportsILike(q) {
-		op := resolveSQLOperator("ilike")
-		return q.Where(fmt.Sprintf("%s %s ?", column, op), pattern)
-	}
-	return q.Where(fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), pattern)
-}
-
-func applySearchWhereOr(q *bun.SelectQuery, column, pattern string) *bun.SelectQuery {
-	if supportsILike(q) {
-		op := resolveSQLOperator("ilike")
-		return q.WhereOr(fmt.Sprintf("%s %s ?", column, op), pattern)
-	}
-	return q.WhereOr(fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), pattern)
-}
-
-func supportsILike(q *bun.SelectQuery) bool {
-	if q == nil || q.Dialect() == nil {
-		return false
-	}
-	return q.Dialect().Name() == dialect.PG
 }
 
 func buildIncludeTree(includeParam string, meta *relationMetadata, strict ...bool) (map[string]*relationIncludeNode, error) {
