@@ -6,7 +6,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/ettle/strcase v0.2.0
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-errors v0.10.0
+	github.com/goliatone/go-errors v0.11.0
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
