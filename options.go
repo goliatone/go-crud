@@ -104,6 +104,10 @@ func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, str
 	return enabled, strings.ToUpper(method)
 }
 
+// DefaultOperatorMap returns SQL labels for the built-in semantic operators.
+//
+// Deprecated: configure query behavior with WithOperatorSet and
+// querybun.DefaultOperatorSet instead of process-global operator maps.
 func DefaultOperatorMap() map[string]string {
 	out := make(map[string]string, len(querybun.DefaultOperatorSet().Specs))
 	for kind, spec := range querybun.DefaultOperatorSet().Specs {
@@ -112,6 +116,9 @@ func DefaultOperatorMap() map[string]string {
 	return out
 }
 
+// SetOperatorMap configures process-global legacy operator aliases.
+//
+// Deprecated: use WithOperatorSet for per-call semantic operator aliases.
 func SetOperatorMap(om map[string]string) {
 	if len(om) == 0 {
 		operatorSet = querybun.DefaultOperatorSet()
