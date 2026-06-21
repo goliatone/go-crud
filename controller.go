@@ -1062,15 +1062,15 @@ func (c *Controller[T]) UpdateBatch(ctx Context) error {
 	criteria = c.applyFieldPolicyCriteria(criteria, policy)
 	for i, rec := range records {
 		id := c.Repo.Handlers().GetID(rec)
-		existingRecord, err := svc.Show(ctx, id.String(), criteria)
-		if err != nil {
-			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
-			return c.resp.OnError(ctx, &NotFoundError{err}, OpUpdateBatch)
+		existingRecord, showErr := svc.Show(ctx, id.String(), criteria)
+		if showErr != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, showErr)
+			return c.resp.OnError(ctx, &NotFoundError{showErr}, OpUpdateBatch)
 		}
-		merged, err := mergeRecordWithExisting(rec, existingRecord)
-		if err != nil {
-			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, err)
-			return c.resp.OnError(ctx, err, OpUpdateBatch)
+		merged, mergeErr := mergeRecordWithExisting(rec, existingRecord)
+		if mergeErr != nil {
+			c.emitActivityEvents(ctx, OpUpdateBatch, meta, records, mergeErr)
+			return c.resp.OnError(ctx, mergeErr, OpUpdateBatch)
 		}
 		merged = mergeVirtualMaps(existingRecord, merged, c.virtualFieldDefs, c.mergePolicy)
 		records[i] = merged

@@ -227,19 +227,21 @@ func attachErrorRequestMetadata(ctx Context, err *goerrors.Error, op CrudOperati
 
 	requestID := RequestIDFromContext(ctx.UserContext())
 	if requestID != "" {
-		err = err.WithRequestID(requestID)
+		keepGoError(err.WithRequestID(requestID))
 	}
 
 	correlationID := CorrelationIDFromContext(ctx.UserContext())
 	if correlationID != "" {
-		err = err.WithMetadata(map[string]any{
+		keepGoError(err.WithMetadata(map[string]any{
 			"correlation_id": correlationID,
-		})
+		}))
 	}
 
 	if op != "" {
-		err = err.WithMetadata(map[string]any{
+		keepGoError(err.WithMetadata(map[string]any{
 			"operation": string(op),
-		})
+		}))
 	}
 }
+
+func keepGoError(_ *goerrors.Error) {}

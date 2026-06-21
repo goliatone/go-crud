@@ -1,6 +1,7 @@
 package querybun
 
 import (
+	"maps"
 	"strings"
 )
 
@@ -190,9 +191,7 @@ func cloneOperatorSpecs(in map[OperatorKind]OperatorSpec) map[OperatorKind]Opera
 		return nil
 	}
 	out := make(map[OperatorKind]OperatorSpec, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 
