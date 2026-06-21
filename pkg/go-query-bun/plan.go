@@ -26,6 +26,24 @@ func (p Plan) ListCriteria() []Criteria {
 	return out
 }
 
+// WhereCriteria returns criteria that constrain rows without order, pagination, or projection.
+func (p Plan) WhereCriteria() []Criteria {
+	out := make([]Criteria, 0, len(p.Filters)+len(p.Search))
+	out = append(out, p.Filters...)
+	out = append(out, p.Search...)
+	return out
+}
+
+// CountCriteria returns criteria suitable for count queries.
+func (p Plan) CountCriteria() []Criteria {
+	return p.WhereCriteria()
+}
+
+// PageCriteria returns pagination criteria only.
+func (p Plan) PageCriteria() []Criteria {
+	return append([]Criteria{}, p.Pagination...)
+}
+
 // ReadCriteria returns criteria that apply to single-record read operations.
 func (p Plan) ReadCriteria() []Criteria {
 	out := make([]Criteria, 0, len(p.Select))
@@ -47,7 +65,7 @@ type Metadata struct {
 // BuildQueryPlan builds a separated, reusable query plan from list options.
 func BuildQueryPlan(opts ListOptions, cfg Config) (Plan, error) {
 	cfg = normalizeConfig(cfg)
-	opts, searchUnsupported := normalizeSearchOptions(opts)
+	opts, searchUnsupported := normalizeSearchOptions(opts, cfg)
 
 	var plan Plan
 	plan.Unsupported = append(plan.Unsupported, searchUnsupported...)
@@ -62,7 +80,7 @@ func BuildQueryPlan(opts ListOptions, cfg Config) (Plan, error) {
 	plan.Order = orderCriteria
 	plan.Metadata.Order = orders
 
-	predicates, unsupported := NormalizePredicatesWithUnsupported(opts)
+	predicates, unsupported := NormalizePredicatesWithUnsupported(opts, cfg)
 	plan.Unsupported = append(plan.Unsupported, unsupported...)
 
 	filterCriteria, filterUnsupported, err := BuildFilterCriteriaFromPredicates(predicates, cfg)
@@ -94,14 +112,14 @@ func BuildQueryPlan(opts ListOptions, cfg Config) (Plan, error) {
 	return plan, nil
 }
 
-func normalizeSearchOptions(opts ListOptions) (ListOptions, []UnsupportedPredicate) {
+func normalizeSearchOptions(opts ListOptions, cfg Config) (ListOptions, []UnsupportedPredicate) {
 	search := strings.TrimSpace(opts.Search)
 
 	if len(opts.Predicates) > 0 {
 		predicates := make([]Predicate, 0, len(opts.Predicates))
 		unsupported := make([]UnsupportedPredicate, 0)
 		for _, predicate := range opts.Predicates {
-			if !isSearchField(predicate.Field) {
+			if !cfg.Search.isSearchAlias(predicate.Field) {
 				predicates = append(predicates, predicate)
 				continue
 			}
@@ -118,6 +136,11 @@ func normalizeSearchOptions(opts ListOptions) (ListOptions, []UnsupportedPredica
 				search = values[0]
 			}
 		}
+		if search == "" && len(opts.Filters) > 0 {
+			filterSearch, filterUnsupported := searchFromFilters(opts.Filters, cfg)
+			unsupported = append(unsupported, filterUnsupported...)
+			search = filterSearch
+		}
 		opts.Predicates = predicates
 		opts.Search = search
 		return opts, unsupported
@@ -131,23 +154,15 @@ func normalizeSearchOptions(opts ListOptions) (ListOptions, []UnsupportedPredica
 	filters := make(map[string]any, len(opts.Filters))
 	unsupported := make([]UnsupportedPredicate, 0)
 	for rawKey, rawValue := range opts.Filters {
-		field, operator := ParsePredicateKey(rawKey)
-		if !isSearchField(field) {
+		field, _ := cfg.Syntax.parsePredicateKey(rawKey)
+		if !cfg.Search.isSearchAlias(field) {
 			filters[rawKey] = rawValue
-			continue
 		}
-		values, ok := NormalizeValueStrings(rawValue)
-		if !ok {
-			unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedValueShape))
-			continue
-		}
-		if len(values) == 0 {
-			unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedEmptyValue))
-			continue
-		}
-		if search == "" {
-			search = values[0]
-		}
+	}
+	if search == "" {
+		filterSearch, filterUnsupported := searchFromFilters(opts.Filters, cfg)
+		unsupported = append(unsupported, filterUnsupported...)
+		search = filterSearch
 	}
 
 	opts.Filters = filters
@@ -155,14 +170,33 @@ func normalizeSearchOptions(opts ListOptions) (ListOptions, []UnsupportedPredica
 	return opts, unsupported
 }
 
-func isSearchField(field string) bool {
-	return strings.EqualFold(strings.TrimSpace(field), "_search")
+func searchFromFilters(filters map[string]any, cfg Config) (string, []UnsupportedPredicate) {
+	unsupported := make([]UnsupportedPredicate, 0)
+	for _, alias := range cfg.Search.Aliases {
+		for rawKey, rawValue := range filters {
+			field, operator := cfg.Syntax.parsePredicateKey(rawKey)
+			if !strings.EqualFold(strings.TrimSpace(field), strings.TrimSpace(alias)) {
+				continue
+			}
+			values, ok := NormalizeValueStrings(rawValue)
+			if !ok {
+				unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedValueShape))
+				continue
+			}
+			if len(values) == 0 {
+				unsupported = append(unsupported, unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedEmptyValue))
+				continue
+			}
+			return values[0], unsupported
+		}
+	}
+	return "", unsupported
 }
 
-func unsupportedSearchPredicate(field, operator, rawKey string, rawValue any, reason UnsupportedReason) UnsupportedPredicate {
-	normalizedOperator := strings.ToLower(strings.TrimSpace(operator))
+func unsupportedSearchPredicate(field string, operator OperatorKind, rawKey string, rawValue any, reason UnsupportedReason) UnsupportedPredicate {
+	normalizedOperator := OperatorKind(normalizeOperatorToken(string(operator)))
 	if normalizedOperator == "" {
-		normalizedOperator = "eq"
+		normalizedOperator = OperatorEq
 	}
 	return UnsupportedPredicate{
 		Field:    strings.TrimSpace(field),
@@ -189,16 +223,4 @@ func NormalizeIncludes(includes []string) []IncludeRequest {
 		}
 	}
 	return out
-}
-
-func normalizeConfig(cfg Config) Config {
-	cfg.AllowedFields = cloneStringMap(cfg.AllowedFields)
-	cfg.SearchColumns = append([]string{}, cfg.SearchColumns...)
-	if cfg.OperatorMap != nil {
-		cfg.OperatorMap = cloneOperatorMap(cfg.OperatorMap)
-	}
-	if cfg.DefaultLimit == 0 {
-		cfg.DefaultLimit = DefaultLimit
-	}
-	return cfg
 }

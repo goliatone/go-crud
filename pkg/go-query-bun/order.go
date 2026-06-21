@@ -28,11 +28,11 @@ func NormalizeOrder(opts ListOptions) string {
 
 // BuildOrderCriteria returns trusted order criteria and metadata.
 func BuildOrderCriteria(order string, cfg Config) ([]Criteria, []Order) {
+	cfg = normalizeConfig(cfg)
 	if strings.TrimSpace(order) == "" {
 		return nil, nil
 	}
 
-	allowedFields := cloneStringMap(cfg.AllowedFields)
 	orders := make([]Order, 0)
 	for raw := range strings.SplitSeq(order, ",") {
 		parts := strings.Fields(strings.TrimSpace(raw))
@@ -44,11 +44,11 @@ func BuildOrderCriteria(order string, cfg Config) ([]Criteria, []Order) {
 		if len(parts) > 1 {
 			direction = normalizeDirection(parts[1])
 		}
-		columnName, ok := allowedFields[field]
-		if !ok || strings.TrimSpace(columnName) == "" {
+		resolved, ok := resolveField(cfg, field, FieldUseOrder)
+		if !ok || strings.TrimSpace(resolved.SQLName()) == "" {
 			continue
 		}
-		orders = append(orders, Order{Field: columnName, Dir: direction})
+		orders = append(orders, Order{Field: resolved.SQLName(), Dir: direction})
 	}
 	if len(orders) == 0 {
 		return nil, nil

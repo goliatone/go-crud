@@ -4,11 +4,12 @@ import "github.com/uptrace/bun"
 
 // NormalizePagination returns the effective limit, offset, and one-based page.
 func NormalizePagination(opts ListOptions, cfg Config) (int, int, int) {
-	limit := cfg.DefaultLimit
+	cfg = normalizeConfig(cfg)
+	limit := cfg.Pagination.DefaultLimit
 	if limit == 0 {
 		limit = DefaultLimit
 	}
-	offset := cfg.DefaultOffset
+	offset := cfg.Pagination.DefaultOffset
 
 	if opts.LimitSet || opts.OffsetSet {
 		if opts.LimitSet {

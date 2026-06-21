@@ -8,11 +8,11 @@ import (
 
 // BuildSelectCriteria returns projection criteria and trusted selected columns.
 func BuildSelectCriteria(fields []string, cfg Config) ([]Criteria, []string) {
+	cfg = normalizeConfig(cfg)
 	if len(fields) == 0 {
 		return nil, nil
 	}
 
-	allowedFields := cloneStringMap(cfg.AllowedFields)
 	columns := make([]string, 0, len(fields))
 	for _, raw := range fields {
 		for field := range strings.SplitSeq(raw, ",") {
@@ -20,11 +20,11 @@ func BuildSelectCriteria(fields []string, cfg Config) ([]Criteria, []string) {
 			if field == "" {
 				continue
 			}
-			columnName, ok := allowedFields[field]
-			if !ok || strings.TrimSpace(columnName) == "" {
+			resolved, ok := resolveField(cfg, field, FieldUseSelect)
+			if !ok || strings.TrimSpace(resolved.SQLName()) == "" {
 				continue
 			}
-			columns = append(columns, columnName)
+			columns = append(columns, resolved.SQLName())
 		}
 	}
 	if len(columns) == 0 {

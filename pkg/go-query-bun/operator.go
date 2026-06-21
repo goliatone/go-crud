@@ -1,139 +1,215 @@
 package querybun
 
 import (
-	"maps"
 	"strings"
-	"sync"
 )
 
-var canonicalOperatorSQL = map[string]string{
-	"eq":    "=",
-	"ne":    "<>",
-	"gt":    ">",
-	"lt":    "<",
-	"gte":   ">=",
-	"lte":   "<=",
-	"in":    "IN",
-	"ilike": "ILIKE",
-	"like":  "LIKE",
-	"and":   "and",
-	"or":    "or",
+// OperatorSpec describes how a semantic operator renders.
+type OperatorSpec struct {
+	Kind       OperatorKind
+	SQL        string
+	Pattern    PatternConfig
+	Case       CaseMode
+	MultiValue MultiValueMode
 }
 
-var canonicalOperatorBySQL = map[string]string{
-	"=":     "eq",
-	"<>":    "ne",
-	">":     "gt",
-	"<":     "lt",
-	">=":    "gte",
-	"<=":    "lte",
-	"IN":    "in",
-	"ILIKE": "ilike",
-	"LIKE":  "like",
-	"AND":   "and",
-	"OR":    "or",
+// OperatorSet resolves aliases to semantic operator specs.
+type OperatorSet struct {
+	Specs   map[OperatorKind]OperatorSpec
+	Aliases map[string]OperatorKind
 }
 
-var defaultOperatorMap = struct {
-	sync.RWMutex
-	values map[string]string
-}{
-	values: cloneOperatorMap(canonicalOperatorSQL),
+// DefaultOperatorSet returns the built-in semantic operators.
+func DefaultOperatorSet() OperatorSet {
+	specs := map[OperatorKind]OperatorSpec{
+		OperatorEq:       {Kind: OperatorEq, SQL: "=", MultiValue: MultiValueAll},
+		OperatorNe:       {Kind: OperatorNe, SQL: "<>", MultiValue: MultiValueAll},
+		OperatorGt:       {Kind: OperatorGt, SQL: ">", MultiValue: MultiValueAll},
+		OperatorLt:       {Kind: OperatorLt, SQL: "<", MultiValue: MultiValueAll},
+		OperatorGte:      {Kind: OperatorGte, SQL: ">=", MultiValue: MultiValueAll},
+		OperatorLte:      {Kind: OperatorLte, SQL: "<=", MultiValue: MultiValueAll},
+		OperatorIn:       {Kind: OperatorIn, SQL: "IN", MultiValue: MultiValueAny},
+		OperatorNin:      {Kind: OperatorNin, SQL: "NOT IN", MultiValue: MultiValueAny},
+		OperatorLike:     {Kind: OperatorLike, SQL: "LIKE", Pattern: PatternConfig{Mode: PatternRaw, EscapeChar: `\`, MultiValue: MultiValueAll}, Case: CaseSensitive, MultiValue: MultiValueAll},
+		OperatorILike:    {Kind: OperatorILike, SQL: "ILIKE", Pattern: PatternConfig{Mode: PatternRaw, EscapeChar: `\`, MultiValue: MultiValueAll}, Case: CaseInsensitive, MultiValue: MultiValueAll},
+		OperatorContains: {Kind: OperatorContains, SQL: "LIKE", Pattern: PatternConfig{Mode: PatternContainsEscaped, EscapeChar: `\`, MultiValue: MultiValueAny}, Case: CaseSensitive, MultiValue: MultiValueAny},
+		OperatorAnd:      {Kind: OperatorAnd, SQL: "and", MultiValue: MultiValueAll},
+		OperatorOr:       {Kind: OperatorOr, SQL: "or", MultiValue: MultiValueAny},
+	}
+
+	aliases := map[string]OperatorKind{}
+	for kind := range specs {
+		aliases[string(kind)] = kind
+		aliases["$"+string(kind)] = kind
+	}
+	aliases["neq"] = OperatorNe
+	aliases["$neq"] = OperatorNe
+	aliases["not_in"] = OperatorNin
+	aliases["notin"] = OperatorNin
+	aliases["$not_in"] = OperatorNin
+	aliases["$notin"] = OperatorNin
+
+	return OperatorSet{Specs: specs, Aliases: aliases}
 }
 
-// CanonicalOperatorMap returns a copy of the canonical operator-to-SQL mapping.
-func CanonicalOperatorMap() map[string]string {
-	return cloneOperatorMap(canonicalOperatorSQL)
+// WithAlias returns a copy with one additional alias.
+func (s OperatorSet) WithAlias(alias string, kind OperatorKind) OperatorSet {
+	s = s.normalized()
+	alias = normalizeOperatorToken(alias)
+	if alias == "" || kind == "" {
+		return s
+	}
+	s.Aliases[alias] = kind
+	return s
 }
 
-// DefaultOperatorMap returns a copy of the package default operator map.
-func DefaultOperatorMap() map[string]string {
-	defaultOperatorMap.RLock()
-	defer defaultOperatorMap.RUnlock()
-	return cloneOperatorMap(defaultOperatorMap.values)
+// WithSpec returns a copy with a replaced or added operator spec.
+func (s OperatorSet) WithSpec(spec OperatorSpec, aliases ...string) OperatorSet {
+	s = s.normalized()
+	if spec.Kind == "" {
+		return s
+	}
+	if spec.SQL == "" {
+		if existing, ok := s.Specs[spec.Kind]; ok {
+			spec.SQL = existing.SQL
+		}
+	}
+	if spec.Pattern.EscapeChar == "" {
+		spec.Pattern.EscapeChar = `\`
+	}
+	if spec.Pattern.MultiValue == "" {
+		spec.Pattern.MultiValue = spec.MultiValue
+	}
+	if spec.MultiValue == "" {
+		spec.MultiValue = spec.Pattern.MultiValue
+	}
+	if spec.MultiValue == "" {
+		spec.MultiValue = MultiValueAll
+	}
+	s.Specs[spec.Kind] = spec
+	s.Aliases[string(spec.Kind)] = spec.Kind
+	for _, alias := range aliases {
+		if normalized := normalizeOperatorToken(alias); normalized != "" {
+			s.Aliases[normalized] = spec.Kind
+		}
+	}
+	return s
 }
 
-// SetDefaultOperatorMap replaces package default operator aliases.
-func SetDefaultOperatorMap(operators map[string]string) {
-	defaultOperatorMap.Lock()
-	defer defaultOperatorMap.Unlock()
-	defaultOperatorMap.values = cloneOperatorMap(operators)
-}
-
-// ResolveOperator resolves token into a canonical operator and SQL operator.
-func ResolveOperator(token, field string, cfg Config) (Operator, error) {
+// Resolve resolves a user token to an operator.
+func (s OperatorSet) Resolve(token string) (Operator, bool) {
+	s = s.normalized()
 	rawToken := strings.TrimSpace(token)
 	normalized := normalizeOperatorToken(rawToken)
 	if normalized == "" {
-		normalized = "eq"
+		normalized = string(OperatorEq)
 	}
-
-	operators := effectiveOperatorMap(cfg.OperatorMap)
-
-	// Canonical operators always work, even if aliases replace the map.
-	if canonicalSQL, ok := canonicalOperatorSQL[normalized]; ok {
-		sqlOp := canonicalSQL
-		if mapped, ok := operators[normalized]; ok {
-			if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-				sqlOp = trimmed
-			}
-		}
-		return Operator{
-			Token:     normalized,
-			Canonical: normalized,
-			SQL:       sqlOp,
-		}, nil
+	kind, ok := s.Aliases[normalized]
+	if !ok {
+		kind = OperatorKind(normalized)
 	}
-
-	if mapped, ok := operators[normalized]; ok {
-		if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-			canonical := canonicalOperatorForSQL(trimmed)
-			if canonical != "" {
-				return Operator{
-					Token:     normalized,
-					Canonical: canonical,
-					SQL:       trimmed,
-				}, nil
-			}
-		}
+	spec, ok := s.Specs[kind]
+	if !ok {
+		return Operator{}, false
 	}
-
-	if cfg.StrictValidation {
-		return Operator{}, &ValidationError{
-			Code:     ValidationUnsupportedOperator,
-			Field:    strings.TrimSpace(field),
-			Operator: rawToken,
-		}
+	if spec.Kind == "" {
+		spec.Kind = kind
 	}
-
-	eqSQL := canonicalOperatorSQL["eq"]
-	if mapped, ok := operators["eq"]; ok {
-		if trimmed := strings.TrimSpace(mapped); trimmed != "" {
-			eqSQL = trimmed
-		}
+	if spec.Pattern.EscapeChar == "" {
+		spec.Pattern.EscapeChar = `\`
 	}
-
+	if spec.Pattern.MultiValue == "" {
+		spec.Pattern.MultiValue = spec.MultiValue
+	}
+	if spec.MultiValue == "" {
+		spec.MultiValue = spec.Pattern.MultiValue
+	}
+	if spec.MultiValue == "" {
+		spec.MultiValue = MultiValueAll
+	}
 	return Operator{
-		Token:     "eq",
-		Canonical: "eq",
-		SQL:       eqSQL,
-	}, nil
+		Token:     normalized,
+		Canonical: spec.Kind,
+		SQL:       spec.SQL,
+		Spec:      spec,
+	}, true
 }
 
-func effectiveOperatorMap(operators map[string]string) map[string]string {
-	effective := DefaultOperatorMap()
-	if operators == nil {
-		return effective
+// ResolveOperator resolves token into a semantic operator.
+func ResolveOperator(token, field string, cfg Config) (Operator, error) {
+	cfg = normalizeConfig(cfg)
+	operator, ok := cfg.Operators.Resolve(token)
+	if ok {
+		return operator, nil
 	}
-	maps.Copy(effective, operators)
-	return effective
+	rawToken := strings.TrimSpace(token)
+	if rawToken == "" {
+		rawToken = string(OperatorEq)
+	}
+	return Operator{}, &ValidationError{
+		Code:     ValidationUnsupportedOperator,
+		Field:    strings.TrimSpace(field),
+		Operator: rawToken,
+	}
 }
 
-func canonicalOperatorForSQL(sql string) string {
-	if canonical, ok := canonicalOperatorBySQL[normalizeSQLOperator(sql)]; ok {
-		return canonical
+func (s OperatorSet) normalized() OperatorSet {
+	defaults := DefaultOperatorSet()
+	if len(s.Specs) == 0 {
+		s.Specs = cloneOperatorSpecs(defaults.Specs)
+	} else {
+		specs := cloneOperatorSpecs(defaults.Specs)
+		for kind, spec := range s.Specs {
+			if spec.Kind == "" {
+				spec.Kind = kind
+			}
+			specs[kind] = spec
+		}
+		s.Specs = specs
 	}
-	return ""
+	if len(s.Aliases) == 0 {
+		s.Aliases = cloneOperatorAliasMap(defaults.Aliases)
+	} else {
+		aliases := cloneOperatorAliasMap(defaults.Aliases)
+		for alias, kind := range s.Aliases {
+			if normalized := normalizeOperatorToken(alias); normalized != "" && kind != "" {
+				aliases[normalized] = kind
+			}
+		}
+		s.Aliases = aliases
+	}
+	return s
+}
+
+func kindForSQL(sql string) OperatorKind {
+	switch normalizeSQLOperator(sql) {
+	case "=":
+		return OperatorEq
+	case "<>", "!=":
+		return OperatorNe
+	case ">":
+		return OperatorGt
+	case "<":
+		return OperatorLt
+	case ">=":
+		return OperatorGte
+	case "<=":
+		return OperatorLte
+	case "IN":
+		return OperatorIn
+	case "NOT IN":
+		return OperatorNin
+	case "LIKE":
+		return OperatorLike
+	case "ILIKE":
+		return OperatorILike
+	case "AND":
+		return OperatorAnd
+	case "OR":
+		return OperatorOr
+	default:
+		return ""
+	}
 }
 
 func normalizeOperatorToken(op string) string {
@@ -144,11 +220,26 @@ func normalizeSQLOperator(op string) string {
 	return strings.ToUpper(strings.TrimSpace(op))
 }
 
-func cloneOperatorMap(in map[string]string) map[string]string {
+func cloneOperatorSpecs(in map[OperatorKind]OperatorSpec) map[OperatorKind]OperatorSpec {
 	if len(in) == 0 {
-		return map[string]string{}
+		return nil
 	}
-	out := make(map[string]string, len(in))
-	maps.Copy(out, in)
+	out := make(map[OperatorKind]OperatorSpec, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneOperatorAliasMap(in map[string]OperatorKind) map[string]OperatorKind {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]OperatorKind, len(in))
+	for key, value := range in {
+		if normalized := normalizeOperatorToken(key); normalized != "" && value != "" {
+			out[normalized] = value
+		}
+	}
 	return out
 }
