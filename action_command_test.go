@@ -111,7 +111,7 @@ func TestCommandBackedActionHandlerRoutesDecodeErrorsToResponder(t *testing.T) {
 	err := handler(ActionContext[*TestUser]{Context: ctx})
 
 	require.NoError(t, err)
-	assert.ErrorIs(t, gotErr, decodeErr)
+	require.ErrorIs(t, gotErr, decodeErr)
 	assert.Equal(t, MutationResponseModeHTML, gotReq.Mode)
 }
 

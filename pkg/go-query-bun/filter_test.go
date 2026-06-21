@@ -3,7 +3,6 @@ package querybun
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -234,7 +233,7 @@ func TestBuildFilterCriteriaFromPredicates_StrictUnsupportedOperator(t *testing.
 	}, unsupported)
 
 	var validationErr *ValidationError
-	require.True(t, errors.As(err, &validationErr))
+	require.ErrorAs(t, err, &validationErr)
 	assert.Equal(t, ValidationUnsupportedOperator, validationErr.Code)
 	assert.Equal(t, "name", validationErr.Field)
 	assert.Equal(t, "unknown", validationErr.Operator)

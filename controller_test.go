@@ -304,7 +304,7 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 		schema, schemaOK := param["schema"].(map[string]any)
 		require.Truef(t, schemaOK, "expected %s schema definition", name)
 		assert.Equalf(t, "integer", schema["type"], "unexpected %s schema type", name)
-		assert.InEpsilonf(t, expectedDefault, schema["default"], 0.001, "unexpected %s default", name)
+		assert.InDeltaf(t, expectedDefault, schema["default"], 0.001, "unexpected %s default", name)
 	}
 
 	checkStringParam := func(name, description string) {
@@ -406,8 +406,8 @@ func TestController_SchemaIncludesAdminExtensions(t *testing.T) {
 
 	var schema map[string]any
 	for _, value := range schemas {
-		entry, ok := value.(map[string]any)
-		if !ok {
+		entry, entryOK := value.(map[string]any)
+		if !entryOK {
 			continue
 		}
 		if _, hasActions := entry["x-admin-actions"]; hasActions {
@@ -691,8 +691,8 @@ func TestController_Create_DelegatesToService(t *testing.T) {
 	assert.True(t, called, "expected service override to be invoked")
 
 	var createdUser TestUser
-	if err := json.NewDecoder(resp.Body).Decode(&createdUser); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&createdUser); decodeErr != nil {
+		t.Fatalf("Failed to decode response: %v", decodeErr)
 	}
 
 	assert.Equal(t, "Service User via service", createdUser.Name)
@@ -1050,7 +1050,7 @@ func TestController_DeleteUser(t *testing.T) {
 
 	// Verify that the user is deleted
 	_, err = repo.GetByID(ctx, user.ID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestController_ListUsers_NoFilters(t *testing.T) {
@@ -1414,7 +1414,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 				}
 
 				assert.True(t, response.Success)
-				assert.Equal(t, tt.expectedCount, len(response.Data))
+				assert.Len(t, response.Data, tt.expectedCount)
 				assert.Equal(t, tt.expectedCount, response.Meta.Count)
 
 				var names []string
@@ -1473,7 +1473,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 		assert.True(t, response.Success)
 		expectedNames := []string{"Alice", "Bob", "Charlie"}
-		assert.Equal(t, 3, len(response.Data))
+		assert.Len(t, response.Data, 3)
 		if assert.NotNil(t, response.Meta) {
 			assert.Equal(t, 3, response.Meta.Count)
 		}
@@ -1496,7 +1496,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		}
 
 		assert.True(t, response.Success)
-		assert.Len(t, response.Data, 0)
+		assert.Empty(t, response.Data)
 		if assert.NotNil(t, response.Meta) {
 			assert.Equal(t, 0, response.Meta.Count)
 		}
@@ -1520,7 +1520,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		}
 
 		assert.True(t, response.Success)
-		assert.Len(t, response.Data, 0)
+		assert.Empty(t, response.Data)
 		if assert.NotNil(t, response.Meta) {
 			assert.Equal(t, 0, response.Meta.Count)
 		}
@@ -1628,7 +1628,7 @@ func TestController_ListUsers_AdjustsOffsetWhenEmpty(t *testing.T) {
 	}
 
 	assert.True(t, response.Success)
-	assert.Len(t, response.Data, 0)
+	assert.Empty(t, response.Data)
 	if assert.NotNil(t, response.Meta) {
 		assert.Equal(t, 0, response.Meta.Count)
 		assert.Equal(t, 10, response.Meta.Limit)
@@ -1657,7 +1657,7 @@ func TestController_UnauthorizedFieldAccess(t *testing.T) {
 
 	// Since 'password' is not an allowed field, the filter should not be applied
 	// Assuming there are no users, the list should be empty
-	assert.Len(t, listResponse.Data, 0)
+	assert.Empty(t, listResponse.Data)
 }
 
 type OrderItem struct{}
@@ -2279,7 +2279,7 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 		OpDeleteBatch,
 	}
 	for _, op := range expectedOps {
-		assert.Greater(t, checker.seen[op], 0, "expected context factory for %s", op)
+		assert.Positive(t, checker.seen[op], "expected context factory for %s", op)
 	}
 	assert.Equal(t, len(expectedOps), factoryCalls)
 }
@@ -2800,11 +2800,13 @@ func TestController_FieldPolicyRestrictsListFields(t *testing.T) {
 
 	var payload map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
-	data := payload["data"].([]any)
+	data, ok := payload["data"].([]any)
+	require.True(t, ok)
 	require.Len(t, data, 1)
-	row := data[0].(map[string]any)
+	row, ok := data[0].(map[string]any)
+	require.True(t, ok)
 	assert.Equal(t, "Policy User", row["name"])
-	assert.Equal(t, "", row["email"], "email should be blank when denied by field policy")
+	assert.Empty(t, row["email"], "email should be blank when denied by field policy")
 }
 
 func TestController_FieldPolicyRowFilterAppliesToUpdate(t *testing.T) {
@@ -2864,7 +2866,8 @@ func TestController_FieldPolicyMasksShowFields(t *testing.T) {
 
 	var payload map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload))
-	data := payload["data"].(map[string]any)
+	data, ok := payload["data"].(map[string]any)
+	require.True(t, ok)
 	assert.Equal(t, "hidden@example.com", data["email"])
-	assert.Equal(t, float64(0), data["age"])
+	assert.InDelta(t, float64(0), data["age"], 0.001)
 }

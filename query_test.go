@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -464,7 +463,7 @@ func TestBuildQueryCriteria(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := newMockContextWithQuery(tt.queryParams)
 			criteria, _, err := BuildQueryCriteria[TestUser](ctx, tt.operation)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			var results []TestUser
 			q := db.NewSelect().Model(&results)
@@ -474,9 +473,9 @@ func TestBuildQueryCriteria(t *testing.T) {
 			}
 
 			err = q.Scan(context.Background())
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
-			assert.Equal(t, tt.expectedCount, len(results))
+			assert.Len(t, results, tt.expectedCount)
 			if tt.validate != nil {
 				tt.validate(t, db, results)
 			}
@@ -722,8 +721,8 @@ func TestBuildQueryCriteria_Filters(t *testing.T) {
 				_, filters, err = BuildQueryCriteria[TestUser](ctx, tt.operation)
 			}
 
-			assert.NoError(t, err)
-			assert.NotNil(t, filters)
+			require.NoError(t, err)
+			require.NotNil(t, filters)
 
 			if tt.validateFilters != nil {
 				tt.validateFilters(t, filters)
@@ -853,7 +852,7 @@ func TestStrictQueryValidation_AppliesToHTTPAndTypedBuilders(t *testing.T) {
 	require.Error(t, err)
 
 	var typedErr *QueryValidationError
-	require.True(t, errors.As(err, &typedErr))
+	require.ErrorAs(t, err, &typedErr)
 	assert.Equal(t, QueryValidationUnsupportedOperator, typedErr.Code)
 	assert.Equal(t, "name", typedErr.Field)
 
@@ -865,7 +864,7 @@ func TestStrictQueryValidation_AppliesToHTTPAndTypedBuilders(t *testing.T) {
 	require.Error(t, err)
 
 	typedErr = nil
-	require.True(t, errors.As(err, &typedErr))
+	require.ErrorAs(t, err, &typedErr)
 	assert.Equal(t, QueryValidationUnsupportedOperator, typedErr.Code)
 	assert.Equal(t, "name", typedErr.Field)
 }
@@ -989,7 +988,7 @@ func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorStrictErrors(t *
 	require.Error(t, err)
 
 	var validationErr *QueryValidationError
-	require.True(t, errors.As(err, &validationErr))
+	require.ErrorAs(t, err, &validationErr)
 	assert.Equal(t, QueryValidationUnsupportedOperator, validationErr.Code)
 	assert.Equal(t, "status", validationErr.Field)
 	assert.Equal(t, "unknown", validationErr.Operator)
@@ -1023,7 +1022,7 @@ func TestBuildQueryCriteria_StrictSearchColumns(t *testing.T) {
 	require.Error(t, err)
 
 	var typedErr *QueryValidationError
-	require.True(t, errors.As(err, &typedErr))
+	require.ErrorAs(t, err, &typedErr)
 	assert.Equal(t, QueryValidationSearchColumnsRequired, typedErr.Code)
 }
 

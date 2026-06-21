@@ -49,7 +49,7 @@ func NewService[T any](cfg ServiceConfig[T]) Service[T] {
 	}
 	base := NewRepositoryServiceWithOptions(cfg.Repository, opts)
 
-	svc := Service[T](base)
+	svc := base
 
 	if cfg.VirtualFields != nil {
 		svc = &virtualFieldService[T]{next: svc, handler: cfg.VirtualFields}

@@ -19,7 +19,9 @@ func TestVirtualFieldExpression_Dialects(t *testing.T) {
 	assert.Equal(t, "json_extract(metadata, '$.author')", sqlite)
 
 	pgJSON := VirtualFieldExpr(VirtualDialectPostgres, "metadata", "author", true)
-	assert.Equal(t, "metadata->'author'", pgJSON)
+	if pgJSON != "metadata->'author'" {
+		t.Fatalf("unexpected postgres JSON expression: %s", pgJSON)
+	}
 }
 
 func TestBuildQueryCriteria_VirtualFieldFilterAndOrder(t *testing.T) {

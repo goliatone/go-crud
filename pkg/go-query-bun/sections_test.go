@@ -2,7 +2,6 @@ package querybun
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -41,7 +40,7 @@ func TestBuildSearchCriteria_StrictColumns(t *testing.T) {
 	require.Error(t, err)
 
 	var validationErr *ValidationError
-	require.True(t, errors.As(err, &validationErr))
+	require.ErrorAs(t, err, &validationErr)
 	assert.Equal(t, ValidationSearchColumnsRequired, validationErr.Code)
 }
 

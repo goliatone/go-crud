@@ -1,7 +1,6 @@
 package querybun
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -159,7 +158,7 @@ func TestResolveOperator(t *testing.T) {
 		require.Error(t, err)
 
 		var validationErr *ValidationError
-		require.True(t, errors.As(err, &validationErr))
+		require.ErrorAs(t, err, &validationErr)
 		assert.Equal(t, ValidationUnsupportedOperator, validationErr.Code)
 		assert.Equal(t, "name", validationErr.Field)
 		assert.Equal(t, "unknown", validationErr.Operator)

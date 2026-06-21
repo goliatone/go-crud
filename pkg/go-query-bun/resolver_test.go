@@ -1,7 +1,6 @@
 package querybun
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,8 +18,8 @@ func TestFieldResolvers_MapSafeAndComposed(t *testing.T) {
 
 	safe := SafeIdentifierResolver{}
 	for _, unsafe := range []string{"user name", "name;drop", "name--", "LOWER(name)", `"name"`, "users.name"} {
-		_, ok := safe.ResolveField(FieldRequest{Field: unsafe, Use: FieldUseOrder})
-		assert.False(t, ok, unsafe)
+		_, resolvedUnsafe := safe.ResolveField(FieldRequest{Field: unsafe, Use: FieldUseOrder})
+		assert.False(t, resolvedUnsafe, unsafe)
 	}
 
 	resolved, ok = safe.ResolveField(FieldRequest{Field: "user_name", Use: FieldUseOrder})
@@ -63,7 +62,7 @@ func TestBuildFilterCriteriaFromPredicates_FieldValidationModes(t *testing.T) {
 	}, unsupported)
 
 	var validationErr *ValidationError
-	require.True(t, errors.As(err, &validationErr))
+	require.ErrorAs(t, err, &validationErr)
 	assert.Equal(t, ValidationFieldNotAllowed, validationErr.Code)
 	assert.Equal(t, "missing", validationErr.Field)
 }
