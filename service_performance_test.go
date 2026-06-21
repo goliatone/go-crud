@@ -138,7 +138,9 @@ func TestHotPathsVirtualFieldsAndScopeGuard(t *testing.T) {
 	}
 
 	allocs := testing.AllocsPerRun(100, func() {
-		_, _ = service.Show(ctx, "abc", nil)
+		if _, err := service.Show(ctx, "abc", nil); err != nil {
+			panic(err)
+		}
 	})
 	if allocs > 20 {
 		t.Fatalf("show hot path allocated too much: got %.2f allocs/op", allocs)

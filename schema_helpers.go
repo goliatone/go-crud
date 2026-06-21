@@ -43,28 +43,11 @@ func collectRelationResourceTypesRecursive(current reflect.Type, visited map[ref
 	visited[base] = struct{}{}
 
 	for field := range base.Fields() {
-		if !field.IsExported() {
-			continue
-		}
-		if field.Tag.Get(TAG_CRUD) == "-" {
+		if !isRelationResourceField(field) {
 			continue
 		}
 
-		bunTag := field.Tag.Get(TAG_BUN)
-		if bunTag == "" {
-			continue
-		}
-
-		if !strings.Contains(bunTag, "rel:") && !strings.Contains(bunTag, "m2m:") {
-			continue
-		}
-
-		childType := field.Type
-		for childType.Kind() == reflect.Pointer || childType.Kind() == reflect.Slice || childType.Kind() == reflect.Array {
-			childType = childType.Elem()
-		}
-
-		childBase := indirectType(childType)
+		childBase := indirectType(unwrapRelationFieldType(field.Type))
 		if childBase == nil || childBase.Kind() != reflect.Struct {
 			continue
 		}
@@ -75,4 +58,19 @@ func collectRelationResourceTypesRecursive(current reflect.Type, visited map[ref
 
 		collectRelationResourceTypesRecursive(childBase, visited, acc)
 	}
+}
+
+func isRelationResourceField(field reflect.StructField) bool {
+	if !field.IsExported() || field.Tag.Get(TAG_CRUD) == "-" {
+		return false
+	}
+	bunTag := field.Tag.Get(TAG_BUN)
+	return strings.Contains(bunTag, "rel:") || strings.Contains(bunTag, "m2m:")
+}
+
+func unwrapRelationFieldType(typ reflect.Type) reflect.Type {
+	for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array {
+		typ = typ.Elem()
+	}
+	return typ
 }

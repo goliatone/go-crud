@@ -46,7 +46,10 @@ func ensureSchemaProperties(doc map[string]any, schemaName string) (map[string]a
 	if !ok {
 		return nil, nil
 	}
-	props, _ := schema["properties"].(map[string]any)
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		props = nil
+	}
 	if props == nil {
 		props = map[string]any{}
 	}

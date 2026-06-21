@@ -157,7 +157,11 @@ func (h *VirtualFieldHandler[T]) processAfterLoad(_ HookContext, model T) (T, er
 	if err := h.applyAfterLoad(copyVal); err != nil {
 		return model, err
 	}
-	return copyVal.Interface().(T), nil
+	updated, ok := valueAs[T](copyVal)
+	if !ok {
+		return model, fmt.Errorf("processed model has unexpected type")
+	}
+	return updated, nil
 }
 
 func (h *VirtualFieldHandler[T]) applyAfterLoad(v reflect.Value) error {

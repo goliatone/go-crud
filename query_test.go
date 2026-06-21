@@ -31,8 +31,7 @@ type mockContext struct {
 	status      int
 	queries     url.Values
 	// Optionally store a JSON payload or other data for testing
-	jsonData  any
-	sentError error
+	jsonData any
 }
 
 // Constructor for convenience

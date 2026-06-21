@@ -273,14 +273,6 @@ func queryBunConfig[T any](cfg queryBuilderConfig) querybun.Config {
 	if cfg.searchConfig != nil {
 		search = *cfg.searchConfig
 	}
-	validation := querybun.ValidationConfig{Mode: querybun.ValidationCollect}
-	if cfg.strictValidationEnabled() {
-		validation.Mode = querybun.ValidationStrict
-	}
-	validation.StrictSearchFields = cfg.strictSearchColumnsEnabled()
-	if cfg.validation != nil {
-		validation = *cfg.validation
-	}
 	predicates := querybun.PredicateBuilderSet{}
 	if cfg.predicateBuilders != nil {
 		predicates = *cfg.predicateBuilders
@@ -295,8 +287,20 @@ func queryBunConfig[T any](cfg queryBuilderConfig) querybun.Config {
 			DefaultLimit:  DefaultLimit,
 			DefaultOffset: DefaultOffset,
 		},
-		Validation: validation,
+		Validation: queryValidationConfig(cfg),
 	}
+}
+
+func queryValidationConfig(cfg queryBuilderConfig) querybun.ValidationConfig {
+	validation := querybun.ValidationConfig{Mode: querybun.ValidationCollect}
+	if cfg.strictValidationEnabled() {
+		validation.Mode = querybun.ValidationStrict
+	}
+	validation.StrictSearchFields = cfg.strictSearchColumnsEnabled()
+	if cfg.validation != nil {
+		validation = *cfg.validation
+	}
+	return validation
 }
 
 func adaptQueryBunCriteria(criteria []querybun.Criteria) []repository.SelectCriteria {
@@ -467,71 +471,24 @@ func parseIncludePath(path string, meta *relationMetadata, cfg queryBuilderConfi
 		}
 
 		if strings.Contains(segment, "=") {
-			if current == nil {
-				return nil, fmt.Errorf("filter specified before relation")
-			}
-			fieldPart, value, found := strings.Cut(segment, "=")
-			if !found {
-				return nil, fmt.Errorf("invalid filter syntax")
-			}
-			fieldName, operatorKind := querybun.ParsePredicateKey(fieldPart)
-			columnName := ""
-			if currentMeta != nil && currentMeta.fields != nil {
-				columnName = currentMeta.fields[fieldName]
-			}
-			if columnName == "" {
-				return nil, fmt.Errorf("unsupported filter field %q on relation %q", fieldName, current.requestName)
-			}
-			operator, err := resolveQueryOperator(operatorKind, fieldName, cfg, true)
+			filter, keep, err := parseIncludeFilterSegment(segment, current, currentMeta, cfg)
 			if err != nil {
 				return nil, err
 			}
-			filterCfg := queryBunRelationFilterConfig(currentMeta.fields, cfg)
-			filterCriteria, unsupported, err := querybun.BuildFilterCriteriaFromPredicates([]querybun.Predicate{
-				{Field: fieldName, Operator: operator.Canonical, Values: []string{value}, RawKey: fieldPart, RawValue: value},
-			}, filterCfg)
-			if err != nil {
-				return nil, convertQueryBunError(err)
+			if keep {
+				current.filters = append(current.filters, filter)
 			}
-			if len(unsupported) > 0 || len(filterCriteria) == 0 {
-				return nil, &QueryValidationError{
-					Code:     QueryValidationUnsupportedOperator,
-					Field:    fieldName,
-					Operator: string(operatorKind),
-				}
-			}
-			current.filters = append(current.filters, relationFilter{
-				field:    fieldName,
-				operator: operator.SQL,
-				value:    value,
-				column:   columnName,
-				criteria: filterCriteria[0],
-			})
 			continue
 		}
 
-		if currentMeta == nil {
-			return nil, fmt.Errorf("relation metadata unavailable for %q", segment)
+		node, childMeta, err := parseIncludeRelationSegment(segment, currentMeta)
+		if err != nil {
+			return nil, err
 		}
-
-		childMeta, ok := currentMeta.children[strings.ToLower(segment)]
-		if !ok {
-			return nil, fmt.Errorf("unknown relation %q", segment)
-		}
-
-		node := &relationIncludeNode{
-			name:        childMeta.relationName,
-			requestName: segment,
-			filters:     make([]relationFilter, 0),
-			children:    make(map[string]*relationIncludeNode),
-		}
-
+		attachIncludeNode(current, node)
 		if current == nil {
 			root = node
-		} else {
-			current.children[node.name] = node
 		}
-
 		current = node
 		currentMeta = childMeta
 	}
@@ -543,39 +500,99 @@ func parseIncludePath(path string, meta *relationMetadata, cfg queryBuilderConfi
 	return root, nil
 }
 
+func parseIncludeFilterSegment(segment string, current *relationIncludeNode, currentMeta *relationMetadata, cfg queryBuilderConfig) (relationFilter, bool, error) {
+	if current == nil {
+		return relationFilter{}, false, fmt.Errorf("filter specified before relation")
+	}
+	fieldPart, value, found := strings.Cut(segment, "=")
+	if !found {
+		return relationFilter{}, false, fmt.Errorf("invalid filter syntax")
+	}
+	fieldName, operatorKind := querybun.ParsePredicateKey(fieldPart)
+	columnName := relationFilterColumn(currentMeta, fieldName)
+	if columnName == "" {
+		return relationFilter{}, false, fmt.Errorf("unsupported filter field %q on relation %q", fieldName, current.requestName)
+	}
+
+	filterCfg := queryBunRelationFilterConfig(currentMeta.fields, cfg)
+	filterCriteria, unsupported, err := querybun.BuildFilterCriteriaFromPredicates([]querybun.Predicate{
+		{Field: fieldName, Operator: operatorKind, Values: []string{value}, RawKey: fieldPart, RawValue: value},
+	}, filterCfg)
+	if err != nil {
+		return relationFilter{}, false, convertQueryBunError(err)
+	}
+	if len(unsupported) > 0 || len(filterCriteria) == 0 {
+		return relationFilter{}, false, relationFilterUnsupportedError(fieldName, operatorKind, cfg)
+	}
+
+	operator, err := querybun.ResolveOperator(string(operatorKind), fieldName, filterCfg)
+	if err != nil {
+		return relationFilter{}, false, convertQueryBunError(err)
+	}
+	return relationFilter{
+		field:    fieldName,
+		operator: operator.SQL,
+		value:    value,
+		column:   columnName,
+		criteria: filterCriteria[0],
+	}, true, nil
+}
+
+func relationFilterColumn(meta *relationMetadata, fieldName string) string {
+	if meta == nil || meta.fields == nil {
+		return ""
+	}
+	return meta.fields[fieldName]
+}
+
+func relationFilterUnsupportedError(fieldName string, operator querybun.OperatorKind, cfg queryBuilderConfig) error {
+	if queryValidationConfig(cfg).Mode != querybun.ValidationStrict {
+		return nil
+	}
+	return &QueryValidationError{
+		Code:     QueryValidationUnsupportedOperator,
+		Field:    fieldName,
+		Operator: string(operator),
+	}
+}
+
+func parseIncludeRelationSegment(segment string, meta *relationMetadata) (*relationIncludeNode, *relationMetadata, error) {
+	if meta == nil {
+		return nil, nil, fmt.Errorf("relation metadata unavailable for %q", segment)
+	}
+	childMeta, ok := meta.children[strings.ToLower(segment)]
+	if !ok {
+		return nil, nil, fmt.Errorf("unknown relation %q", segment)
+	}
+	node := &relationIncludeNode{
+		name:        childMeta.relationName,
+		requestName: segment,
+		filters:     make([]relationFilter, 0),
+		children:    make(map[string]*relationIncludeNode),
+	}
+	return node, childMeta, nil
+}
+
+func attachIncludeNode(parent, node *relationIncludeNode) {
+	if parent == nil {
+		return
+	}
+	parent.children[node.name] = node
+}
+
 func queryBunRelationFilterConfig(fields map[string]string, cfg queryBuilderConfig) querybun.Config {
 	operators := operatorSet
 	if cfg.operators != nil {
 		operators = *cfg.operators
 	}
+	validation := queryValidationConfig(cfg)
+	validation.StrictFields = true
 	return querybun.Config{
-		Syntax:    querybun.DefaultRESTSyntax(),
-		Fields:    querybun.FieldConfig{Resolver: querybun.NewMapResolver(fields)},
-		Operators: operators,
-		Validation: querybun.ValidationConfig{
-			Mode:         querybun.ValidationStrict,
-			StrictFields: true,
-		},
-	}
-}
-
-func resolveQueryOperator(operator querybun.OperatorKind, field string, cfg queryBuilderConfig, strict bool) (querybun.Operator, error) {
-	operators := operatorSet
-	if cfg.operators != nil {
-		operators = *cfg.operators
-	}
-	validation := querybun.ValidationConfig{Mode: querybun.ValidationCollect}
-	if strict || cfg.strictValidationEnabled() {
-		validation.Mode = querybun.ValidationStrict
-	}
-	op, err := querybun.ResolveOperator(string(operator), field, querybun.Config{
+		Syntax:     querybun.DefaultRESTSyntax(),
+		Fields:     querybun.FieldConfig{Resolver: querybun.NewMapResolver(fields)},
 		Operators:  operators,
 		Validation: validation,
-	})
-	if err != nil {
-		return querybun.Operator{}, convertQueryBunError(err)
 	}
-	return op, nil
 }
 
 func mergeIncludeTrees(dst map[string]*relationIncludeNode, node *relationIncludeNode) {
@@ -701,33 +718,16 @@ func mergeRelationInfos(includePaths []string, requestInfos []RelationInfo, desc
 		return cloneRelationInfos(requestInfos)
 	}
 
-	requestMap := make(map[string][]RelationFilter, len(requestInfos))
-	for _, info := range requestInfos {
-		if info.Name == "" {
-			continue
-		}
-		requestMap[strings.ToLower(info.Name)] = cloneRelationFilters(info.Filters)
-	}
-
-	descriptorFilterMap := make(map[string][]RelationFilter, len(descriptor.Relations))
-	for _, info := range descriptor.Relations {
-		if info.Name == "" {
-			continue
-		}
-		key := strings.ToLower(info.Name)
-		descriptorFilterMap[key] = convertRouterRelationFilters(info.Filters)
-	}
+	requestMap := relationFilterMap(requestInfos)
+	descriptorFilterMap := routerRelationFilterMap(descriptor.Relations)
 
 	results := make([]RelationInfo, 0, len(includePaths))
 	for _, path := range includePaths {
-		if path == "" || !descriptorIncludes(descriptor, path) {
+		if !shouldIncludeRelationInfo(descriptor, path) {
 			continue
 		}
 		key := strings.ToLower(path)
-		filters := requestMap[key]
-		if len(filters) == 0 {
-			filters = descriptorFilterMap[key]
-		}
+		filters := firstRelationFilters(requestMap[key], descriptorFilterMap[key])
 		if len(filters) == 0 {
 			continue
 		}
@@ -739,28 +739,63 @@ func mergeRelationInfos(includePaths []string, requestInfos []RelationInfo, desc
 
 	// Preserve request-specific relations that might not have been part of includePaths (edge cases)
 	for _, info := range requestInfos {
-		if info.Name == "" || len(info.Filters) == 0 {
+		if !shouldAppendRequestRelationInfo(results, descriptor, info) {
 			continue
 		}
-		if !descriptorIncludes(descriptor, info.Name) {
-			continue
-		}
-		found := false
-		for _, existing := range results {
-			if strings.EqualFold(existing.Name, info.Name) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			results = append(results, RelationInfo{
-				Name:    info.Name,
-				Filters: cloneRelationFilters(info.Filters),
-			})
-		}
+		results = append(results, RelationInfo{
+			Name:    info.Name,
+			Filters: cloneRelationFilters(info.Filters),
+		})
 	}
 
 	return results
+}
+
+func relationFilterMap(infos []RelationInfo) map[string][]RelationFilter {
+	out := make(map[string][]RelationFilter, len(infos))
+	for _, info := range infos {
+		if info.Name != "" {
+			out[strings.ToLower(info.Name)] = cloneRelationFilters(info.Filters)
+		}
+	}
+	return out
+}
+
+func routerRelationFilterMap(infos []router.RelationInfo) map[string][]RelationFilter {
+	out := make(map[string][]RelationFilter, len(infos))
+	for _, info := range infos {
+		if info.Name != "" {
+			out[strings.ToLower(info.Name)] = convertRouterRelationFilters(info.Filters)
+		}
+	}
+	return out
+}
+
+func shouldIncludeRelationInfo(descriptor *router.RelationDescriptor, path string) bool {
+	return path != "" && descriptorIncludes(descriptor, path)
+}
+
+func firstRelationFilters(primary, fallback []RelationFilter) []RelationFilter {
+	if len(primary) > 0 {
+		return primary
+	}
+	return fallback
+}
+
+func shouldAppendRequestRelationInfo(results []RelationInfo, descriptor *router.RelationDescriptor, info RelationInfo) bool {
+	if info.Name == "" || len(info.Filters) == 0 || !descriptorIncludes(descriptor, info.Name) {
+		return false
+	}
+	return !relationInfoExists(results, info.Name)
+}
+
+func relationInfoExists(infos []RelationInfo, name string) bool {
+	for _, info := range infos {
+		if strings.EqualFold(info.Name, name) {
+			return true
+		}
+	}
+	return false
 }
 
 func convertRouterRelationFilters(filters []router.RelationFilter) []RelationFilter {
@@ -819,8 +854,8 @@ func (o *queryTraceOptions) debug(filters *Filters, params map[string]string) {
 		fields["query_params"] = cloneStringMap(params)
 	}
 
-	if loggerWithFields, ok := o.logger.(loggerWithFields); ok {
-		loggerWithFields.WithFields(fields).Debug("query criteria built")
+	if withFields, ok := o.logger.(loggerWithFields); ok {
+		withFields.WithFields(fields).Debug("query criteria built")
 		return
 	}
 

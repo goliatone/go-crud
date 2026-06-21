@@ -13,9 +13,6 @@ type virtualModel struct {
 	Active   bool           `bun:"-" json:"active" crud:"virtual:Metadata,allow_zero"`
 }
 
-//go:fix inline
-func strPtr(v string) *string { return new(v) }
-
 func TestVirtualFieldHandler_BeforeSave_PointerMovesValue(t *testing.T) {
 	handler := NewVirtualFieldHandlerWithConfig[*virtualModel](VirtualFieldHandlerConfig{})
 	model := &virtualModel{Author: new("John")}

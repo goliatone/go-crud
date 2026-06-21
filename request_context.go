@@ -216,7 +216,10 @@ func ActivityEmitterFromContext(ctx context.Context) *activity.Emitter {
 	if ctx == nil {
 		return nil
 	}
-	emitter, _ := ctx.Value(ctxKeyActivity).(*activity.Emitter)
+	emitter, ok := ctx.Value(ctxKeyActivity).(*activity.Emitter)
+	if !ok {
+		return nil
+	}
 	return emitter
 }
 

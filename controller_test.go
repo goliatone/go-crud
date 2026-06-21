@@ -295,27 +295,27 @@ func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 	require.True(t, ok, "expected shared parameter components")
 
 	checkNumberParam := func(name, description string, expectedDefault float64) {
-		param, ok := componentsParams[name].(map[string]any)
-		require.Truef(t, ok, "expected %s parameter component", name)
+		param, paramOK := componentsParams[name].(map[string]any)
+		require.Truef(t, paramOK, "expected %s parameter component", name)
 		assert.Equalf(t, strings.ToLower(name), param["name"], "unexpected %s name", name)
 		assert.Equalf(t, "query", param["in"], "unexpected %s location", name)
 		assert.Equalf(t, description, param["description"], "unexpected %s description", name)
 
-		schema, ok := param["schema"].(map[string]any)
-		require.Truef(t, ok, "expected %s schema definition", name)
+		schema, schemaOK := param["schema"].(map[string]any)
+		require.Truef(t, schemaOK, "expected %s schema definition", name)
 		assert.Equalf(t, "integer", schema["type"], "unexpected %s schema type", name)
-		assert.Equalf(t, expectedDefault, schema["default"], "unexpected %s default", name)
+		assert.InEpsilonf(t, expectedDefault, schema["default"], 0.001, "unexpected %s default", name)
 	}
 
 	checkStringParam := func(name, description string) {
-		param, ok := componentsParams[name].(map[string]any)
-		require.Truef(t, ok, "expected %s parameter component", name)
+		param, paramOK := componentsParams[name].(map[string]any)
+		require.Truef(t, paramOK, "expected %s parameter component", name)
 		assert.Equalf(t, strings.ToLower(name), param["name"], "unexpected %s name", name)
 		assert.Equalf(t, "query", param["in"], "unexpected %s location", name)
 		assert.Equalf(t, description, param["description"], "unexpected %s description", name)
 
-		schema, ok := param["schema"].(map[string]any)
-		require.Truef(t, ok, "expected %s schema definition", name)
+		schema, schemaOK := param["schema"].(map[string]any)
+		require.Truef(t, schemaOK, "expected %s schema definition", name)
 		assert.Equalf(t, "string", schema["type"], "unexpected %s schema type", name)
 	}
 
@@ -399,8 +399,10 @@ func TestController_SchemaIncludesAdminExtensions(t *testing.T) {
 	var doc map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&doc))
 
-	components := doc["components"].(map[string]any)
-	schemas := components["schemas"].(map[string]any)
+	components, ok := doc["components"].(map[string]any)
+	require.True(t, ok, "components section missing")
+	schemas, ok := components["schemas"].(map[string]any)
+	require.True(t, ok, "schemas section missing")
 
 	var schema map[string]any
 	for _, value := range schemas {
@@ -423,7 +425,7 @@ func TestController_SchemaIncludesAdminExtensions(t *testing.T) {
 	menuExt, ok := schema["x-admin-menu"].(map[string]any)
 	require.True(t, ok, "expected x-admin-menu extension")
 	assert.Equal(t, "Directory", menuExt["group"])
-	assert.Equal(t, float64(10), menuExt["order"])
+	assert.InEpsilon(t, float64(10), menuExt["order"], 0.001)
 
 	rowExt, ok := schema["x-admin-row-filters"].([]any)
 	require.True(t, ok, "expected x-admin-row-filters extension")
@@ -492,10 +494,14 @@ func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 	var schemaDoc map[string]any
 	require.NoError(t, json.NewDecoder(schemaResp.Body).Decode(&schemaDoc))
 
-	components := schemaDoc["components"].(map[string]any)
-	schemas := components["schemas"].(map[string]any)
-	entitySchema := schemas["test-user"].(map[string]any)
-	relationExt := entitySchema["x-formgen-relations"].(map[string]any)
+	components, ok := schemaDoc["components"].(map[string]any)
+	require.True(t, ok, "components section missing")
+	schemas, ok := components["schemas"].(map[string]any)
+	require.True(t, ok, "schemas section missing")
+	entitySchema, ok := schemas["test-user"].(map[string]any)
+	require.True(t, ok, "test-user schema missing")
+	relationExt, ok := entitySchema["x-formgen-relations"].(map[string]any)
+	require.True(t, ok, "relation extension missing")
 
 	includesAny, includesOK := relationExt["includes"].([]any)
 	require.True(t, includesOK)
@@ -514,8 +520,14 @@ func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 			if !ok {
 				continue
 			}
-			name, _ := relMap["name"].(string)
-			filtersAny, _ := relMap["filters"].([]any)
+			name, nameOK := relMap["name"].(string)
+			if !nameOK {
+				continue
+			}
+			filtersAny, filtersOK := relMap["filters"].([]any)
+			if !filtersOK {
+				continue
+			}
 			var filters []RelationFilter
 			for _, filter := range filtersAny {
 				if fm, ok := filter.(map[string]any); ok {
@@ -906,8 +918,10 @@ func TestController_CreateBatch_FormatOptions(t *testing.T) {
 
 	expected := make(map[string]string, len(payload))
 	for _, item := range payload {
-		id := item["id"].(string)
-		name := item["name"].(string)
+		id, idOK := item["id"].(string)
+		require.True(t, idOK)
+		name, nameOK := item["name"].(string)
+		require.True(t, nameOK)
 		expected[id] = name
 	}
 
@@ -956,9 +970,9 @@ func TestController_DeleteBatch_AcceptsIDArray(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	_, err = repo.GetByID(ctx, user1.ID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 	_, err = repo.GetByID(ctx, user2.ID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestController_UpdateUser(t *testing.T) {

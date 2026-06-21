@@ -62,8 +62,8 @@ func buildFilterCriteriaForPredicate(predicate Predicate, cfg Config) ([]Criteri
 	}
 
 	if !fieldOK {
-		unsupported, err := unresolvedFieldUnsupported(predicate, field, cfg)
-		return nil, false, unsupported, err
+		fieldUnsupported, fieldErr := unresolvedFieldUnsupported(predicate, field, cfg)
+		return nil, false, fieldUnsupported, fieldErr
 	}
 
 	criteria, handled, unsupported, err = buildWithOperatorPredicateBuilder(predicate, operator, resolvedField, cleaned, cfg)

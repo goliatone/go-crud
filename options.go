@@ -82,15 +82,12 @@ func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, str
 		method = http.MethodGet
 	}
 
-	if rc.Operations != nil {
-		if opt, ok := rc.Operations[op]; ok {
-			if opt.Enabled != nil {
-				enabled = *opt.Enabled
-			}
-			if opt.Method != "" {
-				method = strings.ToUpper(opt.Method)
-			}
-		}
+	opt, ok := rc.Operations[op]
+	if ok && opt.Enabled != nil {
+		enabled = *opt.Enabled
+	}
+	if ok && opt.Method != "" {
+		method = strings.ToUpper(opt.Method)
 	}
 
 	if method == "" {
@@ -126,13 +123,27 @@ func SetOperatorMap(om map[string]string) {
 	}
 	next := querybun.DefaultOperatorSet()
 	for alias, sql := range om {
-		kind := queryOperatorKindForSQL(sql)
+		kind := queryOperatorKindForDefaultAlias(alias, sql)
+		if kind == "" {
+			kind = queryOperatorKindForSQL(sql)
+		}
 		if kind == "" {
 			continue
 		}
 		next = next.WithAlias(alias, kind)
 	}
 	operatorSet = next
+}
+
+func queryOperatorKindForDefaultAlias(alias, sql string) querybun.OperatorKind {
+	operator, ok := querybun.DefaultOperatorSet().Resolve(alias)
+	if !ok {
+		return ""
+	}
+	if !strings.EqualFold(strings.TrimSpace(sql), strings.TrimSpace(operator.SQL)) {
+		return ""
+	}
+	return operator.Canonical
 }
 
 func queryOperatorKindForSQL(sql string) querybun.OperatorKind {

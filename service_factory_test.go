@@ -167,7 +167,10 @@ func (r *stubRepo) Handlers() repository.ModelHandlers[testModel] {
 			if t.ID == "" {
 				return uuid.Nil
 			}
-			id, _ := uuid.Parse(t.ID)
+			id, err := uuid.Parse(t.ID)
+			if err != nil {
+				return uuid.Nil
+			}
 			return id
 		},
 		SetID:              func(t testModel, id uuid.UUID) {},

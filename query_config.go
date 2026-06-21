@@ -83,7 +83,11 @@ func registerQueryConfig(typ reflect.Type, provider FieldMapProvider) {
 func getRelationMetadataForType(typ reflect.Type) *relationMetadata {
 	base := indirectType(typ)
 	if cfg, ok := queryConfigRegistry.Load(base); ok {
-		return cfg.(*queryConfig).root
+		typed, ok := cfg.(*queryConfig)
+		if !ok {
+			return nil
+		}
+		return typed.root
 	}
 
 	root := buildRelationMetadata(base, nil, make(map[reflect.Type]bool))
@@ -170,28 +174,34 @@ func registerChild(parent *relationMetadata, field reflect.StructField, child *r
 
 func getOrBuildFieldMap(typ reflect.Type, provider FieldMapProvider) map[string]string {
 	if m, ok := fieldsCache.Load(typ); ok {
-		return m.(map[string]string)
+		typed, ok := m.(map[string]string)
+		if !ok {
+			return nil
+		}
+		return typed
 	}
 
 	fieldMap := buildDefaultFieldMap(typ)
-
-	if provider != nil {
-		if provided := provider(typ); len(provided) > 0 {
-			providedMap := normalizeFieldMap(provided)
-			if len(providedMap) > 0 {
-				if fieldMap == nil {
-					fieldMap = providedMap
-				} else {
-					maps.Copy(fieldMap, providedMap)
-				}
-			}
-		}
+	if provider == nil {
+		return storeFieldMap(typ, fieldMap)
 	}
 
+	providedMap := normalizeFieldMap(provider(typ))
+	if len(providedMap) == 0 {
+		return storeFieldMap(typ, fieldMap)
+	}
+	if fieldMap == nil {
+		fieldMap = providedMap
+	} else {
+		maps.Copy(fieldMap, providedMap)
+	}
+	return storeFieldMap(typ, fieldMap)
+}
+
+func storeFieldMap(typ reflect.Type, fieldMap map[string]string) map[string]string {
 	if fieldMap == nil {
 		fieldMap = make(map[string]string)
 	}
-
 	fieldsCache.Store(typ, fieldMap)
 	return fieldMap
 }
