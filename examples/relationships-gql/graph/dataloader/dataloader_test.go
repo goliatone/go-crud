@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/goliatone/go-auth"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
@@ -28,6 +30,17 @@ func TestLoader_GroupsDeterministically(t *testing.T) {
 	require.NoError(t, relationships.SeedDatabase(ctx, client))
 
 	resolver := resolvers.NewResolver(repos)
+	ctx = auth.WithContext(ctx, &auth.User{
+		ID:       uuid.New(),
+		Username: "test-user",
+		Role:     auth.RoleAdmin,
+	})
+	ctx = auth.WithActorContext(ctx, &auth.ActorContext{
+		ActorID: "graph-test-actor",
+		Subject: "test-user",
+		Role:    string(auth.RoleAdmin),
+	})
+
 	loader := dataloader.New(dataloader.Services{
 		Author:          resolver.AuthorSvc,
 		AuthorProfile:   resolver.AuthorProfileSvc,

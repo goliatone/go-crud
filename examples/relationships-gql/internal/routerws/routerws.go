@@ -245,7 +245,7 @@ func (c *wsConnection) init() bool {
 		c.close(router.CloseNormalClosure, "terminated")
 		return false
 	default:
-		c.sendConnectionError("unexpected message %s", m.t)
+		c.sendConnectionError("unexpected message %v", m.t)
 		c.close(router.CloseProtocolError, "unexpected message")
 		return false
 	}
@@ -322,7 +322,7 @@ func (c *wsConnection) run() {
 			c.mu.Unlock()
 			_ = c.ws.SetReadDeadline(time.Time{})
 		default:
-			c.sendConnectionError("unexpected message %s", m.t)
+			c.sendConnectionError("unexpected message %v", m.t)
 			c.close(router.CloseProtocolError, "unexpected message")
 			return
 		}
@@ -749,7 +749,7 @@ func (m *graphqlwsMessage) fromMessage(msg *message) (err error) {
 
 	switch msg.t {
 	default:
-		err = fmt.Errorf("invalid server->client message type %s", msg.t)
+		err = fmt.Errorf("invalid server->client message type %v", msg.t)
 	case initMessageType:
 		m.Type = graphqlwsConnectionInitMsg
 	case connectionAckMessageType:
@@ -873,7 +873,7 @@ func (m *graphqltransportwsMessage) fromMessage(msg *message) (err error) {
 
 	switch msg.t {
 	default:
-		err = fmt.Errorf("invalid server->client message type %s", msg.t)
+		err = fmt.Errorf("invalid server->client message type %v", msg.t)
 	case connectionAckMessageType:
 		m.Type = graphqltransportwsConnectionAckMsg
 	case keepAliveMessageType:
