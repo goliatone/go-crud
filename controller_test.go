@@ -1190,20 +1190,6 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 }
 
 func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
-	SetOperatorMap(map[string]string{
-		"eq":    "=",
-		"ne":    "<>",
-		"gt":    ">",
-		"lt":    "<",
-		"gte":   ">=",
-		"lte":   "<=",
-		"ilike": "LIKE", // Adjusted for SQLite
-		"like":  "LIKE",
-		"and":   "and",
-		"or":    "or",
-	})
-	defer SetOperatorMap(DefaultOperatorMap())
-
 	app, db := setupApp(t)
 	defer db.Close()
 
@@ -1373,10 +1359,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Unknown operator defaults to equals",
+			name:           "Unknown operator does not fallback to equals",
 			query:          "?name__unknown=Eve",
-			expectedCount:  1, // Eve
-			expectedNames:  []string{"Eve"},
+			expectedCount:  5,
+			expectedNames:  []string{"Alice", "Bob", "Charlie", "David", "Eve"},
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -2371,10 +2357,10 @@ func Test_ParseFieldOperator(t *testing.T) {
 			expectedOp:    "=",
 		},
 		{
-			name:          "Unknown operator defaults to '='",
+			name:          "Unknown operator has no resolved operator",
 			input:         "status__unknown",
 			expectedField: "status",
-			expectedOp:    "=",
+			expectedOp:    "",
 		},
 		{
 			name:          "Multiple '__' in input",
@@ -2424,21 +2410,6 @@ func Test_ParseFieldOperator(t *testing.T) {
 }
 
 func Test_ParseFieldOperator_Custom(t *testing.T) {
-	defer SetOperatorMap(DefaultOperatorMap())
-
-	SetOperatorMap(map[string]string{
-		"$eq":    "=",
-		"$ne":    "<>",
-		"$gt":    ">",
-		"$lt":    "<",
-		"$gte":   ">=",
-		"$lte":   "<=",
-		"$ilike": "ILIKE",
-		"$like":  "LIKE",
-		"$and":   "and",
-		"$or":    "or",
-	})
-
 	tests := []struct {
 		name          string
 		input         string
@@ -2470,10 +2441,10 @@ func Test_ParseFieldOperator_Custom(t *testing.T) {
 			expectedOp:    "ILIKE",
 		},
 		{
-			name:          "Unknown operator defaults to '='",
+			name:          "Unknown operator has no resolved operator",
 			input:         "status__$unknown",
 			expectedField: "status",
-			expectedOp:    "=",
+			expectedOp:    "",
 		},
 		{
 			name:          "Multiple '__' in input",

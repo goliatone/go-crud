@@ -8,6 +8,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 )
 
 func TestBuildSearchCriteria_SQLiteFallback(t *testing.T) {
@@ -15,8 +16,8 @@ func TestBuildSearchCriteria_SQLiteFallback(t *testing.T) {
 	seedFilterUsers(t, db)
 
 	criteria, search, err := BuildSearchCriteria("ali", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name", "status"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"name", "status"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "ali", search)
@@ -33,10 +34,9 @@ func TestBuildSearchCriteria_SQLiteFallback(t *testing.T) {
 
 func TestBuildSearchCriteria_StrictColumns(t *testing.T) {
 	_, _, err := BuildSearchCriteria("ali", Config{
-		AllowedFields:       filterAllowedFields(),
-		SearchColumns:       []string{"missing"},
-		StrictValidation:    true,
-		StrictSearchColumns: true,
+		Fields:     FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search:     SearchConfig{Fields: []string{"missing"}},
+		Validation: ValidationConfig{Mode: ValidationStrict, StrictSearchFields: true},
 	})
 	require.Error(t, err)
 
@@ -47,7 +47,7 @@ func TestBuildSearchCriteria_StrictColumns(t *testing.T) {
 
 func TestBuildOrderCriteria(t *testing.T) {
 	criteria, orders := BuildOrderCriteria("name desc,missing asc,age sideways", Config{
-		AllowedFields: filterAllowedFields(),
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
 	})
 	require.NotEmpty(t, criteria)
 	assert.Equal(t, []Order{
@@ -66,7 +66,7 @@ func TestBuildOrderCriteria(t *testing.T) {
 
 func TestBuildSelectCriteria(t *testing.T) {
 	criteria, fields := BuildSelectCriteria([]string{"id,name", "missing"}, Config{
-		AllowedFields: filterAllowedFields(),
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
 	})
 	require.NotEmpty(t, criteria)
 	assert.Equal(t, []string{"id", "name"}, fields)
@@ -115,16 +115,67 @@ func TestBuildPaginationCriteria_ExplicitZeroLimit(t *testing.T) {
 	assert.Equal(t, 1, page)
 }
 
+func TestBuildPaginationCriteria_ExplicitLimitOffsetWinsOverPage(t *testing.T) {
+	_, limit, offset, page := BuildPaginationCriteria(ListOptions{
+		Page:      3,
+		PerPage:   100,
+		Limit:     25,
+		LimitSet:  true,
+		Offset:    10,
+		OffsetSet: true,
+	}, Config{})
+
+	assert.Equal(t, 25, limit)
+	assert.Equal(t, 10, offset)
+	assert.Equal(t, 1, page)
+}
+
+func TestBuildPaginationCriteria_ExplicitOffsetUsesDefaultLimit(t *testing.T) {
+	_, limit, offset, page := BuildPaginationCriteria(ListOptions{
+		Offset:    50,
+		OffsetSet: true,
+	}, Config{})
+
+	assert.Equal(t, DefaultLimit, limit)
+	assert.Equal(t, 50, offset)
+	assert.Equal(t, 3, page)
+}
+
+func TestPlanSectionHelpers(t *testing.T) {
+	filter := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
+	search := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
+	order := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
+	page := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
+	selectFields := Criteria(func(q *bun.SelectQuery) *bun.SelectQuery { return q })
+
+	plan := Plan{
+		Filters:    []Criteria{filter},
+		Search:     []Criteria{search},
+		Order:      []Criteria{order},
+		Pagination: []Criteria{page},
+		Select:     []Criteria{selectFields},
+	}
+
+	assert.Len(t, plan.WhereCriteria(), 2)
+	assertSameCriteria(t, filter, plan.WhereCriteria()[0])
+	assertSameCriteria(t, search, plan.WhereCriteria()[1])
+	assert.Len(t, plan.CountCriteria(), 2)
+	assertSameCriteria(t, filter, plan.CountCriteria()[0])
+	assertSameCriteria(t, search, plan.CountCriteria()[1])
+	assert.Len(t, plan.PageCriteria(), 1)
+	assertSameCriteria(t, page, plan.PageCriteria()[0])
+}
+
 func TestCriteriaSectionsExecuteTogether(t *testing.T) {
 	db := setupQueryBunDB(t)
 	seedFilterUsers(t, db)
 
 	searchCriteria, _, err := BuildSearchCriteria("a", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"name"}},
 	})
 	require.NoError(t, err)
-	orderCriteria, _ := BuildOrderCriteria("age desc", Config{AllowedFields: filterAllowedFields()})
+	orderCriteria, _ := BuildOrderCriteria("age desc", filterConfig())
 	paginationCriteria, _, _, _ := BuildPaginationCriteria(ListOptions{Limit: 1}, Config{})
 
 	var rows []filterUser
@@ -140,7 +191,7 @@ func TestCriteriaSectionsExecuteTogether(t *testing.T) {
 }
 
 func TestResolveSearchColumnsDedupesTrustedColumns(t *testing.T) {
-	columns := ResolveSearchColumns([]string{"name", "name", "status", "missing"}, filterAllowedFields())
+	columns := ResolveSearchColumns([]string{"name", "name", "status", "missing"}, filterConfig())
 	assert.Equal(t, []string{"name", "status"}, columns)
 }
 
@@ -152,13 +203,13 @@ func TestBuildSearchCriteria_NoColumnsNoOp(t *testing.T) {
 }
 
 func TestBuildOrderCriteria_NoValidFields(t *testing.T) {
-	criteria, orders := BuildOrderCriteria("missing desc", Config{AllowedFields: filterAllowedFields()})
+	criteria, orders := BuildOrderCriteria("missing desc", filterConfig())
 	assert.Empty(t, criteria)
 	assert.Empty(t, orders)
 }
 
 func TestBuildSelectCriteria_NoValidFields(t *testing.T) {
-	criteria, fields := BuildSelectCriteria([]string{"missing"}, Config{AllowedFields: filterAllowedFields()})
+	criteria, fields := BuildSelectCriteria([]string{"missing"}, filterConfig())
 	assert.Empty(t, criteria)
 	assert.Empty(t, fields)
 }
@@ -168,8 +219,8 @@ func TestBuildSearchCriteria_SQLiteExecution(t *testing.T) {
 	seedFilterUsers(t, db)
 
 	criteria, _, err := BuildSearchCriteria("ali", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"name"}},
 	})
 	require.NoError(t, err)
 
@@ -182,7 +233,7 @@ func TestBuildOrderCriteria_SQLiteExecution(t *testing.T) {
 	db := setupQueryBunDB(t)
 	seedFilterUsers(t, db)
 
-	criteria, orders := BuildOrderCriteria("age desc", Config{AllowedFields: filterAllowedFields()})
+	criteria, orders := BuildOrderCriteria("age desc", filterConfig())
 	require.NotEmpty(t, orders)
 
 	var rows []filterUser
@@ -199,7 +250,7 @@ func TestBuildSelectCriteria_SQLiteExecution(t *testing.T) {
 	db := setupQueryBunDB(t)
 	seedFilterUsers(t, db)
 
-	criteria, fields := BuildSelectCriteria([]string{"name"}, Config{AllowedFields: filterAllowedFields()})
+	criteria, fields := BuildSelectCriteria([]string{"name"}, filterConfig())
 	require.Equal(t, []string{"name"}, fields)
 
 	var rows []filterUser
@@ -225,15 +276,15 @@ func TestBuildPaginationCriteria_SQLiteExecution(t *testing.T) {
 
 func TestBuildSearchCriteria_ColumnNameAllowed(t *testing.T) {
 	criteria, _, err := BuildSearchCriteria("ali", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"name"}},
 	})
 	require.NoError(t, err)
 	assert.NotEmpty(t, criteria)
 
 	criteria, _, err = BuildSearchCriteria("ali", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"missing"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"missing"}},
 	})
 	require.NoError(t, err)
 	assert.Empty(t, criteria)
@@ -242,9 +293,8 @@ func TestBuildSearchCriteria_ColumnNameAllowed(t *testing.T) {
 func TestBuildSearchCriteria_SQLiteFallbackDoesNotUseILikeOperator(t *testing.T) {
 	db := setupQueryBunDB(t)
 	criteria, _, err := BuildSearchCriteria("ali", Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
-		OperatorMap:   map[string]string{"ilike": "LIKE"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Fields: []string{"name"}},
 	})
 	require.NoError(t, err)
 

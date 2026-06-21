@@ -22,8 +22,8 @@ func TestBuildQueryPlan_PopulatesIndependentSections(t *testing.T) {
 			"status__or": "active,pending",
 		},
 	}, Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Aliases: []string{"_search", "search", "q"}, Fields: []string{"name"}, Pattern: PatternConfig{Mode: PatternContains, EscapeChar: `\`, MultiValue: MultiValueAny}, Case: CaseInsensitive},
 	})
 	require.NoError(t, err)
 
@@ -53,8 +53,8 @@ func TestBuildQueryPlan_SearchFromReservedFilter(t *testing.T) {
 			"_search": "ali",
 		},
 	}, Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Aliases: []string{"_search", "search", "q"}, Fields: []string{"name"}, Pattern: PatternConfig{Mode: PatternContains, EscapeChar: `\`, MultiValue: MultiValueAny}, Case: CaseInsensitive},
 	})
 	require.NoError(t, err)
 
@@ -77,8 +77,8 @@ func TestBuildQueryPlan_SearchFromReservedPredicate(t *testing.T) {
 			{Field: "_search", Operator: "eq", Values: []string{"car"}},
 		},
 	}, Config{
-		AllowedFields: filterAllowedFields(),
-		SearchColumns: []string{"name"},
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Search: SearchConfig{Aliases: []string{"_search", "search", "q"}, Fields: []string{"name"}, Pattern: PatternConfig{Mode: PatternContains, EscapeChar: `\`, MultiValue: MultiValueAny}, Case: CaseInsensitive},
 	})
 	require.NoError(t, err)
 
@@ -90,6 +90,53 @@ func TestBuildQueryPlan_SearchFromReservedPredicate(t *testing.T) {
 	rows := executeFilterUserCriteria(t, db, plan.ListCriteria())
 	require.Len(t, rows, 1)
 	assert.Equal(t, "Carol", rows[0].Name)
+}
+
+func TestBuildQueryPlan_SearchAliasPrecedence(t *testing.T) {
+	cfg := filterConfig(func(cfg *Config) {
+		cfg.Search.Fields = []string{"name"}
+	})
+
+	plan, err := BuildQueryPlan(ListOptions{
+		Search: "explicit",
+		Predicates: []Predicate{
+			{Field: "q", Operator: OperatorEq, Values: []string{"predicate"}},
+		},
+		Filters: map[string]any{"search": "filter"},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "explicit", plan.Metadata.Search)
+	assert.Empty(t, plan.Filters)
+
+	plan, err = BuildQueryPlan(ListOptions{
+		Predicates: []Predicate{
+			{Field: "q", Operator: OperatorEq, Values: []string{"first"}},
+			{Field: "_search", Operator: OperatorEq, Values: []string{"second"}},
+		},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "first", plan.Metadata.Search)
+	assert.Empty(t, plan.Filters)
+
+	plan, err = BuildQueryPlan(ListOptions{
+		Filters: map[string]any{
+			"q":      "third",
+			"search": "second",
+		},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "second", plan.Metadata.Search)
+	assert.Empty(t, plan.Filters)
+
+	plan, err = BuildQueryPlan(ListOptions{
+		Predicates: []Predicate{
+			{Field: "status", Operator: OperatorEq, Values: []string{"active"}},
+		},
+		Filters: map[string]any{"q": "filter-after-predicate"},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "filter-after-predicate", plan.Metadata.Search)
+	assert.NotEmpty(t, plan.Filters)
 }
 
 func TestPlanListCriteriaOrder(t *testing.T) {
@@ -130,7 +177,7 @@ func TestBuildQueryPlan_FilterOnlyCallersCanOmitPaginationAndOrder(t *testing.T)
 		Filters: map[string]any{
 			"status__or": "active,pending",
 		},
-	}, Config{AllowedFields: filterAllowedFields()})
+	}, filterConfig())
 	require.NoError(t, err)
 	require.NotEmpty(t, plan.Filters)
 
@@ -151,7 +198,7 @@ func TestBuildQueryPlan_UnsupportedRemainsAvailable(t *testing.T) {
 			"name__unknown": "Alice",
 			"bad":           map[string]string{"value": "shape"},
 		},
-	}, Config{AllowedFields: filterAllowedFields()})
+	}, filterConfig())
 	require.NoError(t, err)
 	assert.Empty(t, plan.Filters)
 	assert.ElementsMatch(t, []UnsupportedPredicate{
@@ -166,8 +213,8 @@ func TestBuildQueryPlan_StrictErrorReturnsPlanWithUnsupported(t *testing.T) {
 			"name__unknown": "Alice",
 		},
 	}, Config{
-		AllowedFields:    filterAllowedFields(),
-		StrictValidation: true,
+		Fields:     FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
+		Validation: ValidationConfig{Mode: ValidationStrict},
 	})
 	require.Error(t, err)
 	assert.Equal(t, []UnsupportedPredicate{

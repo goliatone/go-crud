@@ -29,7 +29,7 @@ func TestBuildFilterCriteriaFromPredicates_FilterOnly(t *testing.T) {
 	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
 		{Field: "age", Operator: "gte", Values: []string{"30"}},
 		{Field: "status", Operator: "in", Values: []string{"active", "pending"}},
-	}, Config{AllowedFields: filterAllowedFields()})
+	}, filterConfig())
 	require.NoError(t, err)
 	assert.Empty(t, unsupported)
 	require.NotEmpty(t, criteria)
@@ -46,13 +46,161 @@ func TestBuildFilterCriteriaFromPredicates_AndOrOperators(t *testing.T) {
 	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
 		{Field: "status", Operator: "or", Values: []string{"active", "pending"}},
 		{Field: "name", Operator: "and", Values: []string{"Alice"}},
-	}, Config{AllowedFields: filterAllowedFields()})
+	}, filterConfig())
 	require.NoError(t, err)
 	assert.Empty(t, unsupported)
 
 	rows := executeFilterUserCriteria(t, db, criteria)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func TestBuildFilterCriteriaFromPredicates_SemanticOperators(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "status", Operator: "nin", Values: []string{"active", "pending"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Bob", rows[0].Name)
+
+	criteria, unsupported, err = BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "status", Operator: "$neq", Values: []string{"inactive"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+	rows = executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"Alice", "Carol"}, []string{rows[0].Name, rows[1].Name})
+}
+
+func TestBuildFilterCriteriaFromPredicates_ContainsEscapesLiterals(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+	_, err := db.NewInsert().Model(&filterUser{ID: 4, Name: "A%ice", Age: 50, Status: "active"}).Exec(context.Background())
+	require.NoError(t, err)
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "name", Operator: "contains", Values: []string{"A%"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "A%ice", rows[0].Name)
+}
+
+func TestBuildFilterCriteriaFromPredicates_RawLikeAndILike(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+	_, err := db.NewInsert().Model(&filterUser{ID: 4, Name: "A%ice", Age: 50, Status: "active"}).Exec(context.Background())
+	require.NoError(t, err)
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "name", Operator: "like", Values: []string{"A%"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"Alice", "A%ice"}, []string{rows[0].Name, rows[1].Name})
+
+	criteria, unsupported, err = BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "name", Operator: "ilike", Values: []string{"AL%"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+	rows = executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func TestBuildFilterCriteriaFromPredicates_ContainsMultiValueUsesOr(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "name", Operator: "contains", Values: []string{"li", "ro"}},
+	}, filterConfig())
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"Alice", "Carol"}, []string{rows[0].Name, rows[1].Name})
+}
+
+func TestBuildFilterCriteriaFromPredicates_CustomFieldBuilder(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	cfg := filterConfig(func(cfg *Config) {
+		cfg.Predicates.Fields = map[string]PredicateBuilder{
+			"app_role": PredicateBuilderFunc(func(in PredicateBuilderInput) (PredicateBuilderResult, error) {
+				if in.Operator.Canonical != OperatorEq {
+					return PredicateUnhandled(), nil
+				}
+				return PredicateHandled(in.Helpers.Compare("status", "=", in.Values)), nil
+			}),
+		}
+	})
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "app_role", Operator: OperatorEq, Values: []string{"active"}},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func TestBuildFilterCriteriaFromPredicates_CustomOperatorBuilderPrecedesBuiltin(t *testing.T) {
+	db := setupQueryBunDB(t)
+	seedFilterUsers(t, db)
+
+	cfg := filterConfig(func(cfg *Config) {
+		cfg.Predicates.Operators = map[OperatorKind]PredicateBuilder{
+			OperatorEq: PredicateBuilderFunc(func(in PredicateBuilderInput) (PredicateBuilderResult, error) {
+				return PredicateHandled(in.Helpers.Compare(in.Field.SQLName(), "<>", in.Values)), nil
+			}),
+		}
+	})
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "status", Operator: OperatorEq, Values: []string{"inactive"}},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, unsupported)
+
+	rows := executeFilterUserCriteria(t, db, criteria)
+	require.Len(t, rows, 2)
+	assert.Equal(t, []string{"Alice", "Carol"}, []string{rows[0].Name, rows[1].Name})
+}
+
+func TestBuildFilterCriteriaFromPredicates_UnhandledCustomBuilderMetadata(t *testing.T) {
+	cfg := filterConfig(func(cfg *Config) {
+		cfg.Predicates.Fields = map[string]PredicateBuilder{
+			"app_role": PredicateBuilderFunc(func(PredicateBuilderInput) (PredicateBuilderResult, error) {
+				return PredicateUnhandled(), nil
+			}),
+		}
+	})
+
+	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
+		{Field: "app_role", Operator: OperatorEq, Values: []string{"active"}},
+	}, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, criteria)
+	assert.Equal(t, []UnsupportedPredicate{
+		{Field: "app_role", Operator: OperatorEq, Reason: UnsupportedUnhandledPredicate},
+	}, unsupported)
 }
 
 func TestBuildFilterCriteriaFromPredicates_UnsupportedMetadata(t *testing.T) {
@@ -63,7 +211,7 @@ func TestBuildFilterCriteriaFromPredicates_UnsupportedMetadata(t *testing.T) {
 	}
 
 	criteria, unsupported, err := BuildFilterCriteriaFromPredicates(predicates, Config{
-		AllowedFields: filterAllowedFields(),
+		Fields: FieldConfig{Resolver: NewMapResolver(filterAllowedFields())},
 	})
 	require.NoError(t, err)
 	assert.Empty(t, criteria)
@@ -77,10 +225,9 @@ func TestBuildFilterCriteriaFromPredicates_UnsupportedMetadata(t *testing.T) {
 func TestBuildFilterCriteriaFromPredicates_StrictUnsupportedOperator(t *testing.T) {
 	_, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
 		{Field: "name", Operator: "unknown", Values: []string{"Alice"}, RawKey: "name__unknown", RawValue: "Alice"},
-	}, Config{
-		AllowedFields:    filterAllowedFields(),
-		StrictValidation: true,
-	})
+	}, filterConfig(func(cfg *Config) {
+		cfg.Validation.Mode = ValidationStrict
+	}))
 	require.Error(t, err)
 	assert.Equal(t, []UnsupportedPredicate{
 		{Field: "name", Operator: "unknown", RawKey: "name__unknown", RawValue: "Alice", Reason: UnsupportedOperator},
@@ -113,22 +260,15 @@ func TestNormalizePredicatesWithUnsupported_ValueShapes(t *testing.T) {
 	}, unsupported)
 }
 
-func TestBuildFilterCriteriaFromPredicates_LegacyOperatorFallback(t *testing.T) {
-	db := setupQueryBunDB(t)
-	seedFilterUsers(t, db)
-
+func TestBuildFilterCriteriaFromPredicates_UnknownOperatorDoesNotFallbackToEquality(t *testing.T) {
 	criteria, unsupported, err := BuildFilterCriteriaFromPredicates([]Predicate{
 		{Field: "name", Operator: "unknown", Values: []string{"Alice"}},
-	}, Config{
-		AllowedFields:                filterAllowedFields(),
-		FallbackUnsupportedOperators: true,
-	})
+	}, filterConfig())
 	require.NoError(t, err)
-	assert.Empty(t, unsupported)
-
-	rows := executeFilterUserCriteria(t, db, criteria)
-	require.Len(t, rows, 1)
-	assert.Equal(t, "Alice", rows[0].Name)
+	assert.Empty(t, criteria)
+	assert.Equal(t, []UnsupportedPredicate{
+		{Field: "name", Operator: "unknown", Reason: UnsupportedOperator},
+	}, unsupported)
 }
 
 func setupQueryBunDB(t *testing.T) *bun.DB {
@@ -180,4 +320,13 @@ func filterAllowedFields() map[string]string {
 		"age":    "age",
 		"status": "status",
 	}
+}
+
+func filterConfig(mutators ...func(*Config)) Config {
+	cfg := DefaultConfig()
+	cfg.Fields.Resolver = NewMapResolver(filterAllowedFields())
+	for _, mutate := range mutators {
+		mutate(&cfg)
+	}
+	return cfg
 }

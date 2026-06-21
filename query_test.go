@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	querybun "github.com/goliatone/go-crud/pkg/go-query-bun"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -335,7 +336,6 @@ func setupTestDB(t *testing.T) *bun.DB {
 }
 
 func TestBuildQueryCriteria(t *testing.T) {
-	SetOperatorMap(DefaultOperatorMap())
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -586,8 +586,6 @@ func TestFieldMapProviderNestedRelations(t *testing.T) {
 }
 
 func TestBuildQueryCriteria_Filters(t *testing.T) {
-	SetOperatorMap(DefaultOperatorMap())
-
 	tests := []struct {
 		name            string
 		queryParams     map[string]string
@@ -747,8 +745,6 @@ func TestBuildQueryCriteriaRepeatedIncludeParams(t *testing.T) {
 }
 
 func TestBuildQueryCriteria_OpReadSkipsListCriteria(t *testing.T) {
-	SetOperatorMap(DefaultOperatorMap())
-
 	ctx := newMockContextWithQuery(map[string]string{
 		"limit":   "1",
 		"offset":  "2",
@@ -876,7 +872,6 @@ func TestStrictQueryValidation_AppliesToHTTPAndTypedBuilders(t *testing.T) {
 }
 
 func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
-	SetOperatorMap(DefaultOperatorMap())
 	db := setupTestDB(t)
 	defer db.Close()
 	seedQueryUsers(t, db)
@@ -919,9 +914,6 @@ func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
 }
 
 func TestBuildListCriteriaFromOptions_SearchCompatibility(t *testing.T) {
-	defer SetOperatorMap(DefaultOperatorMap())
-	SetOperatorMap(DefaultOperatorMap())
-
 	db := setupTestDB(t)
 	defer db.Close()
 	seedQueryUsers(t, db)
@@ -979,8 +971,20 @@ func TestBuildListCriteriaFromOptions_IncludesRelations(t *testing.T) {
 	assert.Equal(t, "active", filters.Relations[0].Filters[0].Value)
 }
 
+func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorErrors(t *testing.T) {
+	_, _, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
+		Include: []string{"Profile.status__unknown=active"},
+	})
+	require.Error(t, err)
+
+	var validationErr *QueryValidationError
+	require.True(t, errors.As(err, &validationErr))
+	assert.Equal(t, QueryValidationUnsupportedOperator, validationErr.Code)
+	assert.Equal(t, "status", validationErr.Field)
+	assert.Equal(t, "unknown", validationErr.Operator)
+}
+
 func TestBuildQueryCriteria_SearchNoColumnsNoOp(t *testing.T) {
-	SetOperatorMap(DefaultOperatorMap())
 	db := setupTestDB(t)
 	defer db.Close()
 	seedQueryUsers(t, db)
@@ -1013,20 +1017,15 @@ func TestBuildQueryCriteria_StrictSearchColumns(t *testing.T) {
 }
 
 func TestBuildListCriteriaFromOptions_CanonicalOperatorsWorkWithCustomAliases(t *testing.T) {
-	defer SetOperatorMap(DefaultOperatorMap())
-	SetOperatorMap(map[string]string{
-		"$eq": "=",
-	})
-
 	db := setupTestDB(t)
 	defer db.Close()
 	seedQueryUsers(t, db)
 
 	criteria, _, err := BuildListCriteriaFromOptions[TestUser](ListQueryOptions{
 		Predicates: []ListQueryPredicate{
-			{Field: "name", Operator: "eq", Values: []string{"Alice"}},
+			{Field: "name", Operator: "$same", Values: []string{"Alice"}},
 		},
-	})
+	}, WithOperatorSet(querybun.DefaultOperatorSet().WithAlias("$same", querybun.OperatorEq)))
 	require.NoError(t, err)
 
 	rows := executeUserCriteria(t, db, criteria)

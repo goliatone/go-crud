@@ -47,7 +47,7 @@ func TestBuildQueryCriteria_VirtualFieldFilterAndOrder(t *testing.T) {
 	}
 
 	sqlStr := q.String()
-	assert.Contains(t, sqlStr, "json_extract(metadata, '$.author') ILIKE 'john'")
+	assert.Contains(t, sqlStr, "LOWER(json_extract(metadata, '$.author')) LIKE LOWER('john')")
 	assert.Contains(t, sqlStr, "ORDER BY json_extract(metadata, '$.author') ASC")
 }
 
