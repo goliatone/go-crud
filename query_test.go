@@ -337,7 +337,7 @@ func setupTestDB(t *testing.T) *bun.DB {
 
 func TestBuildQueryCriteria(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	if err := db.ResetModel(ctx, (*TestUser)(nil)); err != nil {
@@ -766,7 +766,7 @@ func TestBuildQueryCriteria_OpReadSkipsListCriteria(t *testing.T) {
 	assert.ElementsMatch(t, []string{"Profiles"}, filters.Include)
 
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	query := db.NewSelect().Model((*TestUser)(nil))
 	for _, criterion := range criteria {
@@ -873,7 +873,7 @@ func TestStrictQueryValidation_AppliesToHTTPAndTypedBuilders(t *testing.T) {
 
 func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 	seedQueryUsers(t, db)
 
 	ctx := newMockContextWithQuery(map[string]string{
@@ -915,7 +915,7 @@ func TestBuildListCriteriaFromOptions_ParityWithQueryContext(t *testing.T) {
 
 func TestBuildListCriteriaFromOptions_SearchCompatibility(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 	seedQueryUsers(t, db)
 
 	tests := []struct {
@@ -971,10 +971,22 @@ func TestBuildListCriteriaFromOptions_IncludesRelations(t *testing.T) {
 	assert.Equal(t, "active", filters.Relations[0].Filters[0].Value)
 }
 
-func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorErrors(t *testing.T) {
-	_, _, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
+func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorCollectSkipsFilter(t *testing.T) {
+	criteria, filters, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
 		Include: []string{"Profile.status__unknown=active"},
 	})
+	require.NoError(t, err)
+	require.NotNil(t, filters)
+	require.NotEmpty(t, criteria)
+
+	assert.Equal(t, []string{"Profile"}, filters.Include)
+	assert.Empty(t, filters.Relations)
+}
+
+func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorStrictErrors(t *testing.T) {
+	_, _, err := BuildListCriteriaFromOptions[TestModel](ListQueryOptions{
+		Include: []string{"Profile.status__unknown=active"},
+	}, WithStrictQueryValidation(true))
 	require.Error(t, err)
 
 	var validationErr *QueryValidationError
@@ -986,7 +998,7 @@ func TestBuildListCriteriaFromOptions_IncludeUnsupportedOperatorErrors(t *testin
 
 func TestBuildQueryCriteria_SearchNoColumnsNoOp(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 	seedQueryUsers(t, db)
 
 	ctx := newMockContextWithQuery(map[string]string{
@@ -1018,7 +1030,7 @@ func TestBuildQueryCriteria_StrictSearchColumns(t *testing.T) {
 
 func TestBuildListCriteriaFromOptions_CanonicalOperatorsWorkWithCustomAliases(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 	seedQueryUsers(t, db)
 
 	criteria, _, err := BuildListCriteriaFromOptions[TestUser](ListQueryOptions{
@@ -1031,6 +1043,33 @@ func TestBuildListCriteriaFromOptions_CanonicalOperatorsWorkWithCustomAliases(t 
 	rows := executeUserCriteria(t, db, criteria)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "Alice", rows[0].Name)
+}
+
+func TestSetOperatorMapDefaultRoundTripPreservesSemanticOperators(t *testing.T) {
+	previous := operatorSet
+	t.Cleanup(func() {
+		operatorSet = previous
+	})
+
+	SetOperatorMap(DefaultOperatorMap())
+
+	operator, ok := operatorSet.Resolve("contains")
+	require.True(t, ok)
+	assert.Equal(t, querybun.OperatorContains, operator.Canonical)
+	assert.Equal(t, querybun.PatternContainsEscaped, operator.Spec.Pattern.Mode)
+}
+
+func TestSetOperatorMapCustomSQLStillResolvesBySQL(t *testing.T) {
+	previous := operatorSet
+	t.Cleanup(func() {
+		operatorSet = previous
+	})
+
+	SetOperatorMap(map[string]string{"like": "ILIKE"})
+
+	operator, ok := operatorSet.Resolve("like")
+	require.True(t, ok)
+	assert.Equal(t, querybun.OperatorILike, operator.Canonical)
 }
 
 func seedQueryUsers(t *testing.T, db *bun.DB) {

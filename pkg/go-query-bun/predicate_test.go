@@ -80,6 +80,24 @@ func TestNormalizePredicates_SyntaxDecoders(t *testing.T) {
 	}, predicates)
 }
 
+func TestNormalizePredicates_ReservedKeysAreIgnored(t *testing.T) {
+	predicates, unsupported := NormalizePredicatesWithUnsupported(ListOptions{
+		Filters: map[string]any{
+			"limit":      "10",
+			"limit__gte": "5",
+			"order":      "name desc",
+			"select":     "id,name",
+			"include":    "Profile",
+			"name":       "Alice",
+		},
+	}, DefaultConfig())
+
+	assert.Empty(t, unsupported)
+	assert.Equal(t, []Predicate{
+		{Field: "name", Operator: OperatorEq, Values: []string{"Alice"}, RawKey: "name", RawValue: "Alice"},
+	}, predicates)
+}
+
 func TestNormalizePredicates_CustomDelimiterAndAlias(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Syntax.PredicateDelimiter = "::"

@@ -202,17 +202,43 @@ func insertTestUsers(t *testing.T, db *bun.DB, users ...*TestUser) {
 	}
 }
 
+func closeTestResource(t *testing.T, resource interface{ Close() error }) {
+	t.Helper()
+	require.NoError(t, resource.Close())
+}
+
+func newTestRequest(method, target string, body io.Reader) *http.Request {
+	return httptest.NewRequestWithContext(context.Background(), method, target, body)
+}
+
+type testHTTPResponse struct {
+	StatusCode int
+	Body       io.ReadCloser
+	Header     http.Header
+}
+
+func testAppRequest(t *testing.T, app *fiber.App, req *http.Request) *testHTTPResponse {
+	t.Helper()
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	return &testHTTPResponse{
+		StatusCode: resp.StatusCode,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     resp.Header.Clone(),
+	}
+}
+
 func TestController_Schema_ReturnsOpenAPIDocument(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
+	req := newTestRequest(http.MethodGet, "/test-user/schema", nil)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -364,11 +390,10 @@ func TestController_SchemaIncludesAdminExtensions(t *testing.T) {
 		WithAdminMenuMetadata[*TestUser](menu),
 		WithRowFilterHints[*TestUser](rowFilters...),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodGet, "/test-user/schema", nil)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var doc map[string]any
@@ -417,7 +442,7 @@ func TestSchemaRegistryStoresEntries(t *testing.T) {
 	resetSchemaRegistry()
 
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 	_ = app
 
 	entries := ListSchemas()
@@ -435,7 +460,7 @@ func TestSchemaRegistryStoresEntries(t *testing.T) {
 
 func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -460,9 +485,8 @@ func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 	_, err = db.NewInsert().Model(profile).Exec(ctx)
 	require.NoError(t, err)
 
-	schemaReq := httptest.NewRequest(http.MethodGet, "/test-user/schema", nil)
-	schemaResp, err := app.Test(schemaReq, -1)
-	require.NoError(t, err)
+	schemaReq := newTestRequest(http.MethodGet, "/test-user/schema", nil)
+	schemaResp := testAppRequest(t, app, schemaReq)
 	require.Equal(t, http.StatusOK, schemaResp.StatusCode)
 
 	var schemaDoc map[string]any
@@ -508,9 +532,8 @@ func TestController_RelationMetadataMatchesSchema(t *testing.T) {
 		}
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/test-users?include=profiles.bio__eq=Remote", nil)
-	listResp, err := app.Test(listReq, -1)
-	require.NoError(t, err)
+	listReq := newTestRequest(http.MethodGet, "/test-users?include=profiles.bio__eq=Remote", nil)
+	listResp := testAppRequest(t, app, listReq)
 	require.Equal(t, http.StatusOK, listResp.StatusCode)
 
 	var listResponse APIListResponse[TestUser]
@@ -539,26 +562,14 @@ func stringify(value any) string {
 	return fmt.Sprint(value)
 }
 
-func printBody(t *testing.T, resp *http.Response) {
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
-	fmt.Printf("Response Body: %s\n", string(bodyBytes))
-	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-}
-
 func TestController_GetUser_NotFound(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
+	req := newTestRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.Contains(t, resp.Header.Get("Content-Type"), "application/problem+json")
@@ -581,13 +592,12 @@ func TestController_GetUser_NotFound(t *testing.T) {
 
 func TestController_GetUser_NotFound_LegacyEncoder(t *testing.T) {
 	app, db := setupApp(t, WithErrorEncoder[*TestUser](LegacyJSONErrorEncoder()))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
+	req := newTestRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.Contains(t, resp.Header.Get("Content-Type"), "application/json")
@@ -600,7 +610,7 @@ func TestController_GetUser_NotFound_LegacyEncoder(t *testing.T) {
 
 func TestController_CreateUser(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	user := map[string]any{
 		"name":     "John Doe",
@@ -613,13 +623,10 @@ func TestController_CreateUser(t *testing.T) {
 		t.Fatalf("Failed to marshal user: %v", err)
 	}
 
-	req := httptest.NewRequest("POST", "/test-user", bytes.NewReader(body))
+	req := newTestRequest("POST", "/test-user", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -650,7 +657,7 @@ func TestController_Create_DelegatesToService(t *testing.T) {
 	}
 
 	app, db := setupApp(t, opt)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	user := map[string]any{
 		"name":     "Service User",
@@ -663,13 +670,10 @@ func TestController_Create_DelegatesToService(t *testing.T) {
 		t.Fatalf("Failed to marshal user: %v", err)
 	}
 
-	req := httptest.NewRequest("POST", "/test-user", bytes.NewReader(body))
+	req := newTestRequest("POST", "/test-user", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	assert.True(t, called, "expected service override to be invoked")
@@ -691,7 +695,7 @@ func TestController_Create_DelegatesToService(t *testing.T) {
 
 func TestController_GetUser(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create a user in the database
 	ctx := context.Background()
@@ -709,13 +713,10 @@ func TestController_GetUser(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/test-user/%s", user.ID.String()), nil)
+	req := newTestRequest("GET", fmt.Sprintf("/test-user/%s", user.ID.String()), nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -732,7 +733,7 @@ func TestController_GetUser(t *testing.T) {
 
 func TestController_ListUsers(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create multiple users
 	ctx := context.Background()
@@ -752,17 +753,15 @@ func TestController_ListUsers(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest("GET", "/test-users", nil)
+	req := newTestRequest("GET", "/test-users", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	// Debug: Print response body if status is not OK
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		require.NoError(t, readErr)
 		t.Logf("Response status: %d, body: %s", resp.StatusCode, string(body))
 		resp.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
 	}
@@ -789,7 +788,7 @@ func TestController_ListUsers(t *testing.T) {
 
 func TestController_ListUsers_FormatOptions(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -810,13 +809,10 @@ func TestController_ListUsers_FormatOptions(t *testing.T) {
 		expected[user.ID.String()] = user.Name
 	}
 
-	req := httptest.NewRequest("GET", "/test-users?format=options", nil)
+	req := newTestRequest("GET", "/test-users?format=options", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -848,7 +844,7 @@ func TestController_Index_DelegatesToService(t *testing.T) {
 	}
 
 	app, db := setupApp(t, opt)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -864,13 +860,10 @@ func TestController_Index_DelegatesToService(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/test-users", nil)
+	req := newTestRequest("GET", "/test-users", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.True(t, called, "expected service override to be invoked for index")
@@ -878,7 +871,7 @@ func TestController_Index_DelegatesToService(t *testing.T) {
 
 func TestController_CreateBatch_FormatOptions(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	now := time.Now().UTC()
 	payload := []map[string]any{
@@ -901,11 +894,10 @@ func TestController_CreateBatch_FormatOptions(t *testing.T) {
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/test-user/batch?format=options", bytes.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user/batch?format=options", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var options []optionResponse
@@ -928,7 +920,7 @@ func TestController_CreateBatch_FormatOptions(t *testing.T) {
 
 func TestController_DeleteBatch_AcceptsIDArray(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -957,11 +949,10 @@ func TestController_DeleteBatch_AcceptsIDArray(t *testing.T) {
 	body, err := json.Marshal(ids)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodDelete, "/test-user/batch", bytes.NewReader(body))
+	req := newTestRequest(http.MethodDelete, "/test-user/batch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	_, err = repo.GetByID(ctx, user1.ID.String())
@@ -972,7 +963,7 @@ func TestController_DeleteBatch_AcceptsIDArray(t *testing.T) {
 
 func TestController_UpdateUser(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create a user
 	ctx := context.Background()
@@ -999,13 +990,10 @@ func TestController_UpdateUser(t *testing.T) {
 		t.Fatalf("Failed to marshal updated data: %v", err)
 	}
 
-	req := httptest.NewRequest("PUT", fmt.Sprintf("/test-user/%s", user.ID.String()), bytes.NewReader(body))
+	req := newTestRequest("PUT", fmt.Sprintf("/test-user/%s", user.ID.String()), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1021,7 +1009,7 @@ func TestController_UpdateUser(t *testing.T) {
 
 func TestController_DeleteUser(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create a user
 	ctx := context.Background()
@@ -1039,13 +1027,10 @@ func TestController_DeleteUser(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 
-	req := httptest.NewRequest("DELETE", fmt.Sprintf("/test-user/%s", user.ID.String()), nil)
+	req := newTestRequest("DELETE", fmt.Sprintf("/test-user/%s", user.ID.String()), nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
@@ -1056,7 +1041,7 @@ func TestController_DeleteUser(t *testing.T) {
 
 func TestController_ListUsers_NoFilters(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create users with different names and emails
 	ctx := context.Background()
@@ -1074,13 +1059,10 @@ func TestController_ListUsers_NoFilters(t *testing.T) {
 	}
 
 	// List all users without filters
-	req := httptest.NewRequest("GET", "/test-users", nil)
+	req := newTestRequest("GET", "/test-users", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1111,7 +1093,7 @@ func TestController_ListUsers_NoFilters(t *testing.T) {
 
 func TestController_ListUsers_WithFilters(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create users with different names and emails
 	ctx := context.Background()
@@ -1129,17 +1111,15 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 	}
 
 	// Intermediate check: List all users without filters
-	reqAll := httptest.NewRequest("GET", "/test-users", nil)
+	reqAll := newTestRequest("GET", "/test-users", nil)
 	reqAll.Header.Set("Content-Type", "application/json")
 
-	respAll, err := app.Test(reqAll, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	respAll := testAppRequest(t, app, reqAll)
 
 	// Debug: Print response body if status is not OK
 	if respAll.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(respAll.Body)
+		body, readErr := io.ReadAll(respAll.Body)
+		require.NoError(t, readErr)
 		t.Logf("Response status: %d, body: %s", respAll.StatusCode, string(body))
 		respAll.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
 	}
@@ -1158,17 +1138,15 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 	}
 
 	// Now, filter users where name is 'Bob'
-	req := httptest.NewRequest("GET", "/test-users?name=Bob", nil)
+	req := newTestRequest("GET", "/test-users?name=Bob", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	// Debug: Print response body if status is not OK
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		require.NoError(t, readErr)
 		t.Logf("Response status: %d, body: %s", resp.StatusCode, string(body))
 		resp.Body = io.NopCloser(bytes.NewReader(body)) // Reset body for further reading
 	}
@@ -1191,7 +1169,7 @@ func TestController_ListUsers_WithFilters(t *testing.T) {
 
 func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -1408,13 +1386,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			url := "/test-users" + tt.query
-			req := httptest.NewRequest("GET", url, nil)
+			req := newTestRequest("GET", url, nil)
 			req.Header.Set("Content-Type", "application/json")
 
-			resp, err := app.Test(req, -1)
-			if err != nil {
-				t.Fatalf("Failed to perform request: %v", err)
-			}
+			resp := testAppRequest(t, app, req)
 
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 
@@ -1449,13 +1424,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 	// Edge case tests
 	t.Run("Filter with empty value", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/test-users?name__eq=", nil)
+		req := newTestRequest("GET", "/test-users?name__eq=", nil)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := app.Test(req, -1)
-		if err != nil {
-			t.Fatalf("Failed to perform request: %v", err)
-		}
+		resp := testAppRequest(t, app, req)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1473,13 +1445,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 	})
 
 	t.Run("Filter with multiple OR operators on different fields", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/test-users?name__or=Alice,Bob&email__or=charlie@sample.com", nil)
+		req := newTestRequest("GET", "/test-users?name__or=Alice,Bob&email__or=charlie@sample.com", nil)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := app.Test(req, -1)
-		if err != nil {
-			t.Fatalf("Failed to perform request: %v", err)
-		}
+		resp := testAppRequest(t, app, req)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1500,13 +1469,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 	})
 
 	t.Run("Filter with invalid UUID in parameter", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/test-users?id__eq=invalid-uuid", nil)
+		req := newTestRequest("GET", "/test-users?id__eq=invalid-uuid", nil)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := app.Test(req, -1)
-		if err != nil {
-			t.Fatalf("Failed to perform request: %v", err)
-		}
+		resp := testAppRequest(t, app, req)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1527,13 +1493,10 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 		encodedInjection := url.QueryEscape(injection)
 
 		reqURL := "/test-users?name__or=" + encodedInjection
-		req := httptest.NewRequest("GET", reqURL, nil)
+		req := newTestRequest("GET", reqURL, nil)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := app.Test(req, -1)
-		if err != nil {
-			t.Fatalf("Failed to perform request: %v", err)
-		}
+		resp := testAppRequest(t, app, req)
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1552,7 +1515,7 @@ func TestController_ListUsers_WithExhaustiveFilters(t *testing.T) {
 
 func TestController_ListUsers_WithPagination(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Create 30 users
 	ctx := context.Background()
@@ -1573,13 +1536,10 @@ func TestController_ListUsers_WithPagination(t *testing.T) {
 	}
 
 	// Request with limit and offset
-	req := httptest.NewRequest("GET", "/test-users?limit=10&offset=10", nil)
+	req := newTestRequest("GET", "/test-users?limit=10&offset=10", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1595,7 +1555,7 @@ func TestController_ListUsers_WithPagination(t *testing.T) {
 
 func TestController_ListUsers_AdjustsOutOfRangeOffset(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	repo := newTestUserRepository(db)
@@ -1614,13 +1574,10 @@ func TestController_ListUsers_AdjustsOutOfRangeOffset(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest("GET", "/test-users?limit=10&offset=20", nil)
+	req := newTestRequest("GET", "/test-users?limit=10&offset=20", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1642,15 +1599,12 @@ func TestController_ListUsers_AdjustsOutOfRangeOffset(t *testing.T) {
 
 func TestController_ListUsers_AdjustsOffsetWhenEmpty(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest("GET", "/test-users?limit=10&offset=20", nil)
+	req := newTestRequest("GET", "/test-users?limit=10&offset=20", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1672,16 +1626,13 @@ func TestController_ListUsers_AdjustsOffsetWhenEmpty(t *testing.T) {
 
 func TestController_UnauthorizedFieldAccess(t *testing.T) {
 	app, db := setupApp(t)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	// Attempt to filter by 'password' field, which is not allowed
-	req := httptest.NewRequest("GET", "/test-users?password=secret", nil)
+	req := newTestRequest("GET", "/test-users?password=secret", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -1775,7 +1726,7 @@ func TestRegisterRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
-	defer sqldb.Close()
+	defer closeTestResource(t, sqldb)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
@@ -1843,7 +1794,7 @@ func TestRegisterRoutesWithBatchRouteSegment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
-	defer sqldb.Close()
+	defer closeTestResource(t, sqldb)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
@@ -1904,7 +1855,7 @@ func TestRegisterRoutesWithDisabledOperation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
-	defer sqldb.Close()
+	defer closeTestResource(t, sqldb)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
@@ -1944,7 +1895,7 @@ func TestRegisterRoutesWithMethodOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
-	defer sqldb.Close()
+	defer closeTestResource(t, sqldb)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 
@@ -2005,16 +1956,13 @@ func TestLifecycleHooks_Create(t *testing.T) {
 	}
 
 	app, repo, db := setupAppWithHooks(t, hooks)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	body := `{"name":"original","email":"hooks@example.com","password":"secret","age":10}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", bytes.NewBufferString(body))
+	req := newTestRequest(http.MethodPost, "/test-user", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("Failed to perform request: %v", err)
-	}
+	resp := testAppRequest(t, app, req)
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -2051,7 +1999,7 @@ func TestControllerWithService_UsesServiceHooksAndMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	ctx := context.Background()
 	require.NoError(t, createSchema(ctx, db))
@@ -2083,11 +2031,10 @@ func TestControllerWithService_UsesServiceHooksAndMetadata(t *testing.T) {
 	controller.RegisterRoutes(router)
 
 	body := `{"name":"original","email":"hooks-service@example.com","password":"secret","age":10}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var created TestUser
@@ -2205,7 +2152,7 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 			return checker
 		}),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	userOne := &TestUser{
 		ID:       uuid.New(),
@@ -2224,29 +2171,25 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 	insertTestUsers(t, db, userOne, userTwo)
 
 	createBody := `{"name":"Created","email":"created@example.com","password":"secret","age":30}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(createBody))
+	req := newTestRequest(http.MethodPost, "/test-user", strings.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created TestUser
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
 
-	req = httptest.NewRequest(http.MethodGet, "/test-users", nil)
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	req = newTestRequest(http.MethodGet, "/test-users", nil)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", userOne.ID.String()), nil)
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	req = newTestRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", userOne.ID.String()), nil)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	updateBody := `{"name":"Updated","email":"updated@example.com","password":"secret","age":31}`
-	req = httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", userOne.ID.String()), strings.NewReader(updateBody))
+	req = newTestRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", userOne.ID.String()), strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	updateBatchPayload := []map[string]any{
@@ -2267,10 +2210,9 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 	}
 	buf, err := json.Marshal(updateBatchPayload)
 	require.NoError(t, err)
-	req = httptest.NewRequest(http.MethodPut, "/test-user/batch", bytes.NewBuffer(buf))
+	req = newTestRequest(http.MethodPut, "/test-user/batch", bytes.NewBuffer(buf))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	createBatchPayload := []map[string]any{
@@ -2289,18 +2231,16 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 	}
 	buf, err = json.Marshal(createBatchPayload)
 	require.NoError(t, err)
-	req = httptest.NewRequest(http.MethodPost, "/test-user/batch", bytes.NewBuffer(buf))
+	req = newTestRequest(http.MethodPost, "/test-user/batch", bytes.NewBuffer(buf))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var createdBatch APIListResponse[TestUser]
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&createdBatch))
 	require.Len(t, createdBatch.Data, 2)
 
-	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", created.ID.String()), nil)
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	req = newTestRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", created.ID.String()), nil)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	deleteBatchPayload := []map[string]any{
@@ -2309,10 +2249,9 @@ func TestController_ContextFactoryRunsForAllOperations(t *testing.T) {
 	}
 	buf, err = json.Marshal(deleteBatchPayload)
 	require.NoError(t, err)
-	req = httptest.NewRequest(http.MethodDelete, "/test-user/batch", bytes.NewBuffer(buf))
+	req = newTestRequest(http.MethodDelete, "/test-user/batch", bytes.NewBuffer(buf))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	resp = testAppRequest(t, app, req)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 	expectedOps := []CrudOperation{
@@ -2502,16 +2441,15 @@ func TestController_WithScopeGuardFiltersList(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	insertTestUsers(t, db,
 		&TestUser{Name: "Alice Johnson", Email: "alice@example.com"},
 		&TestUser{Name: "Bob Smith", Email: "bob@example.com"},
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/test-users", nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodGet, "/test-users", nil)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var payload map[string]any
@@ -2537,18 +2475,16 @@ func TestController_WithScopeGuardBlocksDeleteOutsideScope(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	insertTestUsers(t, db, alice, bob)
 
-	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", bob.ID), nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", bob.ID), nil)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 
-	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", alice.ID), nil)
-	resp, err = app.Test(req, -1)
-	require.NoError(t, err)
+	req = newTestRequest(http.MethodDelete, fmt.Sprintf("/test-user/%s", alice.ID), nil)
+	resp = testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
@@ -2574,7 +2510,7 @@ func TestController_HookContextIncludesGuardMetadata(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithLifecycleHooks(hooks), WithScopeGuard[*TestUser](guard))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	payload := map[string]any{
 		"name":  "Hooked User",
@@ -2584,13 +2520,12 @@ func TestController_HookContextIncludesGuardMetadata(t *testing.T) {
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/test-user", bytes.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", "req-123")
 	req.Header.Set("X-Correlation-ID", "corr-456")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	require.NotNil(t, captured.Context)
 	assert.Equal(t, "actor-hooks", captured.Actor.ActorID)
@@ -2612,11 +2547,10 @@ func TestController_ScopeGuardErrorSurfaces(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithScopeGuard[*TestUser](guard))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/test-users", nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodGet, "/test-users", nil)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 
 	var payload goerrors.ErrorResponse
@@ -2642,14 +2576,13 @@ func TestController_WithCommandServiceOverridesCreate(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithCommandService(commandFactory))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	body := `{"name":"original","email":"cmd@example.com","password":"secret"}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	assert.True(t, commandCalled, "command service should intercept create")
 
@@ -2682,11 +2615,10 @@ func TestController_ActionResourceRouteExecutesHandler(t *testing.T) {
 		WithActions(action),
 		WithScopeGuard[*TestUser](guard),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/test-user/%s/actions/deactivate", uuid.New()), nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodPost, fmt.Sprintf("/test-user/%s/actions/deactivate", uuid.New()), nil)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 	assert.True(t, invoked, "action handler should run")
 	assert.Equal(t, []CrudOperation{CrudOperation("action:deactivate")}, guardOps)
@@ -2706,11 +2638,10 @@ func TestController_ActionCollectionRouteExecutesHandler(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithActions(action))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodPost, "/test-users/actions/sync-all", nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodPost, "/test-users/actions/sync-all", nil)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.True(t, invoked)
 }
@@ -2731,17 +2662,16 @@ func TestSendNotificationHelperEmitsEvents(t *testing.T) {
 		WithLifecycleHooks(hooks),
 		WithNotificationEmitter[*TestUser](emitter),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	user := &TestUser{Name: "Notify User", Email: "notify@example.com"}
 	insertTestUsers(t, db, user)
 
 	body := fmt.Sprintf(`{"name":"Notify Updated","email":"%s","password":"secret"}`, user.Email)
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", user.ID), strings.NewReader(body))
+	req := newTestRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", user.ID), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	require.Len(t, emitter.events, 1)
@@ -2762,15 +2692,14 @@ func TestActivityHooksEmitterEmitsOnCreate(t *testing.T) {
 	app, db := setupApp(t,
 		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: true}),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	body := `{"name":"Emit Activity","email":"emit-hooks@example.com","password":"secret"}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", "activity-hooks-req")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	require.Len(t, capture.Events, 1)
@@ -2795,14 +2724,13 @@ func TestActivityHooksEmitterEmitsOnFailure(t *testing.T) {
 	app, db := setupApp(t,
 		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: true}),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
-	req := httptest.NewRequest(http.MethodPut, "/test-user/not-a-uuid", strings.NewReader(`{}`))
+	req := newTestRequest(http.MethodPut, "/test-user/not-a-uuid", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Request-ID", "activity-hooks-fail")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.NotEqual(t, http.StatusOK, resp.StatusCode)
 
 	require.Len(t, capture.Events, 1)
@@ -2824,14 +2752,13 @@ func TestActivityHooksEmitterDisabled(t *testing.T) {
 	app, db := setupApp(t,
 		WithActivityHooks[*TestUser](activity.Hooks{capture}, activity.Config{Enabled: false}),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	body := `{"name":"Emit Activity","email":"emit-hooks-disabled@example.com","password":"secret"}`
-	req := httptest.NewRequest(http.MethodPost, "/test-user", strings.NewReader(body))
+	req := newTestRequest(http.MethodPost, "/test-user", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	require.Empty(t, capture.Events)
@@ -2849,13 +2776,12 @@ func TestController_FieldPolicyRestrictsListFields(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithFieldPolicyProvider(provider))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	insertTestUsers(t, db, &TestUser{Name: "Policy User", Email: "policy@example.com"})
 
-	req := httptest.NewRequest(http.MethodGet, "/test-users?select=id,name,email", nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodGet, "/test-users?select=id,name,email", nil)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var payload map[string]any
@@ -2881,17 +2807,16 @@ func TestController_FieldPolicyRowFilterAppliesToUpdate(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithFieldPolicyProvider(provider))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	allowed := &TestUser{Name: "Allowed User", Email: "allowed@example.com"}
 	blocked := &TestUser{Name: "Blocked User", Email: "blocked@example.com"}
 	insertTestUsers(t, db, allowed, blocked)
 
 	body := `{"name":"Blocked Updated","email":"blocked@example.com"}`
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", blocked.ID), strings.NewReader(body))
+	req := newTestRequest(http.MethodPut, fmt.Sprintf("/test-user/%s", blocked.ID), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "row filter should block update outside policy")
 }
 
@@ -2914,14 +2839,13 @@ func TestController_FieldPolicyMasksShowFields(t *testing.T) {
 	}
 
 	app, db := setupApp(t, WithFieldPolicyProvider(provider))
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	user := &TestUser{Name: "Mask User", Email: "mask@example.com", Age: 42}
 	insertTestUsers(t, db, user)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", user.ID), nil)
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	req := newTestRequest(http.MethodGet, fmt.Sprintf("/test-user/%s", user.ID), nil)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var payload map[string]any

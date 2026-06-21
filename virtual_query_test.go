@@ -39,7 +39,7 @@ func TestBuildQueryCriteria_VirtualFieldFilterAndOrder(t *testing.T) {
 	sqldb, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	q := db.NewSelect().Model((*TestUser)(nil))
 	for _, c := range criteria {
@@ -67,7 +67,7 @@ func TestBuildQueryCriteria_VirtualFieldInOperator(t *testing.T) {
 	sqldb, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	q := db.NewSelect().Model((*TestUser)(nil))
 	for _, c := range criteria {

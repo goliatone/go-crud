@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -165,15 +164,14 @@ func TestControllerCommandBackedActionHandlerPreservesActionContext(t *testing.T
 		WithActions(action),
 		WithScopeGuard[*TestUser](guard),
 	)
-	defer db.Close()
+	defer closeTestResource(t, db)
 
 	id := uuid.New().String()
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/test-user/%s/actions/deactivate", id), nil)
+	req := newTestRequest(http.MethodPost, fmt.Sprintf("/test-user/%s/actions/deactivate", id), nil)
 	req.Header.Set(EnhancedRequestHeader, EnhancedRequestHeaderValue)
 	req.Header.Set("Accept", EnhancedMutationMediaType)
 
-	resp, err := app.Test(req, -1)
-	require.NoError(t, err)
+	resp := testAppRequest(t, app, req)
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	var payload struct {
