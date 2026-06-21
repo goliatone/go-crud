@@ -370,7 +370,7 @@ Once the guard runs, go-crud stores the resolved metadata on the standard contex
 Lifecycle hooks now receive the same information via `HookContext.Actor`, `HookContext.Scope`, `HookContext.RequestID`, and `HookContext.CorrelationID`, so emitters can log activity without reparsing headers. Request IDs are inferred automatically from `X-Request-ID`/`Request-ID` headers (or can be pre-populated by middleware using the helpers above).
 - `#/components/parameters/Order` – comma-separated ordering with optional direction (e.g. `name asc,created_at desc`).
 
-Additional filter parameters follow the `{field}__{operator}` convention emitted by the spec (for example: `?email__ilike=@example.com`, `?age__gte=21`, `?status__or=active,pending`). These placeholders in the OpenAPI document are a reminder that **any** model field can be paired with the supported operators (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`) to build expressive queries.
+Additional filter parameters follow the `{field}__{operator}` convention emitted by the spec (for example: `?email__ilike=@example.com`, `?age__gte=21`, `?status__or=active,pending`). These placeholders in the OpenAPI document are a reminder that model fields can be paired with the supported semantic operators (`eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `in`, `nin`, `like`, `ilike`, `contains`, `and`, `or`). Unknown operators are collected or rejected according to query validation mode; they do not fall back to equality.
 
 ### Typed List Criteria (Non-HTTP)
 
@@ -390,14 +390,15 @@ opts := crud.ListQueryOptions{
 criteria, filters, err := crud.BuildListCriteriaFromOptions[*User](
 	opts,
 	crud.WithSearchColumns("name", "email"),
-	crud.WithStrictQueryValidation(false), // keep current fallback behavior by default
+	crud.WithStrictQueryValidation(false),
 )
 ```
 
 Parity notes:
 
-- Typed and HTTP query builders share operator parsing, aliases (`SetOperatorMap`), and strict-mode validation.
-- `_search` is opt-in: configure searchable columns with `WithSearchColumns`.
+- Typed and HTTP query builders share semantic operators, field resolution, search config, and strict-mode validation.
+- Use `WithOperatorSet` for per-call operator aliases and `WithFieldResolver` when model-derived fields are not enough.
+- `_search`, `search`, and `q` aliases are recognized by the planner; configure searchable fields with `WithSearchColumns` or `WithSearchConfig`.
 - Search matches OR across configured columns and ANDs with other predicates.
 - Without search columns, `_search` is a no-op unless strict search checks are enabled (`WithStrictSearchColumns(true)` + strict validation).
 
