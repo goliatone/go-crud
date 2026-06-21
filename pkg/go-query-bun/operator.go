@@ -181,43 +181,8 @@ func (s OperatorSet) normalized() OperatorSet {
 	return s
 }
 
-func kindForSQL(sql string) OperatorKind {
-	switch normalizeSQLOperator(sql) {
-	case "=":
-		return OperatorEq
-	case "<>", "!=":
-		return OperatorNe
-	case ">":
-		return OperatorGt
-	case "<":
-		return OperatorLt
-	case ">=":
-		return OperatorGte
-	case "<=":
-		return OperatorLte
-	case "IN":
-		return OperatorIn
-	case "NOT IN":
-		return OperatorNin
-	case "LIKE":
-		return OperatorLike
-	case "ILIKE":
-		return OperatorILike
-	case "AND":
-		return OperatorAnd
-	case "OR":
-		return OperatorOr
-	default:
-		return ""
-	}
-}
-
 func normalizeOperatorToken(op string) string {
 	return strings.ToLower(strings.TrimSpace(op))
-}
-
-func normalizeSQLOperator(op string) string {
-	return strings.ToUpper(strings.TrimSpace(op))
 }
 
 func cloneOperatorSpecs(in map[OperatorKind]OperatorSpec) map[OperatorKind]OperatorSpec {

@@ -207,7 +207,7 @@ func (s *virtualFieldService[T]) Create(ctx Context, record T) (T, error) {
 	if err != nil {
 		return res, err
 	}
-	_ = s.handler.AfterLoad(hctx, res)
+	ignoreError(s.handler.AfterLoad(hctx, res))
 	return res, nil
 }
 
@@ -222,7 +222,7 @@ func (s *virtualFieldService[T]) CreateBatch(ctx Context, records []T) ([]T, err
 	if err != nil {
 		return res, err
 	}
-	_ = s.handler.AfterLoadBatch(hctx, res)
+	ignoreError(s.handler.AfterLoadBatch(hctx, res))
 	return res, nil
 }
 
@@ -235,7 +235,7 @@ func (s *virtualFieldService[T]) Update(ctx Context, record T) (T, error) {
 	if err != nil {
 		return res, err
 	}
-	_ = s.handler.AfterLoad(hctx, res)
+	ignoreError(s.handler.AfterLoad(hctx, res))
 	return res, nil
 }
 
@@ -250,7 +250,7 @@ func (s *virtualFieldService[T]) UpdateBatch(ctx Context, records []T) ([]T, err
 	if err != nil {
 		return res, err
 	}
-	_ = s.handler.AfterLoadBatch(hctx, res)
+	ignoreError(s.handler.AfterLoadBatch(hctx, res))
 	return res, nil
 }
 
@@ -268,7 +268,7 @@ func (s *virtualFieldService[T]) Index(ctx Context, criteria []repository.Select
 	if err != nil {
 		return res, count, err
 	}
-	_ = s.handler.AfterLoadBatch(hctx, res)
+	ignoreError(s.handler.AfterLoadBatch(hctx, res))
 	return res, count, nil
 }
 
@@ -278,7 +278,7 @@ func (s *virtualFieldService[T]) Show(ctx Context, id string, criteria []reposit
 	if err != nil {
 		return res, err
 	}
-	_ = s.handler.AfterLoad(hctx, res)
+	ignoreError(s.handler.AfterLoad(hctx, res))
 	return res, nil
 }
 
@@ -695,16 +695,16 @@ func (s *activityService[T]) emit(ctx Context, op CrudOperation, records []T, er
 	if s.emitter != nil && s.emitter.Enabled() {
 		for _, rec := range records {
 			objType, objID := extractObjectInfo(rec)
-			_ = s.emitter.Emit(ctx.UserContext(), activity.Event{
+			ignoreError(s.emitter.Emit(ctx.UserContext(), activity.Event{
 				Verb:       string(op),
 				ObjectType: objType,
 				ObjectID:   objID,
-			})
+			}))
 		}
 	}
 	if s.notificationEmitter != nil && len(records) > 0 {
 		hctx := hookContextFor(ctx, op)
-		_ = SendNotificationBatch(hctx, ActivityPhaseAfter, records)
+		ignoreError(SendNotificationBatch(hctx, ActivityPhaseAfter, records))
 	}
 }
 

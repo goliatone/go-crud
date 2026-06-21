@@ -48,9 +48,9 @@ func ProblemJSONErrorEncoder(opts ...problemJSONEncoderOption) ErrorEncoder {
 			status = http.StatusInternalServerError
 		}
 
-		mapped.WithCode(status)
+		mapped = mapped.WithCode(status)
 		if strings.TrimSpace(mapped.TextCode) == "" {
-			mapped.WithTextCode(goerrors.HTTPStatusToTextCode(status))
+			mapped = mapped.WithTextCode(goerrors.HTTPStatusToTextCode(status))
 		}
 
 		if mapped.Timestamp.IsZero() {
@@ -59,7 +59,7 @@ func ProblemJSONErrorEncoder(opts ...problemJSONEncoderOption) ErrorEncoder {
 
 		includeStack := cfg.includeStack || goerrors.IsDevelopment
 		if includeStack && len(mapped.StackTrace) == 0 {
-			mapped.WithStackTrace()
+			mapped = mapped.WithStackTrace()
 		}
 
 		attachErrorRequestMetadata(ctx, mapped, op)
@@ -112,10 +112,12 @@ func LegacyJSONErrorEncoder() ErrorEncoder {
 		}
 
 		status := http.StatusInternalServerError
-		switch err.(type) {
-		case *NotFoundError:
+		var notFound *NotFoundError
+		var validation *ValidationError
+		switch {
+		case stdErrors.As(err, &notFound):
 			status = http.StatusNotFound
-		case *ValidationError:
+		case stdErrors.As(err, &validation):
 			status = http.StatusBadRequest
 		}
 
@@ -186,6 +188,23 @@ func embeddedSourceError(err error) error {
 	return err
 }
 
+var errorStatusByCategory = map[goerrors.Category]int{
+	goerrors.CategoryValidation:       http.StatusUnprocessableEntity,
+	goerrors.CategoryAuth:             http.StatusUnauthorized,
+	goerrors.CategoryAuthz:            http.StatusForbidden,
+	goerrors.CategoryNotFound:         http.StatusNotFound,
+	goerrors.CategoryConflict:         http.StatusConflict,
+	goerrors.CategoryRateLimit:        http.StatusTooManyRequests,
+	goerrors.CategoryBadInput:         http.StatusBadRequest,
+	goerrors.CategoryMethodNotAllowed: http.StatusMethodNotAllowed,
+	goerrors.CategoryCommand:          http.StatusBadRequest,
+	goerrors.CategoryExternal:         http.StatusBadGateway,
+	goerrors.CategoryOperation:        http.StatusInternalServerError,
+	goerrors.CategoryMiddleware:       http.StatusInternalServerError,
+	goerrors.CategoryRouting:          http.StatusNotFound,
+	goerrors.CategoryHandler:          http.StatusInternalServerError,
+}
+
 func defaultErrorStatusResolver(err *goerrors.Error, _ CrudOperation) int {
 	if err == nil {
 		return http.StatusInternalServerError
@@ -195,38 +214,10 @@ func defaultErrorStatusResolver(err *goerrors.Error, _ CrudOperation) int {
 		return err.Code
 	}
 
-	switch err.Category {
-	case goerrors.CategoryValidation:
-		return http.StatusUnprocessableEntity
-	case goerrors.CategoryAuth:
-		return http.StatusUnauthorized
-	case goerrors.CategoryAuthz:
-		return http.StatusForbidden
-	case goerrors.CategoryNotFound:
-		return http.StatusNotFound
-	case goerrors.CategoryConflict:
-		return http.StatusConflict
-	case goerrors.CategoryRateLimit:
-		return http.StatusTooManyRequests
-	case goerrors.CategoryBadInput:
-		return http.StatusBadRequest
-	case goerrors.CategoryMethodNotAllowed:
-		return http.StatusMethodNotAllowed
-	case goerrors.CategoryCommand:
-		return http.StatusBadRequest
-	case goerrors.CategoryExternal:
-		return http.StatusBadGateway
-	case goerrors.CategoryOperation:
-		return http.StatusInternalServerError
-	case goerrors.CategoryMiddleware:
-		return http.StatusInternalServerError
-	case goerrors.CategoryRouting:
-		return http.StatusNotFound
-	case goerrors.CategoryHandler:
-		return http.StatusInternalServerError
-	default:
-		return http.StatusInternalServerError
+	if status, ok := errorStatusByCategory[err.Category]; ok {
+		return status
 	}
+	return http.StatusInternalServerError
 }
 
 func attachErrorRequestMetadata(ctx Context, err *goerrors.Error, op CrudOperation) {
@@ -236,18 +227,18 @@ func attachErrorRequestMetadata(ctx Context, err *goerrors.Error, op CrudOperati
 
 	requestID := RequestIDFromContext(ctx.UserContext())
 	if requestID != "" {
-		err.WithRequestID(requestID)
+		err = err.WithRequestID(requestID)
 	}
 
 	correlationID := CorrelationIDFromContext(ctx.UserContext())
 	if correlationID != "" {
-		err.WithMetadata(map[string]any{
+		err = err.WithMetadata(map[string]any{
 			"correlation_id": correlationID,
 		})
 	}
 
 	if op != "" {
-		err.WithMetadata(map[string]any{
+		err = err.WithMetadata(map[string]any{
 			"operation": string(op),
 		})
 	}

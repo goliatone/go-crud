@@ -20,107 +20,134 @@ func BuildFilterCriteriaFromPredicates(predicates []Predicate, cfg Config) ([]Cr
 	orConditions := make([]Criteria, 0)
 
 	for _, predicate := range predicates {
-		field := strings.TrimSpace(predicate.Field)
-		if field == "" {
-			unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedUnknownField))
-			continue
-		}
-
-		cleaned := normalizeStringValues(predicate.Values)
-		if len(cleaned) == 0 {
-			unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedEmptyValue))
-			continue
-		}
-
-		operator, err := ResolveOperator(string(predicate.Operator), field, cfg)
+		criteria, asOr, nextUnsupported, err := buildFilterCriteriaForPredicate(predicate, cfg)
+		unsupported = append(unsupported, nextUnsupported...)
 		if err != nil {
-			unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedOperator))
-			if isStrict(cfg) {
-				return nil, unsupported, err
-			}
-			continue
+			return nil, unsupported, err
 		}
-
-		resolvedField, fieldOK := resolveField(cfg, field, FieldUseFilter)
-		fieldBuilder := cfg.Predicates.Fields[field]
-		if fieldBuilder != nil {
-			result, err := fieldBuilder.BuildPredicate(PredicateBuilderInput{
-				Predicate:     predicate,
-				Operator:      operator,
-				Field:         resolvedField,
-				FieldResolved: fieldOK,
-				Values:        append([]string{}, cleaned...),
-				Config:        cfg,
-				Helpers:       PredicateBuilderHelpers{},
-			})
-			if err != nil {
-				entry := unsupportedFromPredicate(predicate, UnsupportedUnhandledPredicate)
-				unsupported = append(unsupported, entry)
-				if isStrict(cfg) {
-					return nil, unsupported, err
-				}
-				continue
-			}
-			if result.Handled {
-				conditions = append(conditions, result.Criteria...)
-				continue
-			}
-			if !fieldOK {
-				unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedUnhandledPredicate))
-				continue
-			}
-		}
-
-		if !fieldOK {
-			reason := UnsupportedDisallowedField
-			if cfg.Fields.Resolver == nil {
-				reason = UnsupportedUnknownField
-			}
-			unsupported = append(unsupported, unsupportedFromPredicate(predicate, reason))
-			if cfg.Validation.StrictFields {
-				return nil, unsupported, &ValidationError{
-					Code:  ValidationFieldNotAllowed,
-					Field: field,
-				}
-			}
-			continue
-		}
-
-		if operatorBuilder := cfg.Predicates.Operators[operator.Canonical]; operatorBuilder != nil {
-			result, err := operatorBuilder.BuildPredicate(PredicateBuilderInput{
-				Predicate:     predicate,
-				Operator:      operator,
-				Field:         resolvedField,
-				FieldResolved: true,
-				Values:        append([]string{}, cleaned...),
-				Config:        cfg,
-				Helpers:       PredicateBuilderHelpers{},
-			})
-			if err != nil {
-				unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedUnhandledPredicate))
-				if isStrict(cfg) {
-					return nil, unsupported, err
-				}
-				continue
-			}
-			if result.Handled {
-				conditions = append(conditions, result.Criteria...)
-				continue
-			}
-		}
-
-		criterion, ok := buildBuiltinPredicateCriteria(resolvedField.SQLName(), operator, cleaned, cfg)
-		if !ok {
-			unsupported = append(unsupported, unsupportedFromPredicate(predicate, UnsupportedOperator))
-			continue
-		}
-		if operator.Canonical == OperatorOr {
-			orConditions = append(orConditions, criterion)
+		if asOr {
+			orConditions = append(orConditions, criteria...)
 		} else {
-			conditions = append(conditions, criterion)
+			conditions = append(conditions, criteria...)
 		}
 	}
 
+	return combineFilterCriteria(conditions, orConditions, unsupported)
+}
+
+func buildFilterCriteriaForPredicate(predicate Predicate, cfg Config) ([]Criteria, bool, []UnsupportedPredicate, error) {
+	field := strings.TrimSpace(predicate.Field)
+	if field == "" {
+		return nil, false, []UnsupportedPredicate{unsupportedFromPredicate(predicate, UnsupportedUnknownField)}, nil
+	}
+
+	cleaned := normalizeStringValues(predicate.Values)
+	if len(cleaned) == 0 {
+		return nil, false, []UnsupportedPredicate{unsupportedFromPredicate(predicate, UnsupportedEmptyValue)}, nil
+	}
+
+	operator, err := ResolveOperator(string(predicate.Operator), field, cfg)
+	if err != nil {
+		unsupported := []UnsupportedPredicate{unsupportedFromPredicate(predicate, UnsupportedOperator)}
+		if isStrict(cfg) {
+			return nil, false, unsupported, err
+		}
+		return nil, false, unsupported, nil
+	}
+
+	resolvedField, fieldOK := resolveField(cfg, field, FieldUseFilter)
+	criteria, handled, unsupported, err := buildWithFieldPredicateBuilder(predicate, operator, resolvedField, fieldOK, cleaned, cfg)
+	if handled || err != nil || len(unsupported) > 0 {
+		return criteria, false, unsupported, err
+	}
+
+	if !fieldOK {
+		unsupported, err := unresolvedFieldUnsupported(predicate, field, cfg)
+		return nil, false, unsupported, err
+	}
+
+	criteria, handled, unsupported, err = buildWithOperatorPredicateBuilder(predicate, operator, resolvedField, cleaned, cfg)
+	if handled || err != nil || len(unsupported) > 0 {
+		return criteria, false, unsupported, err
+	}
+
+	criterion, ok := buildBuiltinPredicateCriteria(resolvedField.SQLName(), operator, cleaned, cfg)
+	if !ok {
+		return nil, false, []UnsupportedPredicate{unsupportedFromPredicate(predicate, UnsupportedOperator)}, nil
+	}
+	return []Criteria{criterion}, operator.Canonical == OperatorOr, nil, nil
+}
+
+func buildWithFieldPredicateBuilder(predicate Predicate, operator Operator, field ResolvedField, fieldOK bool, values []string, cfg Config) ([]Criteria, bool, []UnsupportedPredicate, error) {
+	builder := cfg.Predicates.Fields[strings.TrimSpace(predicate.Field)]
+	if builder == nil {
+		return nil, false, nil, nil
+	}
+	criteria, handled, unsupported, err := runPredicateBuilder(builder, PredicateBuilderInput{
+		Predicate:     predicate,
+		Operator:      operator,
+		Field:         field,
+		FieldResolved: fieldOK,
+		Values:        append([]string{}, values...),
+		Config:        cfg,
+		Helpers:       PredicateBuilderHelpers{},
+	})
+	if handled || err != nil || len(unsupported) > 0 {
+		return criteria, handled, unsupported, err
+	}
+	if !fieldOK {
+		return nil, true, []UnsupportedPredicate{unsupportedFromPredicate(predicate, UnsupportedUnhandledPredicate)}, nil
+	}
+	return nil, false, nil, nil
+}
+
+func buildWithOperatorPredicateBuilder(predicate Predicate, operator Operator, field ResolvedField, values []string, cfg Config) ([]Criteria, bool, []UnsupportedPredicate, error) {
+	builder := cfg.Predicates.Operators[operator.Canonical]
+	if builder == nil {
+		return nil, false, nil, nil
+	}
+	return runPredicateBuilder(builder, PredicateBuilderInput{
+		Predicate:     predicate,
+		Operator:      operator,
+		Field:         field,
+		FieldResolved: true,
+		Values:        append([]string{}, values...),
+		Config:        cfg,
+		Helpers:       PredicateBuilderHelpers{},
+	})
+}
+
+func runPredicateBuilder(builder PredicateBuilder, input PredicateBuilderInput) ([]Criteria, bool, []UnsupportedPredicate, error) {
+	result, err := builder.BuildPredicate(input)
+	if err != nil {
+		unsupported := []UnsupportedPredicate{unsupportedFromPredicate(input.Predicate, UnsupportedUnhandledPredicate)}
+		if isStrict(input.Config) {
+			return nil, true, unsupported, err
+		}
+		return nil, true, unsupported, nil
+	}
+	if result.Handled {
+		return result.Criteria, true, nil, nil
+	}
+	return nil, false, nil, nil
+}
+
+func unresolvedFieldUnsupported(predicate Predicate, field string, cfg Config) ([]UnsupportedPredicate, error) {
+	reason := UnsupportedDisallowedField
+	if cfg.Fields.Resolver == nil {
+		reason = UnsupportedUnknownField
+	}
+	unsupported := []UnsupportedPredicate{unsupportedFromPredicate(predicate, reason)}
+	if !cfg.Validation.StrictFields {
+		return unsupported, nil
+	}
+	return unsupported, &ValidationError{
+		Code:  ValidationFieldNotAllowed,
+		Field: field,
+	}
+}
+
+func combineFilterCriteria(conditions, orConditions []Criteria, unsupported []UnsupportedPredicate) ([]Criteria, []UnsupportedPredicate, error) {
 	if len(conditions) == 0 && len(orConditions) == 0 {
 		return nil, unsupported, nil
 	}
@@ -155,12 +182,12 @@ func buildBuiltinPredicateCriteria(column string, operator Operator, values []st
 	case OperatorIn:
 		copied := append([]string{}, values...)
 		return func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where(fmt.Sprintf("%s IN (?)", column), bun.In(copied))
+			return q.Where(fmt.Sprintf("%s IN (?)", column), bun.List(copied))
 		}, true
 	case OperatorNin:
 		copied := append([]string{}, values...)
 		return func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where(fmt.Sprintf("%s NOT IN (?)", column), bun.In(copied))
+			return q.Where(fmt.Sprintf("%s NOT IN (?)", column), bun.List(copied))
 		}, true
 	case OperatorAnd:
 		copied := append([]string{}, values...)
@@ -294,18 +321,4 @@ func unsupportedFromPredicate(predicate Predicate, reason UnsupportedReason) Uns
 		RawValue: predicate.RawValue,
 		Reason:   reason,
 	}
-}
-
-func cloneStringMap(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for key, value := range in {
-		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
-			continue
-		}
-		out[key] = value
-	}
-	return out
 }

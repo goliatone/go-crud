@@ -21,6 +21,8 @@ type Logger interface {
 
 var LoggerEnabled = false
 
+func ignoreError(_ error) {}
+
 type defaultLogger struct {
 	fields Fields
 }

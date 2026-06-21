@@ -116,26 +116,8 @@ func normalizeSearchOptions(opts ListOptions, cfg Config) (ListOptions, []Unsupp
 	search := strings.TrimSpace(opts.Search)
 
 	if len(opts.Predicates) > 0 {
-		predicates := make([]Predicate, 0, len(opts.Predicates))
-		unsupported := make([]UnsupportedPredicate, 0)
-		for _, predicate := range opts.Predicates {
-			if !cfg.Search.isSearchAlias(predicate.Field) {
-				predicates = append(predicates, predicate)
-				continue
-			}
-			values, ok := NormalizeValueStrings(predicate.Values)
-			if !ok {
-				unsupported = append(unsupported, unsupportedSearchPredicate(predicate.Field, predicate.Operator, predicate.RawKey, predicate.RawValue, UnsupportedValueShape))
-				continue
-			}
-			if len(values) == 0 {
-				unsupported = append(unsupported, unsupportedSearchPredicate(predicate.Field, predicate.Operator, predicate.RawKey, predicate.RawValue, UnsupportedEmptyValue))
-				continue
-			}
-			if search == "" {
-				search = values[0]
-			}
-		}
+		predicates, predicateSearch, unsupported := splitSearchPredicates(opts.Predicates, cfg)
+		search = firstNonEmpty(search, predicateSearch)
 		if search == "" && len(opts.Filters) > 0 {
 			filterSearch, filterUnsupported := searchFromFilters(opts.Filters, cfg)
 			unsupported = append(unsupported, filterUnsupported...)
@@ -151,23 +133,61 @@ func normalizeSearchOptions(opts ListOptions, cfg Config) (ListOptions, []Unsupp
 		return opts, nil
 	}
 
-	filters := make(map[string]any, len(opts.Filters))
+	filters, filterSearch, unsupported := splitSearchFilters(opts.Filters, cfg)
+	opts.Filters = filters
+	opts.Search = firstNonEmpty(search, filterSearch)
+	return opts, unsupported
+}
+
+func splitSearchPredicates(predicates []Predicate, cfg Config) ([]Predicate, string, []UnsupportedPredicate) {
+	out := make([]Predicate, 0, len(predicates))
 	unsupported := make([]UnsupportedPredicate, 0)
-	for rawKey, rawValue := range opts.Filters {
+	search := ""
+	for _, predicate := range predicates {
+		if !cfg.Search.isSearchAlias(predicate.Field) {
+			out = append(out, predicate)
+			continue
+		}
+		value, unsupportedPredicate, ok := searchValueFromRaw(predicate.Field, predicate.Operator, predicate.RawKey, predicate.RawValue, predicate.Values)
+		if !ok {
+			unsupported = append(unsupported, unsupportedPredicate)
+			continue
+		}
+		search = firstNonEmpty(search, value)
+	}
+	return out, search, unsupported
+}
+
+func splitSearchFilters(input map[string]any, cfg Config) (map[string]any, string, []UnsupportedPredicate) {
+	filters := make(map[string]any, len(input))
+	for rawKey, rawValue := range input {
 		field, _ := cfg.Syntax.parsePredicateKey(rawKey)
 		if !cfg.Search.isSearchAlias(field) {
 			filters[rawKey] = rawValue
 		}
 	}
-	if search == "" {
-		filterSearch, filterUnsupported := searchFromFilters(opts.Filters, cfg)
-		unsupported = append(unsupported, filterUnsupported...)
-		search = filterSearch
-	}
+	search, unsupported := searchFromFilters(input, cfg)
+	return filters, search, unsupported
+}
 
-	opts.Filters = filters
-	opts.Search = search
-	return opts, unsupported
+func searchValueFromRaw(field string, operator OperatorKind, rawKey string, rawValue, valuesRaw any) (string, UnsupportedPredicate, bool) {
+	values, ok := NormalizeValueStrings(valuesRaw)
+	if !ok {
+		return "", unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedValueShape), false
+	}
+	if len(values) == 0 {
+		return "", unsupportedSearchPredicate(field, operator, rawKey, rawValue, UnsupportedEmptyValue), false
+	}
+	return values[0], UnsupportedPredicate{}, true
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func searchFromFilters(filters map[string]any, cfg Config) (string, []UnsupportedPredicate) {

@@ -31,81 +31,57 @@ func NormalizePredicatesWithUnsupported(opts ListOptions, configs ...Config) ([]
 	cfg = normalizeConfig(cfg)
 
 	if len(opts.Predicates) > 0 {
-		out := make([]Predicate, 0, len(opts.Predicates))
-		unsupported := make([]UnsupportedPredicate, 0)
-		for _, predicate := range opts.Predicates {
-			field := strings.TrimSpace(predicate.Field)
-			if field == "" {
-				unsupported = append(unsupported, UnsupportedPredicate{
-					Field:    field,
-					Operator: predicate.Operator,
-					RawKey:   predicate.RawKey,
-					RawValue: predicate.RawValue,
-					Reason:   UnsupportedUnknownField,
-				})
-				continue
-			}
-			values, ok := NormalizeValueStrings(predicate.Values)
-			if !ok {
-				unsupported = append(unsupported, UnsupportedPredicate{
-					Field:    field,
-					Operator: predicate.Operator,
-					RawKey:   predicate.RawKey,
-					RawValue: predicate.RawValue,
-					Reason:   UnsupportedValueShape,
-				})
-				continue
-			}
-			if len(values) == 0 {
-				unsupported = append(unsupported, UnsupportedPredicate{
-					Field:    field,
-					Operator: predicate.Operator,
-					RawKey:   predicate.RawKey,
-					RawValue: predicate.RawValue,
-					Reason:   UnsupportedEmptyValue,
-				})
-				continue
-			}
-			operator := cfg.Syntax.resolveOperatorAlias(string(predicate.Operator))
-			out = append(out, Predicate{
-				Field:    field,
-				Operator: operator,
-				Values:   values,
-				RawKey:   predicate.RawKey,
-				RawValue: predicate.RawValue,
-			})
-		}
-		return out, unsupported
+		return normalizeExplicitPredicates(opts.Predicates, cfg)
 	}
 
 	if len(opts.Filters) == 0 {
 		return nil, nil
 	}
 
-	out := make([]Predicate, 0, len(opts.Filters))
+	return normalizeFilterPredicates(opts.Filters, cfg)
+}
+
+func normalizeExplicitPredicates(predicates []Predicate, cfg Config) ([]Predicate, []UnsupportedPredicate) {
+	out := make([]Predicate, 0, len(predicates))
 	unsupported := make([]UnsupportedPredicate, 0)
-	keys := sortedFilterKeys(opts.Filters)
+	for _, predicate := range predicates {
+		field := strings.TrimSpace(predicate.Field)
+		values, reason, ok := normalizedPredicateValues(predicate.Values)
+		if field == "" {
+			unsupported = append(unsupported, unsupportedNormalizedPredicate(predicate, field, UnsupportedUnknownField))
+			continue
+		}
+		if !ok {
+			unsupported = append(unsupported, unsupportedNormalizedPredicate(predicate, field, reason))
+			continue
+		}
+		out = append(out, Predicate{
+			Field:    field,
+			Operator: cfg.Syntax.resolveOperatorAlias(string(predicate.Operator)),
+			Values:   values,
+			RawKey:   predicate.RawKey,
+			RawValue: predicate.RawValue,
+		})
+	}
+	return out, unsupported
+}
+
+func normalizeFilterPredicates(filters map[string]any, cfg Config) ([]Predicate, []UnsupportedPredicate) {
+	out := make([]Predicate, 0, len(filters))
+	unsupported := make([]UnsupportedPredicate, 0)
+	keys := sortedFilterKeys(filters)
 	for _, rawKey := range keys {
-		rawValue := opts.Filters[rawKey]
+		rawValue := filters[rawKey]
 		if _, ok := cfg.Syntax.resolveLogicalAlias(rawKey); ok {
-			unsupported = append(unsupported, UnsupportedPredicate{
-				Field:    strings.TrimSpace(rawKey),
-				Operator: OperatorKind(normalizeOperatorToken(rawKey)),
-				RawKey:   rawKey,
-				RawValue: rawValue,
-				Reason:   UnsupportedValueShape,
-			})
+			unsupported = append(unsupported, unsupportedFilterPredicate(rawKey, rawKey, OperatorKind(normalizeOperatorToken(rawKey)), rawValue, UnsupportedValueShape))
 			continue
 		}
 		field, operator := cfg.Syntax.parsePredicateKey(rawKey)
+		if cfg.Syntax.isReservedKey(field) {
+			continue
+		}
 		if field == "" {
-			unsupported = append(unsupported, UnsupportedPredicate{
-				Field:    field,
-				Operator: operator,
-				RawKey:   rawKey,
-				RawValue: rawValue,
-				Reason:   UnsupportedUnknownField,
-			})
+			unsupported = append(unsupported, unsupportedFilterPredicate(field, rawKey, operator, rawValue, UnsupportedUnknownField))
 			continue
 		}
 
@@ -115,25 +91,9 @@ func NormalizePredicatesWithUnsupported(opts ListOptions, configs ...Config) ([]
 			continue
 		}
 
-		values, ok := NormalizeValueStrings(rawValue)
+		values, reason, ok := normalizedPredicateValues(rawValue)
 		if !ok {
-			unsupported = append(unsupported, UnsupportedPredicate{
-				Field:    field,
-				Operator: operator,
-				RawKey:   rawKey,
-				RawValue: rawValue,
-				Reason:   UnsupportedValueShape,
-			})
-			continue
-		}
-		if len(values) == 0 {
-			unsupported = append(unsupported, UnsupportedPredicate{
-				Field:    field,
-				Operator: operator,
-				RawKey:   rawKey,
-				RawValue: rawValue,
-				Reason:   UnsupportedEmptyValue,
-			})
+			unsupported = append(unsupported, unsupportedFilterPredicate(field, rawKey, operator, rawValue, reason))
 			continue
 		}
 		out = append(out, Predicate{
@@ -145,6 +105,37 @@ func NormalizePredicatesWithUnsupported(opts ListOptions, configs ...Config) ([]
 		})
 	}
 	return out, unsupported
+}
+
+func normalizedPredicateValues(raw any) ([]string, UnsupportedReason, bool) {
+	values, ok := NormalizeValueStrings(raw)
+	if !ok {
+		return nil, UnsupportedValueShape, false
+	}
+	if len(values) == 0 {
+		return nil, UnsupportedEmptyValue, false
+	}
+	return values, "", true
+}
+
+func unsupportedNormalizedPredicate(predicate Predicate, field string, reason UnsupportedReason) UnsupportedPredicate {
+	return UnsupportedPredicate{
+		Field:    field,
+		Operator: predicate.Operator,
+		RawKey:   predicate.RawKey,
+		RawValue: predicate.RawValue,
+		Reason:   reason,
+	}
+}
+
+func unsupportedFilterPredicate(field, rawKey string, operator OperatorKind, rawValue any, reason UnsupportedReason) UnsupportedPredicate {
+	return UnsupportedPredicate{
+		Field:    strings.TrimSpace(field),
+		Operator: operator,
+		RawKey:   rawKey,
+		RawValue: rawValue,
+		Reason:   reason,
+	}
 }
 
 func normalizeObjectPredicates(field, rawKey string, rawValue any, cfg Config) ([]Predicate, []UnsupportedPredicate, bool) {
@@ -320,21 +311,12 @@ func NormalizeValueStrings(raw any) ([]string, bool) {
 		return normalizeStringValues([]string{string(text)}), true
 	case fmt.Stringer:
 		return normalizeStringValues([]string{typed.String()}), true
-	case int:
-		return normalizeStringValues([]string{strconv.Itoa(typed)}), true
-	case int8, int16, int32, int64:
-		return normalizeStringValues([]string{fmt.Sprintf("%d", typed)}), true
-	case uint, uint8, uint16, uint32, uint64:
-		return normalizeStringValues([]string{fmt.Sprintf("%d", typed)}), true
-	case float32:
-		return normalizeStringValues([]string{strconv.FormatFloat(float64(typed), 'f', -1, 32)}), true
-	case float64:
-		return normalizeStringValues([]string{strconv.FormatFloat(typed, 'f', -1, 64)}), true
-	case bool:
-		return normalizeStringValues([]string{strconv.FormatBool(typed)}), true
 	}
 
-	value := reflect.ValueOf(raw)
+	return normalizeReflectValueStrings(reflect.ValueOf(raw), raw)
+}
+
+func normalizeReflectValueStrings(value reflect.Value, raw any) ([]string, bool) {
 	if !value.IsValid() {
 		return nil, true
 	}
@@ -351,6 +333,18 @@ func NormalizeValueStrings(raw any) ([]string, bool) {
 		return out, true
 	case reflect.Map, reflect.Struct, reflect.Func, reflect.Chan:
 		return nil, false
+	case reflect.String:
+		return normalizeStringValues([]string{value.String()}), true
+	case reflect.Bool:
+		return normalizeStringValues([]string{strconv.FormatBool(value.Bool())}), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return normalizeStringValues([]string{strconv.FormatInt(value.Int(), 10)}), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return normalizeStringValues([]string{strconv.FormatUint(value.Uint(), 10)}), true
+	case reflect.Float32:
+		return normalizeStringValues([]string{strconv.FormatFloat(value.Float(), 'f', -1, 32)}), true
+	case reflect.Float64:
+		return normalizeStringValues([]string{strconv.FormatFloat(value.Float(), 'f', -1, 64)}), true
 	default:
 		return normalizeStringValues([]string{fmt.Sprint(raw)}), true
 	}

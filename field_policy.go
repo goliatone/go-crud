@@ -106,13 +106,6 @@ func (r resolvedFieldPolicy) isZero() bool {
 		r.audit.Policy == ""
 }
 
-func (r resolvedFieldPolicy) allowedFields(base map[string]string) map[string]string {
-	if len(r.allowedOverride) == 0 {
-		return base
-	}
-	return r.allowedOverride
-}
-
 func (r resolvedFieldPolicy) allowedFieldOverride() map[string]string {
 	return r.allowedOverride
 }
@@ -179,8 +172,6 @@ func buildResolvedFieldPolicy[T any](policy FieldPolicy, base map[string]string,
 			if override != nil {
 				override[field] = column
 			}
-		} else if override == nil && len(denySet) == 0 {
-			// no override map and no denies: nothing to copy
 		}
 	}
 

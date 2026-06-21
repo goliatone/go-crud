@@ -4,8 +4,8 @@ import (
 	"github.com/goliatone/go-repository-bun"
 )
 
-// Service defines pluggable CRUD behaviours that the controller can delegate to.
-type Service[T any] interface {
+// WriteService defines mutating CRUD behaviours that the controller can delegate to.
+type WriteService[T any] interface {
 	Create(ctx Context, record T) (T, error)
 	CreateBatch(ctx Context, records []T) ([]T, error)
 
@@ -14,9 +14,18 @@ type Service[T any] interface {
 
 	Delete(ctx Context, record T) error
 	DeleteBatch(ctx Context, records []T) error
+}
 
+// ReadService defines read CRUD behaviours that the controller can delegate to.
+type ReadService[T any] interface {
 	Index(ctx Context, criteria []repository.SelectCriteria) ([]T, int, error)
 	Show(ctx Context, id string, criteria []repository.SelectCriteria) (T, error)
+}
+
+// Service defines pluggable CRUD behaviours that the controller can delegate to.
+type Service[T any] interface {
+	WriteService[T]
+	ReadService[T]
 }
 
 // ServiceFuncs allows callers to override specific service operations.
