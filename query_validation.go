@@ -72,9 +72,15 @@ func parseFieldOperatorWithValidation(param string, strict bool) (string, resolv
 	}
 
 	op, err := querybun.ResolveOperator(operatorToken, field, querybun.Config{
-		OperatorMap:                  operatorMap,
-		StrictValidation:             strict,
-		FallbackUnsupportedOperators: true,
+		Operators: operatorSet,
+		Validation: querybun.ValidationConfig{
+			Mode: func() querybun.ValidationMode {
+				if strict {
+					return querybun.ValidationStrict
+				}
+				return querybun.ValidationCollect
+			}(),
+		},
 	})
 	if err != nil {
 		return field, resolvedOperator{}, convertQueryBunError(err)
@@ -82,7 +88,7 @@ func parseFieldOperatorWithValidation(param string, strict bool) (string, resolv
 
 	return field, resolvedOperator{
 		token:     op.Token,
-		canonical: op.Canonical,
+		canonical: string(op.Canonical),
 		sql:       op.SQL,
 	}, nil
 }

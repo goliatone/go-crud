@@ -20,7 +20,9 @@ type ListQueryOptions struct {
 	Page       int
 	PerPage    int
 	Limit      int
+	LimitSet   bool
 	Offset     int
+	OffsetSet  bool
 	SortBy     string
 	SortDesc   bool
 	Order      string
@@ -48,7 +50,7 @@ func BuildListCriteriaFromOptions[T any](opts ListQueryOptions, qbOpts ...QueryB
 	filters := filtersFromQueryBunPlan(plan, OpList)
 	criteria := adaptQueryBunCriteria(plan.ListCriteria())
 
-	includeCriteria, includePaths, relations, err := buildIncludeCriteriaForType[T](strings.Join(filters.Include, ","), cfg.strictValidationEnabled())
+	includeCriteria, includePaths, relations, err := buildIncludeCriteriaForType[T](strings.Join(filters.Include, ","), cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -66,7 +68,7 @@ func toQueryBunListOptions(opts ListQueryOptions) querybun.ListOptions {
 	for _, predicate := range opts.Predicates {
 		predicates = append(predicates, querybun.Predicate{
 			Field:    predicate.Field,
-			Operator: predicate.Operator,
+			Operator: querybun.OperatorKind(predicate.Operator),
 			Values:   append([]string{}, predicate.Values...),
 		})
 	}
@@ -74,7 +76,9 @@ func toQueryBunListOptions(opts ListQueryOptions) querybun.ListOptions {
 		Page:       opts.Page,
 		PerPage:    opts.PerPage,
 		Limit:      opts.Limit,
+		LimitSet:   opts.LimitSet,
 		Offset:     opts.Offset,
+		OffsetSet:  opts.OffsetSet,
 		SortBy:     opts.SortBy,
 		SortDesc:   opts.SortDesc,
 		Order:      opts.Order,

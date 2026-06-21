@@ -17,6 +17,7 @@ type relationFilter struct {
 	operator string
 	value    string
 	column   string
+	criteria querybun.Criteria
 }
 
 type relationIncludeNode struct {
@@ -31,7 +32,12 @@ type QueryBuilderOption func(*queryBuilderConfig)
 type queryBuilderConfig struct {
 	trace               *queryTraceOptions
 	allowedFields       map[string]string
+	fieldResolver       querybun.FieldResolver
 	searchColumns       []string
+	searchConfig        *querybun.SearchConfig
+	operators           *querybun.OperatorSet
+	predicateBuilders   *querybun.PredicateBuilderSet
+	validation          *querybun.ValidationConfig
 	strictValidation    *bool
 	strictSearchColumns *bool
 }
@@ -42,6 +48,14 @@ func WithAllowedFields(fields map[string]string) QueryBuilderOption {
 			return
 		}
 		cfg.allowedFields = fields
+		cfg.fieldResolver = querybun.NewMapResolver(fields)
+	}
+}
+
+// WithFieldResolver configures semantic field resolution for query planning.
+func WithFieldResolver(resolver querybun.FieldResolver) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		cfg.fieldResolver = resolver
 	}
 }
 
@@ -62,6 +76,34 @@ func WithSearchColumns(columns ...string) QueryBuilderOption {
 			return
 		}
 		cfg.searchColumns = append([]string{}, columns...)
+	}
+}
+
+// WithSearchConfig configures search aliases, fields, and matching behavior.
+func WithSearchConfig(search querybun.SearchConfig) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		cfg.searchConfig = &search
+	}
+}
+
+// WithOperatorSet configures semantic operators for query planning.
+func WithOperatorSet(operators querybun.OperatorSet) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		cfg.operators = &operators
+	}
+}
+
+// WithPredicateBuilders configures custom predicate builders.
+func WithPredicateBuilders(builders querybun.PredicateBuilderSet) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		cfg.predicateBuilders = &builders
+	}
+}
+
+// WithValidationConfig configures planner validation behavior.
+func WithValidationConfig(validation querybun.ValidationConfig) QueryBuilderOption {
+	return func(cfg *queryBuilderConfig) {
+		cfg.validation = &validation
 	}
 }
 
@@ -147,7 +189,7 @@ func buildQueryCriteria[T any](ctx Context, op CrudOperation, cfg queryBuilderCo
 		criteria = adaptQueryBunCriteria(plan.ReadCriteria())
 	}
 
-	includeCriteria, includePaths, relations, err := buildIncludeCriteriaForType[T](strings.Join(filters.Include, ","), cfg.strictValidationEnabled())
+	includeCriteria, includePaths, relations, err := buildIncludeCriteriaForType[T](strings.Join(filters.Include, ","), cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -214,15 +256,46 @@ func queryBunConfig[T any](cfg queryBuilderConfig) querybun.Config {
 	if len(allowedFieldsMap) == 0 {
 		allowedFieldsMap = getAllowedFields[T]()
 	}
+	resolver := cfg.fieldResolver
+	if resolver == nil {
+		resolver = querybun.NewMapResolver(allowedFieldsMap)
+	}
+	operators := operatorSet
+	if cfg.operators != nil {
+		operators = *cfg.operators
+	}
+	search := querybun.SearchConfig{
+		Aliases: []string{"_search", "search", "q"},
+		Fields:  append([]string{}, cfg.searchColumns...),
+		Pattern: querybun.PatternConfig{Mode: querybun.PatternContains, EscapeChar: `\`, MultiValue: querybun.MultiValueAny},
+		Case:    querybun.CaseInsensitive,
+	}
+	if cfg.searchConfig != nil {
+		search = *cfg.searchConfig
+	}
+	validation := querybun.ValidationConfig{Mode: querybun.ValidationCollect}
+	if cfg.strictValidationEnabled() {
+		validation.Mode = querybun.ValidationStrict
+	}
+	validation.StrictSearchFields = cfg.strictSearchColumnsEnabled()
+	if cfg.validation != nil {
+		validation = *cfg.validation
+	}
+	predicates := querybun.PredicateBuilderSet{}
+	if cfg.predicateBuilders != nil {
+		predicates = *cfg.predicateBuilders
+	}
 	return querybun.Config{
-		AllowedFields:                allowedFieldsMap,
-		SearchColumns:                cfg.searchColumns,
-		OperatorMap:                  operatorMap,
-		StrictValidation:             cfg.strictValidationEnabled(),
-		StrictSearchColumns:          cfg.strictSearchColumnsEnabled(),
-		FallbackUnsupportedOperators: true,
-		DefaultLimit:                 DefaultLimit,
-		DefaultOffset:                DefaultOffset,
+		Syntax:     querybun.DefaultRESTSyntax(),
+		Fields:     querybun.FieldConfig{Resolver: resolver},
+		Operators:  operators,
+		Search:     search,
+		Predicates: predicates,
+		Pagination: querybun.PaginationConfig{
+			DefaultLimit:  DefaultLimit,
+			DefaultOffset: DefaultOffset,
+		},
+		Validation: validation,
 	}
 }
 
@@ -261,12 +334,12 @@ func filtersFromQueryBunPlan(plan querybun.Plan, op CrudOperation) *Filters {
 	return filters
 }
 
-func buildIncludeCriteriaForType[T any](include string, strictValidation bool) ([]repository.SelectCriteria, []string, []RelationInfo, error) {
+func buildIncludeCriteriaForType[T any](include string, cfg queryBuilderConfig) ([]repository.SelectCriteria, []string, []RelationInfo, error) {
 	if strings.TrimSpace(include) == "" {
 		return nil, nil, nil, nil
 	}
 	meta := getRelationMetadataForType(typeOf[T]())
-	includeNodes, err := buildIncludeTree(include, meta, strictValidation)
+	includeNodes, err := buildIncludeTree(include, meta, cfg)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -349,15 +422,14 @@ func normalizeIncludeParams(ctx Context) string {
 	return strings.Join(parts, ",")
 }
 
-func buildIncludeTree(includeParam string, meta *relationMetadata, strict ...bool) (map[string]*relationIncludeNode, error) {
+func buildIncludeTree(includeParam string, meta *relationMetadata, configs ...queryBuilderConfig) (map[string]*relationIncludeNode, error) {
 	result := make(map[string]*relationIncludeNode)
 	if strings.TrimSpace(includeParam) == "" {
 		return result, nil
 	}
-
-	strictValidation := false
-	if len(strict) > 0 {
-		strictValidation = strict[0]
+	cfg := queryBuilderConfig{}
+	if len(configs) > 0 {
+		cfg = configs[0]
 	}
 
 	paths := strings.SplitSeq(includeParam, ",")
@@ -367,7 +439,7 @@ func buildIncludeTree(includeParam string, meta *relationMetadata, strict ...boo
 			continue
 		}
 
-		node, err := parseIncludePath(path, meta, strictValidation)
+		node, err := parseIncludePath(path, meta, cfg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid relation include %q: %w", path, err)
 		}
@@ -377,7 +449,7 @@ func buildIncludeTree(includeParam string, meta *relationMetadata, strict ...boo
 	return result, nil
 }
 
-func parseIncludePath(path string, meta *relationMetadata, strictValidation bool) (*relationIncludeNode, error) {
+func parseIncludePath(path string, meta *relationMetadata, cfg queryBuilderConfig) (*relationIncludeNode, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("relation metadata unavailable")
 	}
@@ -402,10 +474,7 @@ func parseIncludePath(path string, meta *relationMetadata, strictValidation bool
 			if !found {
 				return nil, fmt.Errorf("invalid filter syntax")
 			}
-			fieldName, resolvedOperator, err := parseFieldOperatorWithValidation(fieldPart, strictValidation)
-			if err != nil {
-				return nil, err
-			}
+			fieldName, operatorKind := querybun.ParsePredicateKey(fieldPart)
 			columnName := ""
 			if currentMeta != nil && currentMeta.fields != nil {
 				columnName = currentMeta.fields[fieldName]
@@ -413,11 +482,30 @@ func parseIncludePath(path string, meta *relationMetadata, strictValidation bool
 			if columnName == "" {
 				return nil, fmt.Errorf("unsupported filter field %q on relation %q", fieldName, current.requestName)
 			}
+			operator, err := resolveQueryOperator(operatorKind, fieldName, cfg, true)
+			if err != nil {
+				return nil, err
+			}
+			filterCfg := queryBunRelationFilterConfig(currentMeta.fields, cfg)
+			filterCriteria, unsupported, err := querybun.BuildFilterCriteriaFromPredicates([]querybun.Predicate{
+				{Field: fieldName, Operator: operator.Canonical, Values: []string{value}, RawKey: fieldPart, RawValue: value},
+			}, filterCfg)
+			if err != nil {
+				return nil, convertQueryBunError(err)
+			}
+			if len(unsupported) > 0 || len(filterCriteria) == 0 {
+				return nil, &QueryValidationError{
+					Code:     QueryValidationUnsupportedOperator,
+					Field:    fieldName,
+					Operator: string(operatorKind),
+				}
+			}
 			current.filters = append(current.filters, relationFilter{
 				field:    fieldName,
-				operator: resolvedOperator.sql,
+				operator: operator.SQL,
 				value:    value,
 				column:   columnName,
+				criteria: filterCriteria[0],
 			})
 			continue
 		}
@@ -453,6 +541,41 @@ func parseIncludePath(path string, meta *relationMetadata, strictValidation bool
 	}
 
 	return root, nil
+}
+
+func queryBunRelationFilterConfig(fields map[string]string, cfg queryBuilderConfig) querybun.Config {
+	operators := operatorSet
+	if cfg.operators != nil {
+		operators = *cfg.operators
+	}
+	return querybun.Config{
+		Syntax:    querybun.DefaultRESTSyntax(),
+		Fields:    querybun.FieldConfig{Resolver: querybun.NewMapResolver(fields)},
+		Operators: operators,
+		Validation: querybun.ValidationConfig{
+			Mode:         querybun.ValidationStrict,
+			StrictFields: true,
+		},
+	}
+}
+
+func resolveQueryOperator(operator querybun.OperatorKind, field string, cfg queryBuilderConfig, strict bool) (querybun.Operator, error) {
+	operators := operatorSet
+	if cfg.operators != nil {
+		operators = *cfg.operators
+	}
+	validation := querybun.ValidationConfig{Mode: querybun.ValidationCollect}
+	if strict || cfg.strictValidationEnabled() {
+		validation.Mode = querybun.ValidationStrict
+	}
+	op, err := querybun.ResolveOperator(string(operator), field, querybun.Config{
+		Operators:  operators,
+		Validation: validation,
+	})
+	if err != nil {
+		return querybun.Operator{}, convertQueryBunError(err)
+	}
+	return op, nil
 }
 
 func mergeIncludeTrees(dst map[string]*relationIncludeNode, node *relationIncludeNode) {
@@ -551,10 +674,11 @@ func includeRelation(q *bun.SelectQuery, node *relationIncludeNode) *bun.SelectQ
 
 func applyRelationFilters(q *bun.SelectQuery, filters []relationFilter) *bun.SelectQuery {
 	for _, filter := range filters {
-		column := filter.column
-		if column == "" {
-			column = filter.field
+		if filter.criteria != nil {
+			q = filter.criteria(q)
+			continue
 		}
+		column := filter.column
 		q = q.Where(fmt.Sprintf("%s %s ?", column, filter.operator), filter.value)
 	}
 	return q
