@@ -20,7 +20,7 @@ const (
 
 const defaultBatchRouteSegment = "batch"
 
-var operatorMap = DefaultOperatorMap()
+var operatorSet = querybun.DefaultOperatorSet()
 
 type FieldMapProvider func(reflect.Type) map[string]string
 
@@ -105,19 +105,65 @@ func (rc RouteConfig) resolve(op CrudOperation, defaultMethod string) (bool, str
 }
 
 func DefaultOperatorMap() map[string]string {
-	return querybun.CanonicalOperatorMap()
+	out := make(map[string]string, len(querybun.DefaultOperatorSet().Specs))
+	for kind, spec := range querybun.DefaultOperatorSet().Specs {
+		out[string(kind)] = spec.SQL
+	}
+	return out
 }
 
 func SetOperatorMap(om map[string]string) {
 	if len(om) == 0 {
-		operatorMap = map[string]string{}
-		querybun.SetDefaultOperatorMap(operatorMap)
+		operatorSet = querybun.DefaultOperatorSet()
 		return
 	}
-	clone := make(map[string]string, len(om))
-	maps.Copy(clone, om)
-	operatorMap = clone
-	querybun.SetDefaultOperatorMap(clone)
+	next := querybun.DefaultOperatorSet()
+	for alias, sql := range om {
+		kind := queryOperatorKindForSQL(sql)
+		if kind == "" {
+			continue
+		}
+		next = next.WithAlias(alias, kind)
+	}
+	operatorSet = next
+}
+
+func queryOperatorKindForSQL(sql string) querybun.OperatorKind {
+	switch strings.ToUpper(strings.TrimSpace(sql)) {
+	case "=":
+		return querybun.OperatorEq
+	case "<>", "!=":
+		return querybun.OperatorNe
+	case ">":
+		return querybun.OperatorGt
+	case "<":
+		return querybun.OperatorLt
+	case ">=":
+		return querybun.OperatorGte
+	case "<=":
+		return querybun.OperatorLte
+	case "IN":
+		return querybun.OperatorIn
+	case "NOT IN":
+		return querybun.OperatorNin
+	case "LIKE":
+		return querybun.OperatorLike
+	case "ILIKE":
+		return querybun.OperatorILike
+	case "AND":
+		return querybun.OperatorAnd
+	case "OR":
+		return querybun.OperatorOr
+	default:
+		switch strings.ToLower(strings.TrimSpace(sql)) {
+		case "and":
+			return querybun.OperatorAnd
+		case "or":
+			return querybun.OperatorOr
+		default:
+			return ""
+		}
+	}
 }
 
 type Option[T any] func(*Controller[T])
@@ -388,7 +434,8 @@ func GetResourceTitle(typ reflect.Type) (string, string) {
 func parseFieldOperator(param string) (field string, operator string) {
 	field, resolved, err := parseFieldOperatorWithValidation(param, false)
 	if err != nil {
-		return strings.TrimSpace(param), "="
+		field, _ = querybun.ParsePredicateKey(param)
+		return field, ""
 	}
 	return field, resolved.sql
 }
