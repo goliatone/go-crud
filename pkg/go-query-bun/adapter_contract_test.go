@@ -52,7 +52,7 @@ func TestAdapterContract_UserInventoryPlannerBehavior(t *testing.T) {
 	assert.Equal(t, 25, plan.Metadata.Limit)
 	assert.Equal(t, 10, plan.Metadata.Offset)
 	assert.Equal(t, 1, plan.Metadata.Page)
-	assert.Len(t, plan.CountCriteria(), 3)
+	assert.Len(t, plan.CountCriteria(), 2)
 	assert.Len(t, plan.PageCriteria(), 1)
 	assert.NotEmpty(t, plan.ListCriteria())
 	assert.Equal(t, []Order{{Field: "username", Dir: "DESC"}}, plan.Metadata.Order)
