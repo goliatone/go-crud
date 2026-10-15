@@ -9,7 +9,7 @@ require (
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.62.3
-	github.com/goliatone/go-users v0.26.2
+	github.com/goliatone/go-users v0.27.0
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.11.1

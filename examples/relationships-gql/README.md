@@ -10,24 +10,34 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 
 ## Running
 
+Run from `examples/relationships-gql` (a separate Go 1.26.0+ module):
+
+```sh
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
+  --schema-package ./registrar --out ./graph --config ./gqlgen.yml \
+  --emit-subscriptions --emit-dataloader \
+  --auth-package github.com/goliatone/go-auth \
+  --auth-guard "auth.ActorFromContext(ctx)"
+go run github.com/99designs/gqlgen generate --config ./gqlgen.yml
+./taskfile serve
+./taskfile metadata     # optional metadata snapshot
 ```
-./taskfile graphqlgen   # regenerate schema + gqlgen.yml from live models via registrar
-./taskfile gqlgen       # run gqlgen to refresh generated code
-./taskfile serve        # starts the server on :9091
-./taskfile gen          # go generate (uses the registrar + live models)
-./taskfile metadata     # optional: emit metadata.json snapshot for fixtures/docs
-```
+
+Use the direct generator command above: older taskfile/go:generate wrappers
+still use `auth.FromContext(ctx)`. The current helper is
+`auth.ActorFromContext(ctx)`, returning `(actor, bool)` from trusted context.
+
 
 GraphQL endpoint: `http://localhost:9091/graphql` (HTTP + WebSocket)  
 Playground: `http://localhost:9091/playground`
 
-`graphqlgen` runs with `--emit-subscriptions` and `--emit-dataloader`, so the generated schema includes Subscription fields and resolver field loaders by default (see `graph/resolvers/resolver_gen.go` and `graph/dataloader/dataloader_gen.go`).
+The generator command runs with `--emit-subscriptions` and `--emit-dataloader`, so the generated schema includes Subscription fields and resolver field loaders by default (see `graph/resolvers/resolver_gen.go` and `graph/dataloader/dataloader_gen.go`).
 
 All list operations return Relay connections (`edges { node cursor }` + `pageInfo`) so clients can page using cursors while still seeing total counts.
 
 ### Dataloaders
 - Requests automatically wrap the gqlgen handler with a per-request dataloader (see `internal/loader/loader.go`). It batches relation lookups (including many-to-many pivots) and is discovered in resolvers via `dataloader.FromContext`.
-- The generated loader lives in `graph/dataloader/dataloader_gen.go`; keep it in sync with `./taskfile graphqlgen --emit-dataloader`.
+- The generated loader lives in `graph/dataloader/dataloader_gen.go`; keep it in sync with the generator command above.
 - Sanity check the batching/grouping logic with `go test ./graph/dataloader -run TestLoader_GroupsDeterministically`.
 
 ### Subscriptions (websocket)
@@ -48,10 +58,10 @@ subscription {
 ## Hooks (optional auth/scope snippets)
 - Inject an auth guard into generated resolvers:
 ```
-go run ./gql/cmd/graphqlgen \
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
   --schema-package ./registrar \
   --out graph --config gqlgen.yml \
-  --auth-guard "auth.FromContext(ctx)" \
+  --auth-guard "auth.ActorFromContext(ctx)" \
   --auth-package github.com/goliatone/go-auth
 ```
 - Or pass a hooks overlay (example):
@@ -60,7 +70,7 @@ hooks:
   imports: [github.com/goliatone/go-auth]
   default:
     auth_guard: |
-      user, ok := auth.FromContext(ctx)
+      user, ok := auth.ActorFromContext(ctx)
       if !ok || user == nil { return nil, errors.New("unauthorized") }
 ```
 
@@ -193,6 +203,6 @@ mutation {
 
 ## Regenerating after model changes
 - Source of truth for models is `model.go`. Add new models/fields/relations there and keep the registrar wiring in `registrar/` in sync.
-- Run `./taskfile gen` (or `go generate ./...`) to refresh `graph/schema.graphql`, `gqlgen.yml`, and resolver/model scaffolding from the in-memory registry (no metadata.json required).
+- Run the generator command above to refresh `graph/schema.graphql`, `gqlgen.yml`, and resolver/model scaffolding from the in-memory registry (no metadata.json required).
 - Then run `./taskfile gqlgen` to regenerate gqlgen outputs before serving.
 - If you need a metadata.json snapshot for fixtures/docs, run `./taskfile metadata` (not used by the generator path).

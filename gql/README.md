@@ -1,29 +1,37 @@
 # go-crud GraphQL generator (`gql/`)
 
-GraphQL generator for go-crud.
+Separate Go module `github.com/goliatone/go-crud/gql` (Go 1.26.0+).
+It generates schemas, models and resolver scaffolds from CRUD metadata; hosts
+supply repositories, authorization, event buses and the GraphQL HTTP/WebSocket
+server. The generator does not mount routes or create database tables.
+
+Public packages are `generator` (programmatic generation), `helpers` (request
+adaptation), `registrar` (metadata-only router), `refresh` (schema-change
+regeneration), and `extensions` (metadata extensions). Template/loader internals
+remain private; use `generator.Options` in consumers.
 
 ## Quick start
-- From the repo root, generate from a metadata JSON file:
+- From this module directory (`cd gql`), generate from a metadata JSON file:
 ```
-go run ./gql/cmd/graphqlgen --metadata-file ./gql/examples/minimal/metadata.json --out graph --config gqlgen.yml
+go run ./cmd/graphqlgen --metadata-file ./examples/minimal/metadata.json --out graph --config gqlgen.yml
 ```
-- Or rely on the in-memory schema registry (make sure your service packages register schemas before the CLI runs):
+- In a consuming module requiring `go-crud/gql`, import a registrar package through `--schema-package`. That package must register controllers in the loader process:
 ```
-go run ./gql/cmd/graphqlgen --schema-package ./internal/yourapp
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen --schema-package ./internal/yourapp
 ```
 - Add auth snippets via hooks:
 ```
-go run ./gql/cmd/graphqlgen \
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
   --schema-package ./internal/yourapp \
-  --auth-guard "auth.FromContext(ctx)" \
+  --auth-guard "auth.ActorFromContext(ctx)" \
   --auth-package github.com/goliatone/go-auth
 ```
 - Emit subscription SDL/resolvers (defaults to `created/updated/deleted` per entity):
 ```
-go run ./gql/cmd/graphqlgen --schema-package ./internal/yourapp --emit-subscriptions
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen --schema-package ./internal/yourapp --emit-subscriptions
 ```
 - Use `github.com/goliatone/go-crud/gql/registrar` when you need a no-op router to register controllers for the schema registry.
-- For examples/relationships-gql, `go generate` points `--schema-package` at `./registrar` so you can edit the Bun models in `model.go` and rerun codegen without maintaining a metadata.json (using the shared `gql/registrar` helper).
+- For `examples/relationships-gql`, use `--schema-package ./registrar` from that module so metadata follows live Bun models. Use the current command in its README; older taskfile/go:generate wrappers still contain legacy auth expressions.
 - List operations emit Relay connections (`XConnection`/`XEdge` + `PageInfo` with `total/hasNextPage/hasPreviousPage/startCursor/endCursor`) so Relay/Apollo clients can use pagination out of the box.
 - Filter entities with `--include` / `--exclude`, override scalars with `--type-mapping string:uuid=UUID`, and add auth hooks via `--policy-hook yourpkg.CheckScope`.
 
@@ -40,6 +48,11 @@ go run ./gql/cmd/graphqlgen --schema-package ./internal/yourapp --emit-subscript
 - Omit mutation payload fields via `--omit-mutation-field field` or `--omit-mutation-field Entity.field`. Enable dataloaders with `--emit-dataloader`.
 
 ## Schema refresh hooks
+
+Import the public `github.com/goliatone/go-crud/gql/generator` and `/refresh`
+packages. A refresh generates files; publishing content does not replace a
+running gqlgen schema or deploy the generated code. Hosts own regeneration,
+review/build and rollout.
 - When content types are published at runtime, register a schema refresh hook to regenerate GraphQL artifacts from the schema registry:
 ```
 refresh.RegisterSchemaRefresh(ctx, refresh.Options{
@@ -105,12 +118,12 @@ func (r *mutationResolver) CreateBook(ctx context.Context, input model.BookInput
 ## Integrating in a service
 - Add a `//go:generate` near your resolver package (ensure the package that registers schemas is imported by the generator run):
 ```go
-//go:generate go run ./gql/cmd/graphqlgen --schema-package ./internal/api --out graph --config gqlgen.yml
+//go:generate go run github.com/goliatone/go-crud/gql/cmd/graphqlgen --schema-package ./internal/api --out graph --config gqlgen.yml
 ```
 - Optional `make` target:
 ```make
 graphql:
-	go run ./gql/cmd/graphqlgen --out graph --config gqlgen.yml
+	go run github.com/goliatone/go-crud/gql/cmd/graphqlgen --out graph --config gqlgen.yml
 ```
 - Keep `_custom` files under version control; rerun the generator after changing metadata, type mappings, or templates.
 
@@ -118,6 +131,11 @@ graphql:
 - Uses `github.com/goliatone/go-template` (Django/pongo2-style: `{% %}` blocks, `{{ }}` expressions). Filters from go-template are available; additional filters can be registered per renderer instance.
 
 ## Hooks (auth/scope/preload/wrapping/error)
+
+`--auth-guard` is a Go expression returning `(actor, bool)`, not a complete
+statement or a token validator. `auth.ActorFromContext(ctx)` reads an actor
+already established by host authentication middleware; it does not authenticate
+or check operation permissions by itself.
 - Overlay shape:
 ```yaml
 hooks:

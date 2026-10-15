@@ -1,6 +1,27 @@
 # Go CRUD Controller
 
-A Go package that provides a generic CRUD controller for REST APIs using Fiber and Bun ORM.
+Generic CRUD controllers and reusable services for Bun-backed resources, with
+Fiber/go-router adapters, typed query planning, scopes, field policies, hooks,
+virtual fields, schema metadata and command-backed actions. Hosts own identity,
+operation authorization and domain workflows.
+
+Use Go 1.26.0 or newer, as required by `go.mod`.
+
+## Package and documentation map
+
+| Package/module | Responsibility | Reference |
+| --- | --- | --- |
+| Root `crud` | Controllers/services, router adapters, scopes/policies, actions, virtual fields and OpenAPI metadata | Sections below |
+| `pkg/go-query-bun` | Reusable Bun query plans, semantic operators, projection, search and pagination | [Package contract](pkg/go-query-bun/doc.go) |
+| `pkg/activity` and `pkg/activity/usersink` | CRUD activity events/hooks and a go-users sink bridge | [Emitter](pkg/activity/emitter.go), [sink bridge](pkg/activity/usersink/hook.go) |
+| `gql` | Separate module: GraphQL metadata/code generation, context helpers, registrar and refresh hooks | [GraphQL guide](gql/README.md) |
+| `rpc` | Separate module: endpoint-first CRUD exposure through go-command RPC | [Migration guide](docs/RPC_ENDPOINT_FIRST_MIGRATION.md) |
+
+Install optional modules explicitly (`go get github.com/goliatone/go-crud/gql`
+or `/rpc`) and inspect their own `go.mod`/release versions. Root tests do not
+cover nested modules. `pkg/go-query-bun` belongs to the root module and is not
+an independently released dependency. Examples with their own `go.mod` run from
+that directory. No package supplies application schema migrations.
 
 ## Installation
 
@@ -14,6 +35,7 @@ go get github.com/goliatone/go-crud
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"time"
@@ -22,7 +44,7 @@ import (
 	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
-	"github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
@@ -32,19 +54,20 @@ type User struct {
 	ID            *uuid.UUID `bun:"id,pk,nullzero,type:uuid" json:"id"`
 	Name          string     `bun:"name,notnull" json:"name"`
 	Email         string     `bun:"email,notnull" json:"email"`
-	Password      string     `bun:"password,notnull" json:"password" crud:"-"`
+	Password      string     `bun:"password,notnull" json:"-" crud:"-"`
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at,omitempty"`
 	CreatedAt     *time.Time `bun:"created_at,nullzero,default:current_timestamp" json:"created_at"`
 	UpdatedAt     *time.Time `bun:"updated_at,nullzero,default:current_timestamp" json:"updated_at"`
 }
 
 
-func NewUserRepository(db bun.IDB) repository.Repository[*User] {
+func NewUserRepository(db *bun.DB) repository.Repository[*User] {
 	handlers := repository.ModelHandlers[*User]{
 		NewRecord: func() *User {
 			return &User{}
 		},
 		GetID: func(record *User) uuid.UUID {
+			if record.ID == nil { return uuid.Nil }
 			return *record.ID
 		},
 		SetID: func(record *User, id uuid.UUID) {
@@ -58,20 +81,23 @@ func NewUserRepository(db bun.IDB) repository.Repository[*User] {
 }
 
 func main() {
-	_ = sqlite3.Version() // ensure driver is imported
 	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
 		panic(err)
 	}
 	db := bun.NewDB(sqldb, sqlitedialect.New())
+	defer db.Close()
+	if _, err := db.NewCreateTable().Model((*User)(nil)).IfNotExists().Exec(context.Background()); err != nil {
+		panic(err)
+	}
 
 	server := fiber.New()
 	api := server.Group("/api/v1")
 
 	userRepo := NewUserRepository(db)
-	crud.NewController[*User](userRepo).RegisterRoutes(api)
+	crud.NewController[*User](userRepo).RegisterRoutes(crud.NewFiberAdapter(api))
 
-log.Fatal(server.Listen(":3000"))
+	log.Fatal(server.Listen(":3000"))
 }
 
 ```
@@ -106,16 +132,19 @@ The `gql` module reuses the same service layer as REST so hooks, scope guards, f
 
 - `gql/helpers.GraphQLToCrudContext` adapts gqlgen contexts to `crud.Context`.
 - `gql/internal/templates` + `gql/cmd/graphqlgen` generate schema, gqlgen config, resolvers, and dataloaders. Auth is opt‑in via `--auth-package`/`--auth-guard`, which emits a `GraphQLContext` helper that bridges go-auth actors into `crud.ActorContext`.
-- Example regeneration:
-  ```bash
-  go run ./gql/cmd/graphqlgen \
-    --schema-package ./examples/relationships-gql/registrar \
-    --out ./examples/relationships-gql/graph \
-    --config ./examples/relationships-gql/gqlgen.yml \
+- Generate within the nested example module using the current auth expression:
+  ```sh
+  cd examples/relationships-gql
+  go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
+    --schema-package ./registrar --out ./graph --config ./gqlgen.yml \
     --emit-subscriptions --emit-dataloader \
     --auth-package github.com/goliatone/go-auth \
-    --auth-guard "auth.FromContext(ctx)"
+    --auth-guard "auth.ActorFromContext(ctx)"
   ```
+- For direct CLI usage, run `go run github.com/goliatone/go-crud/gql/cmd/graphqlgen`
+  from a module requiring the generator. The [GraphQL guide](gql/README.md)
+  covers metadata files, hooks and module-relative paths. An auth expression must
+  return `(actor, bool)`; go-auth's current expression is `auth.ActorFromContext(ctx)`.
 
 ### Generated Routes
 
@@ -314,51 +343,36 @@ List endpoints in the generated OpenAPI document reference reusable query compon
 
 Controllers can opt into multi-tenant enforcement by registering a guard adapter via `crud.WithScopeGuard`. The adapter receives the incoming request, resolves the actor, and returns a `ScopeFilter` that injects `WHERE` clauses before the repository executes.
 
+The guard must use trusted actor context supplied by authentication middleware;
+request parameters are scope hints, not actor identity. For example, a host can
+compose its operation authorizer with a tenant filter:
+
 ```go
-controller := crud.NewController(userRepo,
-	crud.WithScopeGuard(userScopeGuard(scopeGuard)),
-)
-
-func userScopeGuard(g scope.Guard) crud.ScopeGuardFunc[*User] {
-	actionMap := map[crud.CrudOperation]types.PolicyAction{
-		crud.OpList: types.PolicyActionRead,
-		crud.OpRead: types.PolicyActionRead,
-		crud.OpCreate: types.PolicyActionCreate,
-		crud.OpUpdate: types.PolicyActionUpdate,
-		crud.OpDelete: types.PolicyActionDelete,
-	}
-
-	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
-		tenantID := strings.TrimSpace(ctx.Query("tenant_id"))
-		actor := crud.ActorContext{
-			ActorID:  ctx.Query("actor_id", "system"),
-			TenantID: tenantID,
-		}
-
-		requested := crud.ScopeFilter{}
-		if tenantID != "" {
-			requested.AddColumnFilter("tenant_id", "=", tenantID)
-		}
-
-		resolved, err := g.Enforce(
-			ctx.UserContext(),
-			toTypesActor(actor),
-			toTypesScope(requested),
-			actionMap[op],
-			uuid.Nil,
-		)
-		if err != nil {
-			return actor, crud.ScopeFilter{}, err
-		}
-
-		return actor, fromTypesScope(resolved), nil
-	}
+func tenantGuard(authorize func(crud.Context, crud.ActorContext, crud.CrudOperation) error) crud.ScopeGuardFunc[*User] {
+    return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+        actor := crud.ActorFromContext(ctx.UserContext())
+        if actor.ActorID == "" || actor.TenantID == "" || authorize == nil {
+            return actor, crud.ScopeFilter{}, fmt.Errorf("trusted actor and tenant required")
+        }
+        if err := authorize(ctx, actor, op); err != nil {
+            return actor, crud.ScopeFilter{}, err
+        }
+        filters := crud.ScopeFilter{}
+        filters.AddColumnFilter("tenant_id", "=", actor.TenantID)
+        return actor, filters, nil
+    }
 }
 ```
 
-Helper functions (not shown) simply convert between `crud.ActorContext`/`crud.ScopeFilter` and the `types.ActorRef`/`types.ScopeFilter` structs used by `go-users`.
+Pass `crud.WithScopeGuard[*User](tenantGuard(authorizeUserOperation))` when
+constructing the controller; `authorizeUserOperation` is host-owned. Populate
+`crud.ContextWithActor` from validated identity before controller execution.
+Create/update services must also enforce tenant ownership of submitted values;
+a read filter alone does not validate a create payload.
 
-`ActorContext` mirrors the payload emitted by `go-auth` middleware (ID, tenant/org IDs, resource roles, impersonation flags). `ScopeFilter` collects guard-enforced column filters, and helper methods like `AddColumnFilter` make it easy to append `tenant_id = ?` clauses without touching Bun primitives. Column filters are applied automatically to `Index`, `Show`, and the `Show` read performed before `Update`/`Delete`.
+`ActorContext` mirrors the payload emitted by `go-auth` middleware (ID, tenant/org IDs, resource roles, impersonation flags). `ScopeFilter` collects guard-enforced column filters, and helper methods like `AddColumnFilter` make it easy to append `tenant_id = ?` clauses without touching Bun primitives. Column filters are applied automatically to `Index`, `Show`, and the `Show` read performed before `Update`/`Delete`. Batch updates and filtered batch deletions check every target before calling the batch mutation; a target outside the configured row filters rejects the request.
+
+Guards and repository scopes are opt-in. The host must reject missing or unauthorized scope in its guard; an empty `ScopeFilter` does not deny access. Direct repository calls need their own configured scopes, such as `ScopeByFieldRequired("group", "group_id")` registered as a default for select, update, and delete. Unconfigured repositories do not enforce IAM. The host must stamp and validate ownership on create/insert and prevent unauthorized ownership changes on update; select/update/delete scopes do not assign ownership. Custom services must honor the supplied criteria and enforce policy at their own persistence boundary.
 
 Once the guard runs, go-crud stores the resolved metadata on the standard context so downstream services and repositories can reuse it:
 
@@ -892,9 +906,22 @@ The List endpoint supports:
   - Available operators: `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`
   - Multiple values: `?name__or=John,Jack`
 
+### Command-backed actions and activity policy
+
+Use `CommandBackedActionHandler` to decode input, invoke one application command,
+and present its result through mutation response helpers. Keep domain workflows
+in commands/services so REST, GraphQL and RPC can share behavior. Transport
+metadata and schema visibility do not themselves authorize an operation.
+
+`pkg/activity/usersink.Hook` translates events and forwards metadata to its
+configured go-users sink. It does not add disclosure policy, identity lookup,
+retries or deduplication. Wrap the destination with the host's record policy
+and retain trusted scope and access checks. See [action adapter](action_command.go)
+and [sink mapping](pkg/activity/usersink/hook.go).
+
 ## RPC Integration (go-command)
 
-`go-crud` includes `github.com/goliatone/go-crud/rpc`, which exposes controller
+The separate `github.com/goliatone/go-crud/rpc` module exposes controller
 operations through the go-command RPC method adapter while preserving guard,
 policy, hook, merge, and activity semantics.
 

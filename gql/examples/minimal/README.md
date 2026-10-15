@@ -8,5 +8,5 @@ This folder holds a tiny `router.SchemaMetadata` payload and the generator outpu
 
 Regenerate (optional):
 ```
-go run ./gql/cmd/graphqlgen --metadata-file ./gql/examples/minimal/metadata.json --out ./gql/examples/minimal/output/graph --config ./gql/examples/minimal/output/gqlgen.yml
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen --metadata-file ./gql/examples/minimal/metadata.json --out ./gql/examples/minimal/output/graph --config ./gql/examples/minimal/output/gqlgen.yml
 ```

@@ -1154,6 +1154,22 @@ func (c *Controller[T]) DeleteBatch(ctx Context) error {
 		return c.resp.OnError(ctx, &ValidationError{err}, OpDeleteBatch)
 	}
 
+	criteria := c.applyScopeCriteria(nil, meta.scope)
+	criteria = c.applyFieldPolicyCriteria(criteria, policy)
+	if len(criteria) > 0 {
+		// Check every target before any deletion, as UpdateBatch does. Preserve
+		// unfiltered batch deletion's existing handling of missing IDs.
+		for i, record := range records {
+			id := c.Repo.Handlers().GetID(record)
+			existingRecord, showErr := svc.Show(ctx, id.String(), criteria)
+			if showErr != nil {
+				c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, showErr)
+				return c.resp.OnError(ctx, &NotFoundError{showErr}, OpDeleteBatch)
+			}
+			records[i] = existingRecord
+		}
+	}
+
 	err = svc.DeleteBatch(ctx, records)
 	if err != nil {
 		c.emitActivityEvents(ctx, OpDeleteBatch, meta, records, err)

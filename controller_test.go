@@ -575,7 +575,12 @@ func stringify(value any) string {
 }
 
 func TestController_GetUser_NotFound(t *testing.T) {
-	app, db := setupApp(t)
+	var mappedError *goerrors.Error
+	encoder := ProblemJSONErrorEncoder(WithProblemJSONStatusResolver(func(err *goerrors.Error, op CrudOperation) int {
+		mappedError = err
+		return defaultErrorStatusResolver(err, op)
+	}))
+	app, db := setupApp(t, WithErrorEncoder[*TestUser](encoder))
 	defer closeTestResource(t, db)
 
 	req := newTestRequest("GET", fmt.Sprintf("/test-user/%s", uuid.New().String()), nil)
@@ -586,20 +591,23 @@ func TestController_GetUser_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.Contains(t, resp.Header.Get("Content-Type"), "application/problem+json")
 
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	var response goerrors.ErrorResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(body, &response))
 
 	if assert.NotNil(t, response.Error) {
 		assert.Equal(t, goerrors.CategoryNotFound, response.Error.Category)
 		assert.Equal(t, http.StatusNotFound, response.Error.Code)
 		assert.Equal(t, "NOT_FOUND", response.Error.TextCode)
 		assert.NotEmpty(t, response.Error.Message)
-		if assert.NotNil(t, response.Error.Metadata) {
-			assert.Equal(t, string(OpRead), response.Error.Metadata["operation"])
-		}
 	}
+	require.NotNil(t, mappedError)
+	assert.Equal(t, string(OpRead), mappedError.Metadata["operation"])
+	var publicResponse map[string]map[string]any
+	require.NoError(t, json.Unmarshal(body, &publicResponse))
+	assert.NotContains(t, publicResponse["error"], "metadata")
+	assert.NotContains(t, publicResponse["error"], "stack_trace")
 }
 
 func TestController_GetUser_NotFound_LegacyEncoder(t *testing.T) {
@@ -2572,8 +2580,10 @@ func TestController_ScopeGuardErrorSurfaces(t *testing.T) {
 	if assert.NotNil(t, payload.Error) {
 		assert.Equal(t, goerrors.CategoryAuthz, payload.Error.Category)
 		assert.Equal(t, http.StatusForbidden, payload.Error.Code)
-		assert.Equal(t, "not authorized", payload.Error.Message)
+		assert.Equal(t, "FORBIDDEN", payload.Error.TextCode)
+		assert.Equal(t, "Access is forbidden.", payload.Error.Message)
 	}
+	assert.Equal(t, "not authorized", guardErr.Message)
 }
 
 func TestController_WithCommandServiceOverridesCreate(t *testing.T) {

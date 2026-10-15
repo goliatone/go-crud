@@ -7,7 +7,7 @@ GraphQL snapshot that mirrors the `../examples/relationships` REST demo (publish
 
 Regenerate:
 ```
-go run ./gql/cmd/graphqlgen \
+go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
   --metadata-file ./gql/examples/relationships/metadata.json \
   --out ./gql/examples/relationships/output/graph \
   --config ./gql/examples/relationships/output/gqlgen.yml

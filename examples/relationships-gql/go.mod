@@ -7,7 +7,7 @@ require (
 	github.com/ettle/strcase v0.2.0
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-auth v0.45.1
+	github.com/goliatone/go-auth v0.45.2
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-persistence-bun v0.17.1
