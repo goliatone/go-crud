@@ -1,11 +1,38 @@
 # Changelog
 
-# [unreleased]
+# [0.26.0](https://github.com/goliatone/go-crud/compare/v0.25.0...v0.26.0) - (2026-10-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([df885c5](https://github.com/goliatone/go-crud/commit/df885c52d877016f38ec053595bf39e85d123c39))  - (goliatone)
+- Reserved query keys ignored during filter map, relation include filters, respect semantic aliases ([35b1bfc](https://github.com/goliatone/go-crud/commit/35b1bfc2f854be4f595c7fc2eccaa03909866244))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Separate syntax from parsing ([2572876](https://github.com/goliatone/go-crud/commit/257287651b9323be0f75b64e878256d591f92b50))  - (goliatone)
+- Linters ([cbb5317](https://github.com/goliatone/go-crud/commit/cbb5317acffb3901df3e00114abb6b4f99f3faef))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Use new go-query-bun api ([eb6fd97](https://github.com/goliatone/go-crud/commit/eb6fd978ef7f9d0f63046e999c6fd269c7221128))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c713f38](https://github.com/goliatone/go-crud/commit/c713f384061bc3a2dadbfdabe477f2281afcb8ca))  - (goliatone)
+- Update tests ([0f87487](https://github.com/goliatone/go-crud/commit/0f874875e2eade71af32de8a40c8713fb5a230e1))  - (goliatone)
+- Update docs ([322daa1](https://github.com/goliatone/go-crud/commit/322daa1c3ff129531255acb3ef5ceda95423f1d4))  - (goliatone)
+- Update examples ([9fe6948](https://github.com/goliatone/go-crud/commit/9fe6948d8307bcf51ae4a6470540647fafcb50fe))  - (goliatone)
+
+# [0.25.0](https://github.com/goliatone/go-crud/compare/v0.24.0...v0.25.0) - (2026-06-20)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Normalize serialization path ([ac054a5](https://github.com/goliatone/go-crud/commit/ac054a53d8411e23b62e549ec0183912ba47fd37))  - (goliatone)
 - Code quality ([9e4d516](https://github.com/goliatone/go-crud/commit/9e4d5163cf3b16d2d36ec653cf69584d6b2f2529))  - (goliatone)
+
+## <!-- 12 -->🔖 Releases
+
+- V0.25.0 ([993f264](https://github.com/goliatone/go-crud/commit/993f2642bfe823e9fe2152f63879a3996b7da4d6))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
