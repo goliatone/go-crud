@@ -8,8 +8,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-repository-bun v0.16.1
-	github.com/goliatone/go-router v0.62.3
-	github.com/goliatone/go-users v0.27.0
+	github.com/goliatone/go-router v0.62.4
+	github.com/goliatone/go-users v0.27.1
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.11.1

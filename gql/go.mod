@@ -7,7 +7,7 @@ require (
 	github.com/ettle/strcase v0.2.0
 	github.com/goliatone/go-crud v0.26.0
 	github.com/goliatone/go-repository-bun v0.16.1
-	github.com/goliatone/go-router v0.62.3
+	github.com/goliatone/go-router v0.62.4
 	github.com/goliatone/go-template v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.18

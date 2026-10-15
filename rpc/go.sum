@@ -47,8 +47,8 @@ github.com/gofiber/template/django/v3 v3.1.14 h1:SvTvs+u5vTZuu1Y2pMUD2NhaGIjBj9F
 github.com/gofiber/template/django/v3 v3.1.14/go.mod h1:gP4vH+T1ajZw7yaejqG1dZVdHQkMC/jPoQbmlG812I0=
 github.com/gofiber/utils v1.2.0 h1:NCaqd+Efg3khhN++eeUUTyBz+byIxAsmIjpl8kKOMIc=
 github.com/gofiber/utils v1.2.0/go.mod h1:poZpsnhBykfnY1Mc0KeEa6mSHrS3dV0+oBWyeQmb2e0=
-github.com/goliatone/go-command v0.24.2 h1:GXJ7yVvQ2fU7GYTpQVep1NtDyfhkhwin8OifnSZ2Vpo=
-github.com/goliatone/go-command v0.24.2/go.mod h1:oIfD1b4npSamA9ME2ph5f4IZKI1/S4QvqtjcfwtKqXU=
+github.com/goliatone/go-command v0.24.3 h1:CZvM6xg2J1+e96Wu8uPaKyQmKzwLCypknko5JQcC+qc=
+github.com/goliatone/go-command v0.24.3/go.mod h1:PGuCsS9jhVoWUaY+SZ9TAzvVnhzdwq1Tbs57PIv1myE=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-errors v0.12.0 h1:FI3FHJe+sogfD+MZJqx8OVGDJqav5PNq1xi1UAXjBwk=
@@ -57,8 +57,8 @@ github.com/goliatone/go-masker v0.2.0 h1:M+Xx+AVJqTpNCQNPrPgVL6ft7oao5oT+/jQ+G8X
 github.com/goliatone/go-masker v0.2.0/go.mod h1:n+AV93IO1rNI35kjbjfV1gMkjuIOSDVEzfhABTlCf4U=
 github.com/goliatone/go-repository-bun v0.16.1 h1:nTYn+MwwvhX4o2MuBYiM8aDYpO++2XM3b+9afu/EFNI=
 github.com/goliatone/go-repository-bun v0.16.1/go.mod h1:bOFyQOGKyPJX+tkd7A7DhASqcPMvwdhDq41AmWujFqs=
-github.com/goliatone/go-router v0.62.3 h1:6ZaNlLLLV4r5XwhhFIuOO3x25Xl/WeyJZmZZ0xAlSZY=
-github.com/goliatone/go-router v0.62.3/go.mod h1:3nA13XBi1gDVyIRKPXU7ZWhOdbKGnizoe85IXh0ybMM=
+github.com/goliatone/go-router v0.62.4 h1:2so3dnIWw+FB+mXBAH/7Qr6rOlB1fR9ZdnLD3OrO0m4=
+github.com/goliatone/go-router v0.62.4/go.mod h1:3nA13XBi1gDVyIRKPXU7ZWhOdbKGnizoe85IXh0ybMM=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=
 github.com/goodsign/monday v1.0.2/go.mod h1:r4T4breXpoFwspQNM+u2sLxJb2zyTaxVGqUfTBjWOu8=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
