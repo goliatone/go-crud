@@ -1,11 +1,21 @@
 # Changelog
 
+# [0.26.1](https://github.com/goliatone/go-crud/compare/v0.26.0...v0.26.1) - (2026-10-15)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d702548](https://github.com/goliatone/go-crud/commit/d7025489871115d9b05792507ae2a7b0a92c3998))  - (goliatone)
+
 # [0.26.0](https://github.com/goliatone/go-crud/compare/v0.25.0...v0.26.0) - (2026-10-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([df885c5](https://github.com/goliatone/go-crud/commit/df885c52d877016f38ec053595bf39e85d123c39))  - (goliatone)
 - Reserved query keys ignored during filter map, relation include filters, respect semantic aliases ([35b1bfc](https://github.com/goliatone/go-crud/commit/35b1bfc2f854be4f595c7fc2eccaa03909866244))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.26.0 ([1e9d530](https://github.com/goliatone/go-crud/commit/1e9d530b56c0676bc16f6bb50038bb5cdd76af68))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
