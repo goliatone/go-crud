@@ -148,8 +148,7 @@ func mapCRUDTypedErrors(err error) *goerrors.Error {
 		return nil
 	}
 
-	var notFound *NotFoundError
-	if stdErrors.As(err, &notFound) {
+	if notFound, ok := stdErrors.AsType[*NotFoundError](err); ok {
 		message := strings.TrimSpace(notFound.Error())
 		if message == "" {
 			message = "resource not found"
@@ -163,8 +162,7 @@ func mapCRUDTypedErrors(err error) *goerrors.Error {
 		return result
 	}
 
-	var validation *ValidationError
-	if stdErrors.As(err, &validation) {
+	if validation, ok := stdErrors.AsType[*ValidationError](err); ok {
 		message := strings.TrimSpace(validation.Error())
 		if message == "" {
 			message = "validation failed"

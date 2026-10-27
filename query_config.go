@@ -165,7 +165,7 @@ func registerChild(parent *relationMetadata, field reflect.StructField, child *r
 	parent.children[strings.ToLower(field.Name)] = child
 
 	if jsonTag := field.Tag.Get(TAG_JSON); jsonTag != "" {
-		alias := strings.Split(jsonTag, ",")[0]
+		alias, _, _ := strings.Cut(jsonTag, ",")
 		if alias != "" && alias != "-" {
 			parent.children[strings.ToLower(alias)] = child
 		}

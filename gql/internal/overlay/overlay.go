@@ -3,6 +3,7 @@ package overlay
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -96,14 +97,14 @@ type Subscription struct {
 // Hooks defines resolver hook snippets and required imports.
 type Hooks struct {
 	Imports  []string               `json:"imports,omitempty" yaml:"imports,omitempty"`
-	Default  HookSet                `json:"default,omitempty" yaml:"default,omitempty"`
+	Default  HookSet                `json:"default" yaml:"default,omitempty"`
 	Entities map[string]EntityHooks `json:"entities,omitempty" yaml:"entities,omitempty"`
 }
 
 // EntityHooks configures hooks for a single entity.
 type EntityHooks struct {
 	Imports    []string           `json:"imports,omitempty" yaml:"imports,omitempty"`
-	All        HookSet            `json:"all,omitempty" yaml:"all,omitempty"`
+	All        HookSet            `json:"all" yaml:"all,omitempty"`
 	Operations map[string]HookSet `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
@@ -250,9 +251,7 @@ func mergeHooks(base, extra Hooks) Hooks {
 	}
 
 	out.Entities = make(map[string]EntityHooks, len(base.Entities)+len(extra.Entities))
-	for name, hooks := range base.Entities {
-		out.Entities[name] = hooks
-	}
+	maps.Copy(out.Entities, base.Entities)
 
 	for name, hooks := range extra.Entities {
 		current := out.Entities[name]

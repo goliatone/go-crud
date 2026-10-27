@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -557,9 +558,7 @@ func mergeUnion(registry map[string]Union, union Union) {
 	sort.Strings(mergedTypes)
 
 	mergedMap := make(map[string]string)
-	for key, val := range existing.TypeMap {
-		mergedMap[key] = val
-	}
+	maps.Copy(mergedMap, existing.TypeMap)
 	for key, val := range union.TypeMap {
 		if strings.TrimSpace(val) == "" {
 			continue
@@ -601,9 +600,7 @@ func cloneStringMap(in map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(in))
-	for key, val := range in {
-		out[key] = val
-	}
+	maps.Copy(out, in)
 	return out
 }
 

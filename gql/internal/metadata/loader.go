@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path"
@@ -82,9 +83,7 @@ func FromSchemaEntries(entries []crud.SchemaEntry) ([]router.SchemaMetadata, err
 		if err != nil {
 			return nil, fmt.Errorf("convert schema document for %s: %w", entry.Resource, err)
 		}
-		for name, schema := range found {
-			schemas[name] = schema
-		}
+		maps.Copy(schemas, found)
 	}
 
 	if len(schemas) == 0 {
@@ -844,8 +843,8 @@ func resolveSchemaPackage(pkg string) (string, string, error) {
 		}
 
 		cleaned := filepath.ToSlash(pkg)
-		if strings.HasPrefix(cleaned, "./") {
-			cleaned = strings.TrimPrefix(cleaned, "./")
+		if after, ok := strings.CutPrefix(cleaned, "./"); ok {
+			cleaned = after
 		} else if filepath.IsAbs(pkg) {
 			rel, err := filepath.Rel(modDir, pkg)
 			if err != nil {

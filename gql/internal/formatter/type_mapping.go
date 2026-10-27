@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-router"
@@ -79,9 +80,7 @@ func (m TypeMapping) WithOverrides(overrides map[TypeRef]string) TypeMapping {
 		overrides: make(map[string]string, len(m.overrides)+len(overrides)),
 	}
 
-	for key, val := range m.overrides {
-		next.overrides[key] = val
-	}
+	maps.Copy(next.overrides, m.overrides)
 
 	for ref, scalar := range overrides {
 		key := makeTypeKey(strings.ToLower(ref.Type), strings.ToLower(ref.Format), strings.ToLower(ref.GoType))

@@ -1317,7 +1317,7 @@ func jsonFieldAsString(record any, target string) (string, bool) {
 
 func jsonFieldName(field reflect.StructField) string {
 	if tagValue := field.Tag.Get("json"); tagValue != "" {
-		if name := strings.Split(tagValue, ",")[0]; name != "" && name != "-" {
+		if name, _, _ := strings.Cut(tagValue, ","); name != "" && name != "-" {
 			return name
 		}
 	}

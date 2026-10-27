@@ -327,14 +327,14 @@ func buildEntityInputs(entity formatter.Entity) (overlay.Input, overlay.Input) {
 	}
 
 	return overlay.Input{
-			Name:        "Create" + entity.Name + "Input",
-			Description: "Create payload for " + entity.Name,
-			Fields:      createFields,
-		}, overlay.Input{
-			Name:        "Update" + entity.Name + "Input",
-			Description: "Update payload for " + entity.Name,
-			Fields:      updateFields,
-		}
+		Name:        "Create" + entity.Name + "Input",
+		Description: "Create payload for " + entity.Name,
+		Fields:      createFields,
+	}, overlay.Input{
+		Name:        "Update" + entity.Name + "Input",
+		Description: "Update payload for " + entity.Name,
+		Fields:      updateFields,
+	}
 }
 
 func buildDefaultSubscriptions(entities []formatter.Entity, events []string) []overlay.Subscription {

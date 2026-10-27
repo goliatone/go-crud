@@ -36,14 +36,14 @@ func TestRegisterSchemaRefresh_TriggersGenerator(t *testing.T) {
 
 func TestRegisterSchemaRefresh_Debounces(t *testing.T) {
 	var listener crud.SchemaListener
-	var calls int32
+	var calls atomic.Int32
 	done := make(chan struct{}, 1)
 
 	RegisterSchemaRefresh(context.Background(), Options{
 		Debounce:         20 * time.Millisecond,
 		RegisterListener: func(l crud.SchemaListener) { listener = l },
 		Generator: func(ctx context.Context, opts generator.Options) (generator.Result, error) {
-			if atomic.AddInt32(&calls, 1) == 1 {
+			if calls.Add(1) == 1 {
 				done <- struct{}{}
 			}
 			return generator.Result{}, nil
@@ -62,19 +62,19 @@ func TestRegisterSchemaRefresh_Debounces(t *testing.T) {
 	}
 
 	time.Sleep(30 * time.Millisecond)
-	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+	require.Equal(t, int32(1), calls.Load())
 }
 
 func TestRegisterSchemaRefresh_RunsPending(t *testing.T) {
 	var listener crud.SchemaListener
-	var calls int32
+	var calls atomic.Int32
 	started := make(chan struct{})
 	release := make(chan struct{})
 
 	RegisterSchemaRefresh(context.Background(), Options{
 		RegisterListener: func(l crud.SchemaListener) { listener = l },
 		Generator: func(ctx context.Context, opts generator.Options) (generator.Result, error) {
-			if atomic.AddInt32(&calls, 1) == 1 {
+			if calls.Add(1) == 1 {
 				close(started)
 				<-release
 			}
@@ -95,6 +95,6 @@ func TestRegisterSchemaRefresh_RunsPending(t *testing.T) {
 	close(release)
 
 	require.Eventually(t, func() bool {
-		return atomic.LoadInt32(&calls) == 2
+		return calls.Load() == 2
 	}, 500*time.Millisecond, 10*time.Millisecond)
 }

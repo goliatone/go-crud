@@ -96,8 +96,8 @@ func (s *stringList) String() string {
 }
 
 func (s *stringList) Set(value string) error {
-	parts := strings.Split(value, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(value, ",")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			*s = append(*s, part)
