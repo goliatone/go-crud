@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/goliatone/go-command v0.24.3
-	github.com/goliatone/go-crud v0.26.1
+	github.com/goliatone/go-crud v0.27.0
 	github.com/goliatone/go-repository-bun v0.16.2
 	github.com/goliatone/go-router v0.63.0
 	github.com/google/uuid v1.6.0

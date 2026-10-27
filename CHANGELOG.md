@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.27.0](https://github.com/goliatone/go-crud/compare/v0.26.1...v0.27.0) - (2026-10-27)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([cd2eec2](https://github.com/goliatone/go-crud/commit/cd2eec2aeaa05d9a52e2af315c21e48a35d3e50f))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Migrate to use fiber v3 ([43072c1](https://github.com/goliatone/go-crud/commit/43072c1c79510ffaca5a810786c010ee793d0fb7))  - (goliatone)
+
 # [0.26.1](https://github.com/goliatone/go-crud/compare/v0.26.0...v0.26.1) - (2026-10-15)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.26.1 ([d5afc15](https://github.com/goliatone/go-crud/commit/d5afc15f516b3799b8904054c39c1e611a2b554c))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
