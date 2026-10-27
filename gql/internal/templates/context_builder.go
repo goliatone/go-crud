@@ -104,66 +104,7 @@ func containsString(values []string, target string) bool {
 }
 
 func buildDefaultOverlay(doc formatter.Document, subscriptionEvents []string) overlay.Overlay {
-	scalars := []overlay.Scalar{
-		{Name: "UUID", Description: "Custom scalar for UUID values", GoType: "string"},
-		{Name: "Time", Description: "Custom scalar for Time values", GoType: "time.Time"},
-		{Name: "JSON", Description: "Custom scalar for JSON objects", GoType: "map[string]any"},
-	}
-
-	enums := []overlay.Enum{
-		{
-			Name:        "OrderDirection",
-			Description: "Sort direction",
-			Values: []overlay.EnumValue{
-				{Name: "ASC"},
-				{Name: "DESC"},
-			},
-		},
-		{
-			Name:        "FilterOperator",
-			Description: "Filter comparison operators",
-			Values: []overlay.EnumValue{
-				{Name: "EQ", Description: "="},
-				{Name: "NE", Description: "<>"},
-				{Name: "GT", Description: ">"},
-				{Name: "LT", Description: "<"},
-				{Name: "GTE", Description: ">="},
-				{Name: "LTE", Description: "<="},
-				{Name: "ILIKE", Description: "ILIKE"},
-				{Name: "LIKE", Description: "LIKE"},
-				{Name: "IN", Description: "IN"},
-				{Name: "NOT_IN", Description: "NOT IN"},
-			},
-		},
-	}
-
-	inputs := []overlay.Input{
-		{
-			Name:        "PaginationInput",
-			Description: "Input type for pagination parameters",
-			Fields: []overlay.InputField{
-				{Name: "limit", Type: "Int", Required: false},
-				{Name: "offset", Type: "Int", Required: false},
-			},
-		},
-		{
-			Name:        "OrderByInput",
-			Description: "Input type for ordering parameters",
-			Fields: []overlay.InputField{
-				{Name: "field", Type: "String", Required: true},
-				{Name: "direction", Type: "OrderDirection", Required: false},
-			},
-		},
-		{
-			Name:        "FilterInput",
-			Description: "Input type for filtering",
-			Fields: []overlay.InputField{
-				{Name: "field", Type: "String", Required: true},
-				{Name: "operator", Type: "FilterOperator", Required: true},
-				{Name: "value", Type: "String", Required: true},
-			},
-		},
-	}
+	scalars, enums, inputs := defaultOverlayTypes()
 
 	var queries, mutations []overlay.Operation
 
@@ -229,6 +170,71 @@ func buildDefaultOverlay(doc formatter.Document, subscriptionEvents []string) ov
 		Mutations:     mutations,
 		Subscriptions: buildDefaultSubscriptions(doc.Entities, subscriptionEvents),
 	}
+}
+
+func defaultOverlayTypes() ([]overlay.Scalar, []overlay.Enum, []overlay.Input) {
+	scalars := []overlay.Scalar{
+		{Name: "UUID", Description: "Custom scalar for UUID values", GoType: "string"},
+		{Name: "Time", Description: "Custom scalar for Time values", GoType: "time.Time"},
+		{Name: "JSON", Description: "Custom scalar for JSON objects", GoType: "map[string]any"},
+	}
+
+	enums := []overlay.Enum{
+		{
+			Name:        "OrderDirection",
+			Description: "Sort direction",
+			Values: []overlay.EnumValue{
+				{Name: "ASC"},
+				{Name: "DESC"},
+			},
+		},
+		{
+			Name:        "FilterOperator",
+			Description: "Filter comparison operators",
+			Values: []overlay.EnumValue{
+				{Name: "EQ", Description: "="},
+				{Name: "NE", Description: "<>"},
+				{Name: "GT", Description: ">"},
+				{Name: "LT", Description: "<"},
+				{Name: "GTE", Description: ">="},
+				{Name: "LTE", Description: "<="},
+				{Name: "ILIKE", Description: "ILIKE"},
+				{Name: "LIKE", Description: "LIKE"},
+				{Name: "IN", Description: "IN"},
+				{Name: "NOT_IN", Description: "NOT IN"},
+			},
+		},
+	}
+
+	inputs := []overlay.Input{
+		{
+			Name:        "PaginationInput",
+			Description: "Input type for pagination parameters",
+			Fields: []overlay.InputField{
+				{Name: "limit", Type: "Int", Required: false},
+				{Name: "offset", Type: "Int", Required: false},
+			},
+		},
+		{
+			Name:        "OrderByInput",
+			Description: "Input type for ordering parameters",
+			Fields: []overlay.InputField{
+				{Name: "field", Type: "String", Required: true},
+				{Name: "direction", Type: "OrderDirection", Required: false},
+			},
+		},
+		{
+			Name:        "FilterInput",
+			Description: "Input type for filtering",
+			Fields: []overlay.InputField{
+				{Name: "field", Type: "String", Required: true},
+				{Name: "operator", Type: "FilterOperator", Required: true},
+				{Name: "value", Type: "String", Required: true},
+			},
+		},
+	}
+
+	return scalars, enums, inputs
 }
 
 func buildPageInfo() formatter.Entity {
@@ -388,23 +394,7 @@ func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	structs := make([]ModelStruct, 0, len(ctx.Entities)+len(ctx.Inputs))
 
 	for _, ent := range ctx.Entities {
-		fields := make([]ModelField, 0, len(ent.Fields))
-		for _, f := range ent.Fields {
-			goType, imp := goTypeFor(f.Type, f.IsList, f.Required && !f.Nullable, isEntity(ctx.Entities, f.Type), isUnion(ctx.Unions, f.Type), enumNames, scalarMap)
-			if imp != "" {
-				imports[imp] = struct{}{}
-			}
-			fields = append(fields, ModelField{
-				Name:     strcase.ToPascal(f.Name),
-				JSONName: f.OriginalName,
-				GoType:   goType,
-			})
-		}
-		structs = append(structs, ModelStruct{
-			Name:        ent.Name,
-			Description: ent.Description,
-			Fields:      fields,
-		})
+		structs = append(structs, buildEntityModel(ent, ctx, enumNames, scalarMap, imports))
 	}
 
 	for _, in := range ctx.Inputs {
@@ -437,6 +427,22 @@ func buildModels(ctx Context) ([]ModelStruct, []ModelEnum, []string) {
 	sort.Strings(importList)
 
 	return structs, enums, importList
+}
+
+func buildEntityModel(ent formatter.Entity, ctx Context, enumNames map[string]struct{}, scalarMap map[string]string, imports map[string]struct{}) ModelStruct {
+	fields := make([]ModelField, 0, len(ent.Fields))
+	for _, f := range ent.Fields {
+		goType, imp := goTypeFor(f.Type, f.IsList, f.Required && !f.Nullable, isEntity(ctx.Entities, f.Type), isUnion(ctx.Unions, f.Type), enumNames, scalarMap)
+		if imp != "" {
+			imports[imp] = struct{}{}
+		}
+		fields = append(fields, ModelField{
+			Name:     strcase.ToPascal(f.Name),
+			JSONName: f.OriginalName,
+			GoType:   goType,
+		})
+	}
+	return ModelStruct{Name: ent.Name, Description: ent.Description, Fields: fields}
 }
 
 func buildDataloaderEntities(doc formatter.Document, models []ModelStruct) []DataloaderEntity {
@@ -628,58 +634,7 @@ func fillManyToManyJoin(entity formatter.Entity, field formatter.Field, join rel
 	}
 
 	if allowReciprocal && (join.PivotTable == "" || join.SourcePivot == "" || join.TargetPivot == "") {
-		if target, ok := lookupEntity(field.Relation, entityByName, entityByRaw); ok {
-			if counterpart := findCounterpartRelation(entity, target); counterpart != nil {
-				if counterpart.Relation != nil {
-					if join.PivotTable == "" && counterpart.Relation.PivotTable != "" {
-						join.PivotTable = counterpart.Relation.PivotTable
-						join.pivotTableExplicit = true
-					}
-					if join.SourcePivot == "" && counterpart.Relation.TargetPivotField != "" {
-						join.SourcePivot = counterpart.Relation.TargetPivotField
-						join.sourcePivotExplicit = true
-					}
-					if join.TargetPivot == "" && counterpart.Relation.SourcePivotField != "" {
-						join.TargetPivot = counterpart.Relation.SourcePivotField
-						join.targetPivotExplicit = true
-					}
-					if join.TargetTable == "" && counterpart.Relation.TargetTable != "" {
-						join.TargetTable = strcase.ToSnake(counterpart.Relation.TargetTable)
-						join.targetTableExplicit = true
-					}
-				}
-				other := relationJoinDetails(target, *counterpart, primaryColumn(target), entityByName, entityByRaw, false)
-				if join.PivotTable == "" && other.PivotTable != "" && other.pivotTableExplicit {
-					join.PivotTable = other.PivotTable
-					join.pivotTableExplicit = true
-				}
-				if join.SourcePivot == "" && other.TargetPivot != "" && other.targetPivotExplicit {
-					join.SourcePivot = other.TargetPivot
-				}
-				if join.TargetPivot == "" && other.SourcePivot != "" && other.sourcePivotExplicit {
-					join.TargetPivot = other.SourcePivot
-				}
-				if join.TargetTable == "" && other.TargetTable != "" && other.targetTableExplicit {
-					join.TargetTable = other.TargetTable
-					join.targetTableExplicit = other.targetTableExplicit
-				}
-
-				if join.PivotTable == "" {
-					pivotFromSource := defaultPivotName(join.SourceTable, join.TargetTable)
-					pivotFromTarget := defaultPivotName(other.SourceTable, other.TargetTable)
-					join.PivotTable = pickPivotName(pivotFromSource, pivotFromTarget)
-				}
-				if join.SourcePivot == "" {
-					join.SourcePivot = other.TargetPivot
-				}
-				if join.TargetPivot == "" {
-					join.TargetPivot = other.SourcePivot
-				}
-				if join.TargetTable == "" {
-					join.TargetTable = other.TargetTable
-				}
-			}
-		}
+		join = fillReciprocalJoin(entity, field, join, entityByName, entityByRaw)
 	}
 
 	if join.PivotTable == "" {
@@ -700,6 +655,75 @@ func fillManyToManyJoin(entity formatter.Entity, field formatter.Field, join rel
 		join.TargetTable = strcase.ToSnake(firstNonEmpty(field.Relation.RelatedSchema, field.Relation.OriginalName))
 	}
 
+	return join
+}
+
+func fillReciprocalJoin(entity formatter.Entity, field formatter.Field, join relationJoin, entityByName, entityByRaw map[string]formatter.Entity) relationJoin {
+	target, ok := lookupEntity(field.Relation, entityByName, entityByRaw)
+	if !ok {
+		return join
+	}
+	counterpart := findCounterpartRelation(entity, target)
+	if counterpart == nil {
+		return join
+	}
+	if counterpart.Relation != nil {
+		join = applyReciprocalHints(join, counterpart.Relation)
+	}
+	other := relationJoinDetails(target, *counterpart, primaryColumn(target), entityByName, entityByRaw, false)
+	join = applyExplicitReciprocalJoin(join, other)
+	if join.PivotTable == "" {
+		pivotFromSource := defaultPivotName(join.SourceTable, join.TargetTable)
+		pivotFromTarget := defaultPivotName(other.SourceTable, other.TargetTable)
+		join.PivotTable = pickPivotName(pivotFromSource, pivotFromTarget)
+	}
+	if join.SourcePivot == "" {
+		join.SourcePivot = other.TargetPivot
+	}
+	if join.TargetPivot == "" {
+		join.TargetPivot = other.SourcePivot
+	}
+	if join.TargetTable == "" {
+		join.TargetTable = other.TargetTable
+	}
+	return join
+}
+
+func applyReciprocalHints(join relationJoin, rel *formatter.Relation) relationJoin {
+	if join.PivotTable == "" && rel.PivotTable != "" {
+		join.PivotTable = rel.PivotTable
+		join.pivotTableExplicit = true
+	}
+	if join.SourcePivot == "" && rel.TargetPivotField != "" {
+		join.SourcePivot = rel.TargetPivotField
+		join.sourcePivotExplicit = true
+	}
+	if join.TargetPivot == "" && rel.SourcePivotField != "" {
+		join.TargetPivot = rel.SourcePivotField
+		join.targetPivotExplicit = true
+	}
+	if join.TargetTable == "" && rel.TargetTable != "" {
+		join.TargetTable = strcase.ToSnake(rel.TargetTable)
+		join.targetTableExplicit = true
+	}
+	return join
+}
+
+func applyExplicitReciprocalJoin(join, other relationJoin) relationJoin {
+	if join.PivotTable == "" && other.PivotTable != "" && other.pivotTableExplicit {
+		join.PivotTable = other.PivotTable
+		join.pivotTableExplicit = true
+	}
+	if join.SourcePivot == "" && other.TargetPivot != "" && other.targetPivotExplicit {
+		join.SourcePivot = other.TargetPivot
+	}
+	if join.TargetPivot == "" && other.SourcePivot != "" && other.sourcePivotExplicit {
+		join.TargetPivot = other.SourcePivot
+	}
+	if join.TargetTable == "" && other.TargetTable != "" && other.targetTableExplicit {
+		join.TargetTable = other.TargetTable
+		join.targetTableExplicit = other.targetTableExplicit
+	}
 	return join
 }
 
@@ -1208,16 +1232,7 @@ func sanitizeSubscriptions(list []overlay.Subscription) []overlay.Subscription {
 		if sub.Name == "" || sub.ReturnType == "" {
 			continue
 		}
-		var args []overlay.Argument
-		for _, a := range sub.Args {
-			a.Name = strings.TrimSpace(a.Name)
-			a.Type = strings.TrimSpace(a.Type)
-			if a.Name == "" || a.Type == "" {
-				continue
-			}
-			args = append(args, a)
-		}
-		sub.Args = args
+		sub.Args = sanitizeSubscriptionArgs(sub.Args)
 		if sub.Entity == "" {
 			sub.Entity = strings.TrimSpace(sub.ReturnType)
 		}
@@ -1242,6 +1257,18 @@ func sanitizeSubscriptions(list []overlay.Subscription) []overlay.Subscription {
 		}
 
 		out = append(out, sub)
+	}
+	return out
+}
+
+func sanitizeSubscriptionArgs(args []overlay.Argument) []overlay.Argument {
+	var out []overlay.Argument
+	for _, arg := range args {
+		arg.Name = strings.TrimSpace(arg.Name)
+		arg.Type = strings.TrimSpace(arg.Type)
+		if arg.Name != "" && arg.Type != "" {
+			out = append(out, arg)
+		}
 	}
 	return out
 }

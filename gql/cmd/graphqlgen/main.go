@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +21,21 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out io.Writer) error {
+	opts, err := parseOptions(args, out)
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	result, err := generator.Generate(ctx, opts)
+	if err != nil {
+		return err
+	}
+	return writeResult(out, result, opts)
+}
+
+func parseOptions(args []string, out io.Writer) (generator.Options, error) {
 	fs := flag.NewFlagSet("graphqlgen", flag.ContinueOnError)
 	fs.SetOutput(out)
 
@@ -57,10 +73,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	fs.Var(typeMappings, "type-mapping", "scalar override mapping (e.g., string:uuid=UUID or time.Time=Time)")
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return nil
-		}
-		return err
+		return opts, err
 	}
 
 	opts.Include = include
@@ -69,23 +82,28 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	opts.TypeMappings = typeMappings.values
 	opts.SubscriptionEvents = subscriptionEvents
 
-	result, err := generator.Generate(ctx, opts)
-	if err != nil {
-		return err
-	}
+	return opts, nil
+}
 
+func writeResult(out io.Writer, result generator.Result, opts generator.Options) error {
 	for _, file := range result.Files {
-		fmt.Fprintf(out, "%-14s %s\n", file.Status, file.Path)
+		if _, err := fmt.Fprintf(out, "%-14s %s\n", file.Status, file.Path); err != nil {
+			return err
+		}
 	}
+	var status string
 	switch {
 	case result.RanGQLGen:
-		fmt.Fprintln(out, "gqlgen: ran")
+		status = "gqlgen: ran"
 	case opts.RunGQLGen && opts.DryRun:
-		fmt.Fprintln(out, "gqlgen: skipped (dry-run)")
+		status = "gqlgen: skipped (dry-run)"
 	case opts.RunGQLGen && opts.SkipGQLGen:
-		fmt.Fprintln(out, "gqlgen: skipped (skip-gqlgen)")
+		status = "gqlgen: skipped (skip-gqlgen)"
 	}
-
+	if status != "" {
+		_, err := fmt.Fprintln(out, status)
+		return err
+	}
 	return nil
 }
 

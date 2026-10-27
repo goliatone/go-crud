@@ -73,7 +73,11 @@ func TestFiberAdapterMatrixTranslation(t *testing.T) {
 				if c.UserContext().Value(adapterTestContextKey{}) != "upstream" {
 					t.Error("upstream context lost")
 				}
-				c.(userContextSetter).SetUserContext(ContextWithActor(c.UserContext(), ActorContext{ActorID: "actor"}))
+				if setter, ok := c.(userContextSetter); ok {
+					setter.SetUserContext(ContextWithActor(c.UserContext(), ActorContext{ActorID: "actor"}))
+				} else {
+					t.Error("adapter does not support context updates")
+				}
 				if ActorFromContext(c.UserContext()).ActorID != "actor" {
 					t.Error("context setter lost")
 				}
@@ -83,7 +87,8 @@ func TestFiberAdapterMatrixTranslation(t *testing.T) {
 				if err := c.BodyParser(&input); err != nil {
 					return err
 				}
-				if input.Name != "Ada" || len(c.Body()) == 0 || c.(headerProvider).Header("X-Probe") != "present" {
+				headers, ok := c.(headerProvider)
+				if !ok || input.Name != "Ada" || len(c.Body()) == 0 || headers.Header("X-Probe") != "present" {
 					t.Error("body/header translation")
 				}
 				return c.Status(http.StatusAccepted).JSON(input, " application/vnd.crud+json ")
@@ -96,7 +101,7 @@ func TestFiberAdapterMatrixTranslation(t *testing.T) {
 			f.init()
 			for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch} {
 				for _, content := range []struct{ kind, body string }{{"application/json", `{"name":"Ada"}`}, {"application/x-www-form-urlencoded", "name=Ada"}} {
-					req := httptest.NewRequest(method, "/api/record/42?tag=a&tag=b&empty=&bad=no&n=9", strings.NewReader(content.body))
+					req := httptest.NewRequestWithContext(t.Context(), method, "/api/record/42?tag=a&tag=b&empty=&bad=no&n=9", strings.NewReader(content.body))
 					req.Header.Set("Content-Type", content.kind)
 					req.Header.Set("X-Probe", "present")
 					resp, err := f.request(req)
@@ -113,7 +118,7 @@ func TestFiberAdapterMatrixTranslation(t *testing.T) {
 				method string
 				status int
 			}{{http.MethodGet, 200}, {http.MethodDelete, 204}} {
-				resp, err := f.request(httptest.NewRequest(probe.method, "/api/record/42", nil))
+				resp, err := f.request(httptest.NewRequestWithContext(t.Context(), probe.method, "/api/record/42", nil))
 				require.NoError(t, err)
 				require.Equal(t, probe.status, resp.StatusCode)
 				require.NoError(t, resp.Body.Close())
@@ -138,7 +143,9 @@ func TestFiberAdapterMatrixController(t *testing.T) {
 					if c.UserContext().Value(adapterTestContextKey{}) != "upstream" {
 						t.Error("guard lost current context")
 					}
-					if c.(headerProvider).Header("X-Deny") == "yes" {
+					if headers, ok := c.(headerProvider); !ok {
+						t.Error("adapter does not support headers")
+					} else if headers.Header("X-Deny") == "yes" {
 						return ActorContext{}, ScopeFilter{}, goerrors.New("denied", goerrors.CategoryAuthz).WithCode(http.StatusForbidden).WithTextCode("FORBIDDEN")
 					}
 					return ActorContext{ActorID: "actor", TenantID: "tenant"}, ScopeFilter{Labels: map[string]string{"tenant": "tenant"}}, nil
@@ -167,7 +174,7 @@ func TestFiberAdapterMatrixController(t *testing.T) {
 				{`{"email":"missing@example.test"}`, "", 400, 1, "VALIDATION_ERROR"},
 				{`{"name":"Denied"}`, "yes", 403, 1, "FORBIDDEN"},
 			} {
-				req := httptest.NewRequest(http.MethodPost, "/api/test-user", strings.NewReader(probe.body))
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/test-user", strings.NewReader(probe.body))
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("X-Deny", probe.deny)
 				req.Header.Set("X-Request-ID", "req")

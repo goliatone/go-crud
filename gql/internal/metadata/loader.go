@@ -2,7 +2,9 @@ package metadata
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -29,13 +31,11 @@ const (
 // FromFile reads SchemaMetadata from a JSON file. The payload can be a single schema,
 // an array of schemas, or a wrapper object with a "schemas" field.
 func FromFile(path string) ([]router.SchemaMetadata, error) {
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("open metadata file: %w", err)
+		return nil, fmt.Errorf("read metadata file: %w", err)
 	}
-	defer file.Close()
-
-	return FromReader(file)
+	return fromJSONBytes(data)
 }
 
 // FromReader decodes SchemaMetadata from an io.Reader.
@@ -158,32 +158,7 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		handler.ApplyDoc(doc, ctx)
 	}
 
-	resolvedNames := make(map[string]string, len(rawSchemas))
-	for name, raw := range rawSchemas {
-		rawMap, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		ctx := &extensions.SchemaExtensionContext{
-			Doc:        doc,
-			SchemaName: name,
-			NameMap:    nameMap,
-		}
-		for _, handler := range handlersForSchema(doc, rawMap, handlers) {
-			handler.ApplySchema(name, rawMap, ctx)
-		}
-		resolved := strings.TrimSpace(ctx.SchemaName)
-		if resolved == "" || resolved == name {
-			if mapped := nameMap[name]; mapped != "" {
-				resolved = mapped
-			}
-		}
-		if resolved == "" {
-			resolved = name
-		}
-		nameMap[name] = resolved
-		resolvedNames[name] = resolved
-	}
+	resolvedNames := resolveSchemaNames(doc, rawSchemas, handlers, nameMap)
 
 	result := make(map[string]router.SchemaMetadata, len(rawSchemas))
 	for name, raw := range rawSchemas {
@@ -214,6 +189,37 @@ func schemasFromDocument(doc map[string]any) (map[string]router.SchemaMetadata, 
 		result[resolved] = schema
 	}
 	return result, nil
+}
+
+func resolveSchemaNames(doc, rawSchemas map[string]any, handlers []extensions.SchemaExtensionHandler, nameMap map[string]string) map[string]string {
+	resolvedNames := make(map[string]string, len(rawSchemas))
+	for name, raw := range rawSchemas {
+		rawMap, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		ctx := &extensions.SchemaExtensionContext{
+			Doc:        doc,
+			SchemaName: name,
+			NameMap:    nameMap,
+		}
+		for _, handler := range handlersForSchema(doc, rawMap, handlers) {
+			handler.ApplySchema(name, rawMap, ctx)
+		}
+		resolved := strings.TrimSpace(ctx.SchemaName)
+		if resolved == "" || resolved == name {
+			if mapped := nameMap[name]; mapped != "" {
+				resolved = mapped
+			}
+		}
+		if resolved == "" {
+			resolved = name
+		}
+		nameMap[name] = resolved
+		resolvedNames[name] = resolved
+	}
+
+	return resolvedNames
 }
 
 func handlersForDocument(doc map[string]any, handlers []extensions.SchemaExtensionHandler) []extensions.SchemaExtensionHandler {
@@ -290,7 +296,10 @@ func schemaFromOpenAPI(name string, raw map[string]any, rawSchemas map[string]an
 	}
 	schema.Required = required
 
-	props, _ := raw["properties"].(map[string]any)
+	props, ok := raw["properties"].(map[string]any)
+	if !ok {
+		props = nil
+	}
 	for propName, propVal := range props {
 		propMap, ok := propVal.(map[string]any)
 		if !ok {
@@ -339,6 +348,28 @@ func propertyFromOpenAPI(name string, raw map[string]any) (router.PropertyInfo, 
 		setCustomTagData(&prop, unionMembersKey, members)
 	}
 
+	populatePropertyShape(name, raw, &prop)
+
+	rel := relationFromExtension(raw)
+	// Scalar foreign keys are not navigation relations.
+	if rel == nil || (prop.Type != "object" && prop.Items == nil) {
+		return prop, nil
+	}
+	if rel.RelatedSchema == "" && prop.RelatedSchema != "" {
+		rel.RelatedSchema = prop.RelatedSchema
+	}
+	if prop.Items != nil {
+		rel.IsSlice = true
+	}
+	rel.Cardinality = normalizeCardinality(rel.Cardinality, rel.IsSlice || prop.Items != nil)
+	prop.RelationName = name
+	if rel.RelatedSchema != "" {
+		prop.RelatedSchema = rel.RelatedSchema
+	}
+	return prop, rel
+}
+
+func populatePropertyShape(name string, raw map[string]any, prop *router.PropertyInfo) {
 	if nested, ok := raw["properties"].(map[string]any); ok && len(nested) > 0 {
 		prop.Properties = make(map[string]router.PropertyInfo, len(nested))
 		for nestedName, nestedVal := range nested {
@@ -363,31 +394,6 @@ func propertyFromOpenAPI(name string, raw map[string]any) (router.PropertyInfo, 
 			prop.Type = "object"
 		}
 	}
-
-	rel := relationFromExtension(raw)
-	if rel != nil {
-		// Ignore relationship hints on scalar fields (e.g., foreign key columns);
-		// only treat object/array properties as navigation relations.
-		if prop.Type != "object" && prop.Items == nil {
-			rel = nil
-		}
-		if rel == nil {
-			return prop, nil
-		}
-		if rel.RelatedSchema == "" && prop.RelatedSchema != "" {
-			rel.RelatedSchema = prop.RelatedSchema
-		}
-		if prop.Items != nil && !rel.IsSlice {
-			rel.IsSlice = true
-		}
-		rel.Cardinality = normalizeCardinality(rel.Cardinality, rel.IsSlice || prop.Items != nil)
-		prop.RelationName = name
-		if rel.RelatedSchema != "" {
-			prop.RelatedSchema = rel.RelatedSchema
-		}
-	}
-
-	return prop, rel
 }
 
 func relationFromExtension(raw map[string]any) *router.RelationshipInfo {
@@ -396,25 +402,13 @@ func relationFromExtension(raw map[string]any) *router.RelationshipInfo {
 		return nil
 	}
 
-	rel := &router.RelationshipInfo{}
-
-	if val, ok := ext["type"].(string); ok {
-		rel.RelationType = val
-	}
-	if target, ok := ext["target"].(string); ok {
-		rel.RelatedSchema = schemaFromRef(target)
-	}
-	if fk, ok := ext["foreignKey"].(string); ok {
-		rel.ForeignKey = fk
-	}
-	if source, ok := ext["sourceField"].(string); ok {
-		rel.SourceField = source
-	}
-	if inverse, ok := ext["inverse"].(string); ok {
-		rel.Inverse = inverse
-	}
-	if card, ok := ext["cardinality"].(string); ok {
-		rel.Cardinality = card
+	rel := &router.RelationshipInfo{
+		RelationType:  stringValue(ext["type"]),
+		RelatedSchema: schemaFromRef(stringValue(ext["target"])),
+		ForeignKey:    stringValue(ext["foreignKey"]),
+		SourceField:   stringValue(ext["sourceField"]),
+		Inverse:       stringValue(ext["inverse"]),
+		Cardinality:   stringValue(ext["cardinality"]),
 	}
 
 	if rel.Cardinality != "" {
@@ -622,16 +616,15 @@ func normalizeCardinality(cardinality string, isSlice bool) string {
 }
 
 func stringValue(v any) string {
-	if v == nil {
-		return ""
+	if val, ok := v.(string); ok {
+		return val
 	}
-	val, _ := v.(string)
-	return val
+	return ""
 }
 
 func boolValue(v any) bool {
-	val, _ := v.(bool)
-	return val
+	val, ok := v.(bool)
+	return ok && val
 }
 
 func labelFromExtensions(raw map[string]any) string {
@@ -834,37 +827,43 @@ func resolveSchemaPackage(pkg string) (string, string, error) {
 		return "", "", fmt.Errorf("schema-package is empty")
 	}
 
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("resolve schema-package working directory: %w", err)
+	}
 	modPath, modDir := findModuleInfo(wd)
 
-	if strings.HasPrefix(pkg, ".") || strings.HasPrefix(pkg, "/") {
-		if modPath == "" || modDir == "" {
-			return "", "", fmt.Errorf("resolve schema-package %q: unable to locate go.mod from %s", pkg, wd)
-		}
-
-		cleaned := filepath.ToSlash(pkg)
-		if after, ok := strings.CutPrefix(cleaned, "./"); ok {
-			cleaned = after
-		} else if filepath.IsAbs(pkg) {
-			rel, err := filepath.Rel(modDir, pkg)
-			if err != nil {
-				return "", "", fmt.Errorf("resolve schema-package %q: %w", pkg, err)
-			}
-			cleaned = filepath.ToSlash(rel)
-		}
-
-		return path.Join(modPath, cleaned), modDir, nil
+	if !strings.HasPrefix(pkg, ".") && !strings.HasPrefix(pkg, "/") {
+		return pkg, modDir, nil
+	}
+	if modPath == "" || modDir == "" {
+		return "", "", fmt.Errorf("resolve schema-package %q: unable to locate go.mod from %s", pkg, wd)
 	}
 
-	return pkg, modDir, nil
+	cleaned := filepath.ToSlash(pkg)
+	if after, ok := strings.CutPrefix(cleaned, "./"); ok {
+		cleaned = after
+	} else if filepath.IsAbs(pkg) {
+		rel, err := filepath.Rel(modDir, pkg)
+		if err != nil {
+			return "", "", fmt.Errorf("resolve schema-package %q: %w", pkg, err)
+		}
+		cleaned = filepath.ToSlash(rel)
+	}
+
+	return path.Join(modPath, cleaned), modDir, nil
 }
 
-func runSchemaLoader(importPath, modDir string) ([]crud.SchemaEntry, error) {
+func runSchemaLoader(importPath, modDir string) (entries []crud.SchemaEntry, err error) {
 	tmpDir, err := os.MkdirTemp("", "graphqlgen-schema-*")
 	if err != nil {
 		return nil, fmt.Errorf("create schema loader: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if cleanupErr := os.RemoveAll(tmpDir); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove schema loader: %w", cleanupErr))
+		}
+	}()
 
 	mainFile := filepath.Join(tmpDir, "main.go")
 	source := fmt.Sprintf(`package main
@@ -895,7 +894,7 @@ func main() {
 		return nil, fmt.Errorf("write schema loader: %w", err)
 	}
 
-	cmd := exec.Command("go", "run", mainFile)
+	cmd := exec.CommandContext(context.Background(), "go", "run", mainFile)
 	if modDir != "" {
 		cmd.Dir = modDir
 	}
@@ -912,7 +911,6 @@ func main() {
 		return nil, fmt.Errorf("import schema-package %s: %w", importPath, err)
 	}
 
-	var entries []crud.SchemaEntry
 	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
 		return nil, fmt.Errorf("decode schema entries from %s: %w", importPath, err)
 	}

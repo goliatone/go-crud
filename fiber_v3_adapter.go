@@ -96,11 +96,11 @@ func (ca *fiberV3ContextAdapter) Query(key string, defaultValue ...string) strin
 func (ca *fiberV3ContextAdapter) QueryValues(key string) []string {
 	args := ca.c.Request().URI().QueryArgs()
 	values := []string{}
-	args.VisitAll(func(k, v []byte) {
+	for k, v := range args.All() {
 		if string(k) == key {
 			values = append(values, string(v))
 		}
-	})
+	}
 	return values
 }
 
