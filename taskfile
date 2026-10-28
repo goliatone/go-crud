@@ -165,6 +165,21 @@ function _go:module_dirs {
     done
 }
 
+function _go:example_module_dirs {
+    local module
+
+    for module in \
+        "examples/web" \
+        "examples/relationships" \
+        "examples/relationships-gql" \
+        "examples/rpc/web_debug"
+    do
+        if [ -f "${module}/go.mod" ]; then
+            printf '%s\n' "${module}"
+        fi
+    done
+}
+
 function _go:module_relative_path {
     local module=$1
     local path=$2
@@ -434,6 +449,7 @@ function go:test {
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
     if [ "$#" -eq 0 ]; then
+        bash ./tools/quality/taskfile_test.sh || return 1
         _go:run_in_modules "${go_bin}" test ./...
         return $?
     fi
@@ -1096,6 +1112,20 @@ function rpc:sync {
     (cd rpc && go mod tidy) || return 1
 }
 
+## Synchronize example modules after updating the root, GQL and RPC versions.
+function examples:sync {
+    local tag=${1}
+    local module
+
+    if [ -z "$tag" ]; then
+        return 1
+    fi
+
+    while IFS= read -r module; do
+        (cd "${module}" && go mod edit -require="github.com/goliatone/go-crud@v${tag}" && go mod tidy) || return 1
+    done < <(_go:example_module_dirs)
+}
+
 
 ##
 ## -----
@@ -1116,6 +1146,7 @@ function release {
     local gql_tag
     local rpc_tag
     local current_branch
+    local module
     local -a push_refs=()
 
     # Fetch all changes from origin
@@ -1168,6 +1199,7 @@ function release {
     # Sync submodules to the new tag
     gql:sync "${tag}" || return 1
     rpc:sync "${tag}" || return 1
+    examples:sync "${tag}" || return 1
 
     # Generate changelog before tagging so release tags include their notes.
     git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
@@ -1180,6 +1212,12 @@ function release {
     if [ -f "rpc/go.mod" ]; then
         git add rpc/go.mod rpc/go.sum || return 1
     fi
+    while IFS= read -r module; do
+        git add "${module}/go.mod" || return 1
+        if [ -f "${module}/go.sum" ]; then
+            git add "${module}/go.sum" || return 1
+        fi
+    done < <(_go:example_module_dirs)
     git commit -m "Bump version: v${tag}" || return 1
 
     # Create a new tag

@@ -5,10 +5,10 @@ go 1.26.0
 require (
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/gofiber/template/django/v3 v3.1.14
-	github.com/goliatone/go-crud v0.26.1
+	github.com/goliatone/go-crud v0.27.0
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.0
+	github.com/goliatone/go-router v0.63.2
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/uptrace/bun v1.2.18
