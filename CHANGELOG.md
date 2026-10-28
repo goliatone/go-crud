@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.27.1](https://github.com/goliatone/go-crud/compare/v0.27.0...v0.27.1) - (2026-10-28)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Deps in examples ([4bedd34](https://github.com/goliatone/go-crud/commit/4bedd340f1925e6e65c6c6c885f318e604eed17b))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([15f3463](https://github.com/goliatone/go-crud/commit/15f3463321f52b69270c551c5bcab4a8b0725088))  - (goliatone)
+
 # [0.27.0](https://github.com/goliatone/go-crud/compare/v0.26.1...v0.27.0) - (2026-10-27)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([cd2eec2](https://github.com/goliatone/go-crud/commit/cd2eec2aeaa05d9a52e2af315c21e48a35d3e50f))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.27.0 ([4fa7c7e](https://github.com/goliatone/go-crud/commit/4fa7c7e6ca1a375a2079ef68e66c313220634320))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 

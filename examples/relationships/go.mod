@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-crud v0.27.0
+	github.com/goliatone/go-crud v0.27.1
 	github.com/goliatone/go-repository-bun v0.16.2
 	github.com/goliatone/go-router v0.63.2
 	github.com/google/uuid v1.6.0
