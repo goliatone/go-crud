@@ -166,18 +166,34 @@ function _go:module_dirs {
 }
 
 function _go:example_module_dirs {
+    local module_files
+    local module_file
+
+    if [ ! -d examples ]; then
+        return 0
+    fi
+
+    module_files=$(find examples -type d \( -name '.*' -o -name vendor -o -name node_modules \) -prune \
+        -o -type f -name go.mod -print) || return 1
+    if [ -n "${module_files}" ]; then
+        while IFS= read -r module_file; do
+            printf '%s\n' "${module_file%/go.mod}"
+        done <<< "${module_files}" | LC_ALL=C sort
+    fi
+}
+
+# Dependency checks include examples with generated code that are outside the
+# regular lint/test module list.
+function _go:dependency_module_dirs {
     local module
 
-    for module in \
-        "examples/web" \
-        "examples/relationships" \
-        "examples/relationships-gql" \
-        "examples/rpc/web_debug"
-    do
+    printf '%s\n' "."
+    for module in gql rpc; do
         if [ -f "${module}/go.mod" ]; then
             printf '%s\n' "${module}"
         fi
     done
+    _go:example_module_dirs
 }
 
 function _go:module_relative_path {
@@ -379,6 +395,51 @@ function go:tools:all {
     go:tools:golangci-lint || return 1
     go:tools:govulncheck || return 1
     go:tools:gosec || return 1
+}
+
+function _go:deps:tidy {
+    local go_bin
+    local modules
+    local module
+
+    go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
+    modules=$(_go:dependency_module_dirs) || return 1
+    while IFS= read -r module; do
+        echo "Module dependencies: ${module}"
+        if ! (cd "${module}" && GOWORK=off GOTOOLCHAIN="${GO_TOOLCHAIN}" "${go_bin}" mod tidy "$@"); then
+            echo "Dependency tidy failed in ${module}." >&2
+            if [ "${1:-}" = "-diff" ]; then
+                echo "Run 'bash taskfile go:deps:sync' from the repository root and review the module changes." >&2
+            fi
+            return 1
+        fi
+    done <<< "${modules}"
+}
+
+## Synchronize dependency graphs after editing any module's dependencies.
+function go:deps:sync {
+    _go:deps:tidy
+}
+
+## Check every module for dependency drift without rewriting go.mod or go.sum.
+function go:deps:check {
+    _go:deps:tidy -diff
+}
+
+## Update root dependencies, then synchronize all nested modules.
+## Usage: bash taskfile go:deps:update <go-get-arguments...>
+function go:deps:update {
+    local go_bin
+
+    if [ "$#" -eq 0 ]; then
+        echo "Usage: bash taskfile go:deps:update <go-get-arguments...>" >&2
+        return 2
+    fi
+    go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
+    GOWORK=off GOTOOLCHAIN="${GO_TOOLCHAIN}" "${go_bin}" get "$@" || return 1
+    go:deps:sync
 }
 
 function go:fmt {
@@ -799,12 +860,14 @@ function go:baseline:update:all {
 
 function go:quality:pr {
     go:fmt:check || return 1
+    go:deps:check || return 1
     go:test "$@" || return 1
     go:lint:new "$@" || return 1
 }
 
 function go:quality:all {
     go:fmt:check || return 1
+    go:deps:check || return 1
     go:test "$@" || return 1
     go:race "$@" || return 1
     go:lint:new "$@" || return 1
@@ -813,6 +876,7 @@ function go:quality:all {
 
 function go:quality:baseline {
     go:fmt:check || return 1
+    go:deps:check || return 1
     go:test "$@" || return 1
     go:race "$@" || return 1
     go:lint:baseline "$@" || return 1
@@ -822,6 +886,7 @@ function go:quality:baseline {
 
 function go:quality:ci {
     go:fmt:check || return 1
+    go:deps:check || return 1
     go:test "$@" || return 1
     go:race "$@" || return 1
     go:lint "$@" || return 1
@@ -1115,15 +1180,18 @@ function rpc:sync {
 ## Synchronize example modules after updating the root, GQL and RPC versions.
 function examples:sync {
     local tag=${1}
+    local modules
     local module
 
     if [ -z "$tag" ]; then
         return 1
     fi
 
+    modules=$(_go:example_module_dirs) || return 1
     while IFS= read -r module; do
+        [ -n "${module}" ] || continue
         (cd "${module}" && go mod edit -require="github.com/goliatone/go-crud@v${tag}" && go mod tidy) || return 1
-    done < <(_go:example_module_dirs)
+    done <<< "${modules}"
 }
 
 
@@ -1147,6 +1215,7 @@ function release {
     local rpc_tag
     local current_branch
     local module
+    local example_modules
     local -a push_refs=()
 
     # Fetch all changes from origin
@@ -1200,6 +1269,7 @@ function release {
     gql:sync "${tag}" || return 1
     rpc:sync "${tag}" || return 1
     examples:sync "${tag}" || return 1
+    example_modules=$(_go:example_module_dirs) || return 1
 
     # Generate changelog before tagging so release tags include their notes.
     git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
@@ -1213,11 +1283,12 @@ function release {
         git add rpc/go.mod rpc/go.sum || return 1
     fi
     while IFS= read -r module; do
+        [ -n "${module}" ] || continue
         git add "${module}/go.mod" || return 1
         if [ -f "${module}/go.sum" ]; then
             git add "${module}/go.sum" || return 1
         fi
-    done < <(_go:example_module_dirs)
+    done <<< "${example_modules}"
     git commit -m "Bump version: v${tag}" || return 1
 
     # Create a new tag

@@ -7,12 +7,13 @@ require (
 	github.com/ettle/strcase v0.2.0
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-auth v0.45.6
+	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-crud v0.27.1
 	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.2
+	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/hashid v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -60,7 +61,6 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/go-template v0.3.1 // indirect
-	github.com/goliatone/hashid v0.2.3 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect

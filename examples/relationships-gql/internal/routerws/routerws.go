@@ -61,6 +61,7 @@ type (
 		me              messageExchanger
 		active          map[string]context.CancelFunc
 		mu              sync.Mutex
+		workers         sync.WaitGroup
 		keepAliveTicker *time.Ticker
 		pongOnlyTicker  *time.Ticker
 		pingPongTicker  *time.Ticker
@@ -111,6 +112,12 @@ func (t Websocket) Handler(exec graphql.GraphExecutor) func(router.WebSocketCont
 		if conn.ctx == nil {
 			conn.ctx = context.Background()
 		}
+
+		defer func() {
+			conn.close(router.CloseNormalClosure, "terminated")
+			// Fiber recycles the native connection as soon as this handler returns.
+			conn.workers.Wait()
+		}()
 
 		if !conn.init() {
 			return nil
@@ -167,33 +174,34 @@ func (c *wsConnection) handlePossibleError(err error, isReadError bool) {
 func (c *wsConnection) nextMessageWithTimeout(timeout time.Duration) (message, error) {
 	messages, errs := make(chan message, 1), make(chan error, 1)
 
-	go func() {
+	c.workers.Go(func() {
 		if m, err := c.me.NextMessage(); err != nil {
 			errs <- err
 		} else {
 			messages <- m
 		}
-	}()
+	})
 
+	var timeoutC <-chan time.Time
+	if timeout > 0 {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		timeoutC = timer.C
+	}
 	select {
 	case m := <-messages:
 		return m, nil
 	case err := <-errs:
 		return message{}, err
-	case <-time.After(timeout):
+	case <-timeoutC:
 		return message{}, errReadTimeout
+	case <-c.ctx.Done():
+		return message{}, c.ctx.Err()
 	}
 }
 
 func (c *wsConnection) init() bool {
-	var m message
-	var err error
-
-	if c.InitTimeout != 0 {
-		m, err = c.nextMessageWithTimeout(c.InitTimeout)
-	} else {
-		m, err = c.me.NextMessage()
-	}
+	m, err := c.nextMessageWithTimeout(c.InitTimeout)
 
 	if err != nil {
 		if err == errReadTimeout {
@@ -255,8 +263,10 @@ func (c *wsConnection) init() bool {
 
 func (c *wsConnection) write(msg *message) {
 	c.mu.Lock()
-	c.handlePossibleError(c.me.Send(msg), false)
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+	if !c.closed {
+		c.handlePossibleError(c.me.Send(msg), false)
+	}
 }
 
 func (c *wsConnection) run() {
@@ -269,14 +279,14 @@ func (c *wsConnection) run() {
 			c.mu.Lock()
 			c.keepAliveTicker = time.NewTicker(c.KeepAlivePingInterval)
 			c.mu.Unlock()
-			go c.keepAlive(ctx)
+			c.workers.Go(func() { c.keepAlive(ctx) })
 		}
 	case graphqltransportwsSubprotocol:
 		if c.PongOnlyInterval != 0 {
 			c.mu.Lock()
 			c.pongOnlyTicker = time.NewTicker(c.PongOnlyInterval)
 			c.mu.Unlock()
-			go c.keepAlivePongOnly(ctx)
+			c.workers.Go(func() { c.keepAlivePongOnly(ctx) })
 		}
 		if c.PingPongInterval != 0 {
 			c.mu.Lock()
@@ -285,11 +295,11 @@ func (c *wsConnection) run() {
 			if !c.MissingPongOk {
 				_ = c.ws.SetReadDeadline(time.Now().UTC().Add(2 * c.PingPongInterval))
 			}
-			go c.ping(ctx)
+			c.workers.Go(func() { c.ping(ctx) })
 		}
 	}
 
-	go c.closeOnCancel(ctx)
+	c.workers.Go(func() { c.closeOnCancel(ctx) })
 
 	for {
 		start := graphql.Now()
@@ -417,10 +427,15 @@ func (c *wsConnection) subscribe(start time.Time, msg *message) {
 
 	ctx, cancel := context.WithCancel(ctx)
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		cancel()
+		return
+	}
 	c.active[msg.id] = cancel
 	c.mu.Unlock()
 
-	go func() {
+	c.workers.Go(func() {
 		ctx = withSubscriptionErrorContext(ctx)
 		defer func() {
 			if r := recover(); r != nil {
@@ -454,7 +469,7 @@ func (c *wsConnection) subscribe(start time.Time, msg *message) {
 
 			c.sendResponse(msg.id, response)
 		}
-	}()
+	})
 }
 
 func (c *wsConnection) sendResponse(id string, response *graphql.Response) {

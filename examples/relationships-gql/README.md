@@ -41,6 +41,7 @@ All list operations return Relay connections (`edges { node cursor }` + `pageInf
 - Sanity check the batching/grouping logic with `go test ./graph/dataloader -run TestLoader_GroupsDeterministically`.
 
 ### Subscriptions (websocket)
+- The transport cancels and joins its initialization reader, keepalive and subscription goroutines before the handler returns, so they cannot use a recycled Fiber connection.
 - Websocket endpoint shares `/graphql` (`graphql-transport-ws`), configured in `cmd/server/main.go` via go-router’s Fiber adapter and the gqlgen websocket transport ported onto `router.WebSocketContext`.
 - An in-memory event bus in `graph/resolvers/resolver_custom.go` drives `tagCreated/tagUpdated/tagDeleted` (and equivalents for every entity). Example subscription:
 ```graphql

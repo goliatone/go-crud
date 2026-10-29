@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -19,16 +21,23 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
+	"github.com/goliatone/go-auth"
 	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/dataloader"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/generated"
 	"github.com/goliatone/go-crud/examples/relationships-gql/internal/routerws"
 	"github.com/goliatone/go-router"
+	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
 
 func TestSubscriptions_WebSocketFlow(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
+	user := &auth.User{ID: uuid.New(), Username: "subscription-test", Role: auth.RoleAdmin}
+	withAuth := func(ctx context.Context) context.Context {
+		ctx = auth.WithContext(ctx, user)
+		return auth.WithActorContext(ctx, &auth.ActorContext{ActorID: user.ID.String(), Role: string(auth.RoleAdmin)})
+	}
 	client, err := relationships.SetupDatabase(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, client)
@@ -71,8 +80,10 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 		}, nil
 	}
 
+	handlerDone := make(chan struct{})
 	wsFiberHandler := router.FiberWebSocketHandler(wsConfig, func(ws router.WebSocketContext) error {
-		ctx := context.Background()
+		defer close(handlerDone)
+		ctx := withAuth(ws.Context())
 		if ldr := newTestLoader(resolver, db); ldr != nil {
 			ctx = dataloader.Inject(ctx, ldr)
 		}
@@ -81,6 +92,7 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	})
 
 	secured := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(withAuth(r.Context()))
 		if ldr := newTestLoader(resolver, db); ldr != nil {
 			r = r.WithContext(dataloader.Inject(r.Context(), ldr))
 		}
@@ -104,7 +116,9 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 		errCh <- fiberApp.Listener(ln)
 	}()
 	defer func() {
-		_ = app.Shutdown(context.Background())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		require.NoError(t, app.Shutdown(shutdownCtx))
 		select {
 		case <-errCh:
 		default:
@@ -134,13 +148,31 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 		},
 	}))
 
+	// Subscription registration is asynchronous; publish only once the bus is listening.
+	require.Eventually(t, func() bool {
+		bus.mu.Lock()
+		defer bus.mu.Unlock()
+		return slices.Contains(bus.subscribed, "tag.created")
+	}, 5*time.Second, 10*time.Millisecond)
+
 	mutation := `mutation { createTag(input: { name: "sub-demo", category: "demo" }) { id name } }`
 	body, err := json.Marshal(map[string]string{"query": mutation})
 	require.NoError(t, err)
-	resp, err := http.Post("http://"+ln.Addr().String()+"/graphql", "application/json", bytes.NewBuffer(body))
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	defer httpClient.CloseIdleConnections()
+	resp, err := httpClient.Post("http://"+ln.Addr().String()+"/graphql", "application/json", bytes.NewBuffer(body))
 	require.NoError(t, err)
+	responseBody, readErr := io.ReadAll(resp.Body)
+	require.NoError(t, resp.Body.Close())
+	require.NoError(t, readErr)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	_ = resp.Body.Close()
+	var result struct {
+		Data   map[string]json.RawMessage `json:"data"`
+		Errors []json.RawMessage          `json:"errors"`
+	}
+	require.NoError(t, json.Unmarshal(responseBody, &result))
+	require.Empty(t, result.Errors, string(responseBody))
+	require.NotEmpty(t, result.Data["createTag"], string(responseBody))
 
 	readWithTimeout(t, conn, func(msg map[string]any) bool {
 		if msg["type"] != "next" {
@@ -170,6 +202,12 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	bus.mu.Unlock()
 	require.Contains(t, subscribed, "tag.created")
 	require.Contains(t, published, "tag.created")
+	require.NoError(t, conn.Close())
+	select {
+	case <-handlerDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("websocket handler did not finish after disconnect")
+	}
 }
 
 func newTestLoader(resolver *Resolver, db bun.IDB) *dataloader.Loader {
@@ -201,21 +239,13 @@ func newTestLoader(resolver *Resolver, db bun.IDB) *dataloader.Loader {
 func readWithTimeout(t *testing.T, conn *websocket.Conn, match func(map[string]any) bool) {
 	t.Helper()
 
-	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
-
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	defer func() { require.NoError(t, conn.SetReadDeadline(time.Time{})) }()
 	for {
-		select {
-		case <-timer.C:
-			t.Fatalf("timed out waiting for websocket message")
-		default:
-			var msg map[string]any
-			if err := conn.ReadJSON(&msg); err != nil {
-				t.Fatalf("read websocket message: %v", err)
-			}
-			if match(msg) {
-				return
-			}
+		var msg map[string]any
+		require.NoError(t, conn.ReadJSON(&msg), "read websocket message")
+		if match(msg) {
+			return
 		}
 	}
 }
@@ -238,13 +268,17 @@ func (b *recordingBus) Publish(ctx context.Context, topic string, payload any) e
 }
 
 func (b *recordingBus) Subscribe(ctx context.Context, topic string) (<-chan EventMessage, error) {
-	b.mu.Lock()
-	b.subscribed = append(b.subscribed, topic)
-	b.mu.Unlock()
 	if b.EventBus == nil {
 		ch := make(chan EventMessage)
 		close(ch)
 		return ch, nil
 	}
-	return b.EventBus.Subscribe(ctx, topic)
+	ch, err := b.EventBus.Subscribe(ctx, topic)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.subscribed = append(b.subscribed, topic)
+	b.mu.Unlock()
+	return ch, nil
 }

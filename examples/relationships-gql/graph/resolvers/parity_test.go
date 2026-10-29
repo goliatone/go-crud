@@ -9,12 +9,12 @@ import (
 
 	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/model"
+	"github.com/goliatone/hashid/pkg/hashid"
 )
 
 const (
 	auroraPublisherID = "ddfe89a9-c118-334b-ad2f-941166ef26f4"
 	auroraAuthorID    = "06ef3339-bd72-333e-9c28-352b9c2cc612"
-	sciFiTagID        = "c13a4cbf-e9ee-3573-8fdd-4ef70a8d1bb0"
 	nimbusPublisherID = "83669b17-c772-3c97-8556-23f067d05ba3"
 )
 
@@ -72,10 +72,12 @@ func TestGraphQLAndREST_EmitActivity(t *testing.T) {
 		Role:     "admin",
 	})
 
+	sciFiTagID, err := hashid.New("tag:sci-fi")
+	require.NoError(t, err)
 	start := len(resolver.inst.activities)
 
 	updatedName := fmt.Sprintf("Science Fiction %d", time.Now().UnixNano())
-	_, err := resolver.UpdateTag(ctx, sciFiTagID, model.UpdateTagInput{
+	_, err = resolver.UpdateTag(ctx, sciFiTagID, model.UpdateTagInput{
 		Name: &updatedName,
 	})
 	require.NoError(t, err)

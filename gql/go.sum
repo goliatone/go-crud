@@ -66,8 +66,8 @@ github.com/goliatone/go-masker v0.2.0 h1:M+Xx+AVJqTpNCQNPrPgVL6ft7oao5oT+/jQ+G8X
 github.com/goliatone/go-masker v0.2.0/go.mod h1:n+AV93IO1rNI35kjbjfV1gMkjuIOSDVEzfhABTlCf4U=
 github.com/goliatone/go-repository-bun v0.16.2 h1:tZ6NOI7iJoDvgpTCJtUDyG/kwgMPDnMao9ascQPOdqw=
 github.com/goliatone/go-repository-bun v0.16.2/go.mod h1:tCjJI6WF6wgpFMMUT9jxgEtuzXFde3MJ2WCLtBBglRA=
-github.com/goliatone/go-router v0.63.2 h1:Lj6lFv5f+yzIIwcvlnUttjTVx8TEfa29Vu6mHukzF6U=
-github.com/goliatone/go-router v0.63.2/go.mod h1:puV0F7LSyo5tsUMFoDCPuIVYUnVgHB3+vOARMUmPfFY=
+github.com/goliatone/go-router v0.63.3 h1:nvny/OdTofhymMmWUbJT19unbAPj/H+hj+MNYsbpomQ=
+github.com/goliatone/go-router v0.63.3/go.mod h1:7jFF8yLINw/i9Yh+8hL5594D1dESSxRkMIw6Ho7zLmE=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=
 github.com/goliatone/go-template v0.3.1/go.mod h1:2mFRGMnfvAn3r4ClMmlu4wBVkSKXgtXhVdmmmhhgSr4=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=

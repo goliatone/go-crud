@@ -9,8 +9,8 @@ require (
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.2
-	github.com/goliatone/go-users v0.27.3
+	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-users v0.27.6
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.12.1
