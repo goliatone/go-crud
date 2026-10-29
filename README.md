@@ -23,6 +23,25 @@ cover nested modules. `pkg/go-query-bun` belongs to the root module and is not
 an independently released dependency. Examples with their own `go.mod` run from
 that directory. No package supplies application schema migrations.
 
+## Dependency maintenance
+
+From the repository root, update a dependency and synchronize all nested modules:
+
+```bash
+bash taskfile go:deps:update github.com/goliatone/go-router@latest
+```
+
+The arguments are passed to `go get` in the root module. After a successful
+update, `go:deps:sync` runs `go mod tidy` in root, GQL, RPC, then every example
+module, including `relationships-gql`. Local replacements are preserved. Review
+the resulting `go.mod` and `go.sum` changes together.
+
+After manual dependency edits or updates inside GQL, RPC or an example, run
+`bash taskfile go:deps:sync`. Run `bash taskfile go:deps:check` to check for drift
+without rewriting module files. All quality gates run this check before tests
+and report the failing module and repair command. These commands use
+`GOWORK=off` so each module remains independently loadable.
+
 ## Installation
 
 ```bash
