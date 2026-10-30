@@ -57,3 +57,6 @@ go.work
 .tmp
 .modcache
 evidence
+.claude/
+.codex/
+.ctx/
