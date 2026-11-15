@@ -58,7 +58,7 @@ GET /api/users?email__or=alice@example.com,bob@example.com
 
 ## Prerequisites
 
-- Go 1.21 or higher
+- Go 1.26 or higher (qualification uses Go 1.27.3)
 - No external database required (uses in-memory SQLite via `github.com/mattn/go-sqlite3`)
 - CGO enabled (required for SQLite driver)
 
@@ -71,12 +71,16 @@ cd examples/web
 
 2. Install dependencies:
 ```bash
-go mod tidy
+export GOWORK=off GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org
+export GOPRIVATE= GONOPROXY= GONOSUMDB=
+# macOS: select Apple clang for the SQLite CGO driver.
+export CC=/usr/bin/clang CXX=/usr/bin/clang++
+go mod verify
 ```
 
 3. Run the application:
 ```bash
-go run main.go
+go run .
 ```
 
 4. Open your browser to:
@@ -195,11 +199,13 @@ Adding `format=options` to the same URL still honours the resolved page before r
 
 ### Changing the Port
 
-Edit `main.go` and modify the port in the `Serve` call:
+Set the listener without changing source:
 
-```go
-app.Serve(":8080")  // Change to your desired port
+```bash
+CRUD_WEB_ADDR=127.0.0.1:8080 go run .
 ```
+
+Run from this directory so `./views` resolves. The default is `:9090`. Readiness is logged after the managed `Serving` signal. SIGINT/SIGTERM stop admission and allow up to five seconds for admitted requests to drain before the owned database closes. Startup and shutdown failures exit nonzero.
 
 ### Adding Fields
 
@@ -237,10 +243,20 @@ Note: The repository uses pointer types (`Repository[*User]`) as required by the
 - **[go-crud](https://github.com/goliatone/go-crud)**: Generic CRUD controller
 - **[go-router](https://github.com/goliatone/go-router)**: Router abstraction layer
 - **[go-repository-bun](https://github.com/goliatone/go-repository-bun)**: Repository pattern with Bun ORM
-- **[Fiber v2](https://gofiber.io/)**: HTTP framework
+- **[Fiber v3](https://gofiber.io/)**: HTTP framework
 - **[Bun](https://bun.uptrace.dev/)**: SQL ORM
 - **[Django Templates](https://github.com/gofiber/template)**: Template engine
 
 ## License
 
 This example is provided as-is for demonstration purposes.
+
+## Published dependency and lifecycle qualification
+
+This module uses native Fiber v3.6.1, published CRUD v0.27.3 and router v0.65.3 with zero replacements. Native views remain Django; static routes use the owned `Router().Static` registration API, so raw-host access cannot finalize registration before CRUD routes are declared.
+
+With the environment above, run `go test -race -count=1 ./...`, `go build -o /tmp/crud-web .`, and `go vet ./...`. Tests cover native/socket API CRUD and batches, schema/options/errors, query-based tenant scope, forms/redirects/flash, static GET/HEAD and managed cancellation/drain/deadline. Browser visual and interaction qualification remains central adoption T05.
+
+The API's `tenant_id`/`actor_id` query values are demonstration scope inputs, not trusted authentication. HTML routes remain unscoped repository demonstrations. Production identity/authorization is outside this example's migration.
+
+A complete tested managed Fiber v2 rollback is retained in `go-router/.ctx/specs/go-fiber-v3-adoption/support/evidence/t02-m033-2026-11-15/rollback-source.tar.gz`. Restore the full module (source, templates, tests and module locks) into an isolated checkout and rerun these checks; changing a dependency pin alone does not switch the native host. The original host's premature static finalization and invalid form-error slice lookup are retained as failed controls in that evidence.

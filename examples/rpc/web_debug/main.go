@@ -4,15 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-crud"
 	crudrpc "github.com/goliatone/go-crud/rpc"
@@ -112,11 +116,10 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("register resource endpoints: %w", err)
 	}
 
-	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
-		return fiber.New(fiber.Config{
-			AppName:           "go-crud RPC web debug",
-			EnablePrintRoutes: true,
-		})
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{
+		ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true, DisableStartupMessage: true},
+	}, func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{AppName: "go-crud RPC web debug"})
 	})
 
 	if err := registerRoutes(server.Router(), repo, rpcServer); err != nil {
@@ -144,7 +147,7 @@ func registerRoutes(
 	r.Head("/public/*", publicHandler)
 	r.Get("/api/state", handleState(repo))
 
-	if err := rpcfiber.MountFiber(r, rpcServer); err != nil {
+	if err := rpcfiber.Mount(r, rpcServer); err != nil {
 		return fmt.Errorf("mount rpc fiber routes: %w", err)
 	}
 
@@ -287,32 +290,36 @@ func (a *App) Close() error {
 	return a.db.Close()
 }
 
-func (a *App) Serve(addr string) error {
+// Serve retains the blocking entry point; ServeContext adds managed cancellation.
+func (a *App) Serve(addr string) error { return a.ServeContext(context.Background(), addr) }
+
+func (a *App) ServeContext(ctx context.Context, addr string) error {
 	if a == nil || a.server == nil {
 		return fmt.Errorf("app server not initialized")
 	}
-	return a.server.Serve(addr)
+	return serve(ctx, a.server.(router.ManagedServer), addr, 5*time.Second)
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
+		log.Fatalf("RPC web debug: %v", err)
+	}
+}
+
+func run(ctx context.Context) (err error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	app, err := NewApp()
 	if err != nil {
-		log.Fatalf("failed to create app: %v", err)
+		return err
 	}
-	defer func() {
-		if err := app.Close(); err != nil {
-			log.Printf("failed to close app resources: %v", err)
-		}
-	}()
-
-	app.server.Router().PrintRoutes()
-
-	addr := ":8092"
-	log.Printf("go-crud RPC web debug demo listening on http://localhost%s", addr)
-	log.Printf("RPC invoke endpoint: POST http://localhost%s/api/rpc", addr)
-	log.Printf("RPC discovery endpoint: GET http://localhost%s/api/rpc/endpoints", addr)
-
-	if err := app.Serve(addr); err != nil {
-		log.Fatalf("server stopped: %v", err)
+	defer func() { err = errors.Join(err, app.Close()) }()
+	addr := os.Getenv("RPC_WEB_DEBUG_ADDR")
+	if addr == "" {
+		addr = ":8092"
 	}
+	return app.ServeContext(ctx, addr)
 }

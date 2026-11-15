@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/template/django/v3"
 	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-repository-bun"
@@ -38,10 +39,17 @@ type User struct {
 	UpdatedAt     time.Time  `bun:"updated_at,notnull" json:"updated_at"`
 }
 
-func main() {
-	// Setup database
-	db := setupDatabase()
-	defer db.Close()
+type App struct {
+	server router.Server[*fiber.App]
+	repo   repository.Repository[*User]
+	db     *bun.DB
+}
+
+func NewApp() (*App, error) {
+	db, err := setupDatabase()
+	if err != nil {
+		return nil, err
+	}
 
 	// Create repository
 	handlers := repository.ModelHandlers[*User]{
@@ -61,15 +69,20 @@ func main() {
 	repo := repository.NewRepository(db, handlers)
 
 	// Seed database
-	seedDatabase(repo)
+	if err := seedDatabase(repo); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return &App{server: newServer(repo), repo: repo, db: db}, nil
+}
 
+func newServer(repo repository.Repository[*User]) router.Server[*fiber.App] {
 	// Setup Fiber app with Django templates
 	engine := django.New("./views", ".html")
-	app := router.NewFiberAdapter(func(a *fiber.App) *fiber.App {
+	app := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true, DisableStartupMessage: true}}, func(a *fiber.App) *fiber.App {
 		return fiber.New(
 			fiber.Config{
 				AppName:           "go-crud Web Demo",
-				EnablePrintRoutes: true,
 				PassLocalsToViews: true,
 				Views:             engine,
 			},
@@ -77,7 +90,7 @@ func main() {
 	})
 
 	// Serve static files
-	app.WrappedRouter().Static("/static", "./views")
+	app.Router().Static("/static", "./views")
 
 	// Create CRUD controller
 	controller := crud.NewController(repo,
@@ -122,34 +135,13 @@ This application demonstrates the go-crud package capabilities with a web interf
 		},
 	})
 
-	// Print routes
-	app.Router().PrintRoutes()
-
-	// Start server
-	go func() {
-		log.Println("Starting server on :9090")
-		log.Println("Open http://localhost:9090 in your browser")
-		if err := app.Serve(":9090"); err != nil {
-			log.Panic(err)
-		}
-	}()
-
-	// Graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
-
-	log.Println("Shutting down server...")
-	ctx := context.TODO()
-	if err := app.Shutdown(ctx); err != nil {
-		log.Panic(err)
-	}
+	return app
 }
 
-func setupDatabase() *bun.DB {
+func setupDatabase() (*bun.DB, error) {
 	sqldb, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("open database: %w", err)
 	}
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
@@ -158,13 +150,14 @@ func setupDatabase() *bun.DB {
 	ctx := context.Background()
 	_, err = db.NewCreateTable().Model((*User)(nil)).IfNotExists().Exec(ctx)
 	if err != nil {
-		log.Fatal(err)
+		_ = db.Close()
+		return nil, fmt.Errorf("create schema: %w", err)
 	}
 
-	return db
+	return db, nil
 }
 
-func seedDatabase(repo repository.Repository[*User]) {
+func seedDatabase(repo repository.Repository[*User]) error {
 	ctx := context.Background()
 
 	users := []*User{
@@ -194,11 +187,12 @@ func seedDatabase(repo repository.Repository[*User]) {
 	for _, user := range users {
 		_, err := repo.Create(ctx, user)
 		if err != nil {
-			log.Printf("Failed to seed user %s: %v", user.Name, err)
+			return fmt.Errorf("seed user %s: %w", user.Name, err)
 		}
 	}
 
 	log.Println("Database seeded with sample data")
+	return nil
 }
 
 func demoScopeGuard() crud.ScopeGuardFunc[*User] {
@@ -492,4 +486,45 @@ func handleDeleteUser(repo repository.Repository[*User]) router.HandlerFunc {
 			"success_message": fmt.Sprintf("User '%s' has been deleted successfully", user.Name),
 		})
 	}
+}
+
+func (a *App) Close() error {
+	if a == nil || a.db == nil {
+		return nil
+	}
+	return a.db.Close()
+}
+
+// Serve retains the blocking entry point; ServeContext adds managed cancellation.
+func (a *App) Serve(addr string) error { return a.ServeContext(context.Background(), addr) }
+
+func (a *App) ServeContext(ctx context.Context, addr string) error {
+	if a == nil || a.server == nil {
+		return fmt.Errorf("app server not initialized")
+	}
+	return serve(ctx, a.server.(router.ManagedServer), addr, 5*time.Second)
+}
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
+		log.Fatalf("Web demo: %v", err)
+	}
+}
+
+func run(ctx context.Context) (err error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	app, err := NewApp()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, app.Close()) }()
+	addr := os.Getenv("CRUD_WEB_ADDR")
+	if addr == "" {
+		addr = ":9090"
+	}
+	return app.ServeContext(ctx, addr)
 }

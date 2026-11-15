@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-crud"
 	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
@@ -19,7 +19,10 @@ import (
 func buildExampleTestServer(t *testing.T, options ...crud.Option[*User]) (router.Server[*fiber.App], repository.Repository[*User]) {
 	t.Helper()
 
-	db := setupDatabase()
+	db, err := setupDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
@@ -43,12 +46,13 @@ func buildExampleTestServer(t *testing.T, options ...crud.Option[*User]) (router
 	}
 
 	repo := repository.NewRepository(db, handlers)
-	seedDatabase(repo)
+	if err := seedDatabase(repo); err != nil {
+		t.Fatal(err)
+	}
 
-	app := router.NewFiberAdapter(func(*fiber.App) *fiber.App {
+	app := router.NewFiberV3Adapter(func(*fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
-			AppName:           "go-crud Web Demo (test)",
-			EnablePrintRoutes: false,
+			AppName: "go-crud Web Demo (test)",
 		})
 	})
 

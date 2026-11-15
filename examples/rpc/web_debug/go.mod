@@ -3,14 +3,15 @@ module github.com/goliatone/go-crud/examples/rpc/web_debug
 go 1.26.0
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-command v0.24.3
-	github.com/goliatone/go-crud v0.27.2
-	github.com/goliatone/go-crud/rpc v0.21.1
+	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/goliatone/go-command v0.26.1
+	github.com/goliatone/go-crud v0.27.3
+	github.com/goliatone/go-crud/rpc v0.27.2
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/stretchr/testify v1.12.1
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 )
@@ -29,7 +30,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/contrib/v3/websocket v1.2.9 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/gofiber/fiber/v3 v3.6.1 // indirect
+	github.com/gofiber/fiber/v2 v2.52.13 // indirect
 	github.com/gofiber/schema v1.9.0 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
@@ -54,7 +55,6 @@ require (
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/stretchr/objx v0.8.0 // indirect
-	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -69,13 +69,3 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/goliatone/go-crud => ../../..
-
-replace github.com/goliatone/go-crud/rpc => ../../../rpc
-
-replace github.com/goliatone/go-command => ../../../../go-command
-
-replace github.com/goliatone/go-repository-bun => ../../../../go-repository-bun
-
-replace github.com/goliatone/go-router => ../../../../go-router
