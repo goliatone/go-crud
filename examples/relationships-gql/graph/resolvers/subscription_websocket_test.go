@@ -15,9 +15,9 @@ import (
 	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	fiberws "github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	fiberws "github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
@@ -67,7 +67,7 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	}
 	wsHandler := wsTransport.Handler(wsExec)
 
-	app := router.NewFiberAdapter()
+	app := router.NewFiberV3Adapter()
 	_ = app.Router()
 	wsConfig := router.DefaultWebSocketConfig()
 	wsConfig.Subprotocols = []string{"graphql-transport-ws", "graphql-ws"}
@@ -81,7 +81,7 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	}
 
 	handlerDone := make(chan struct{})
-	wsFiberHandler := router.FiberWebSocketHandler(wsConfig, func(ws router.WebSocketContext) error {
+	wsFiberHandler := router.FiberV3WebSocketHandler(wsConfig, func(ws router.WebSocketContext) error {
 		defer close(handlerDone)
 		ctx := withAuth(ws.Context())
 		if ldr := newTestLoader(resolver, db); ldr != nil {
@@ -101,7 +101,7 @@ func TestSubscriptions_WebSocketFlow(t *testing.T) {
 	app.Init()
 
 	fiberApp := app.WrappedRouter()
-	fiberApp.All("/graphql", func(c *fiber.Ctx) error {
+	fiberApp.All("/graphql", func(c fiber.Ctx) error {
 		if fiberws.IsWebSocketUpgrade(c) {
 			return wsFiberHandler(c)
 		}

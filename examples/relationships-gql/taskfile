@@ -12,42 +12,43 @@ export GOCACHE
 mkdir -p "${GOCACHE}"
 unset GOROOT
 
-GOSUMDB=${GOSUMDB:-off}
+GOSUMDB=${GOSUMDB:-sum.golang.org}
 export GOSUMDB
-GOPROXY=${GOPROXY:-off}
+GOPROXY=${GOPROXY:-https://proxy.golang.org}
 export GOPROXY
 GOTOOLCHAIN=${GOTOOLCHAIN:-local}
 export GOTOOLCHAIN
+export GOWORK=off
 
-# Choose a Go toolchain that satisfies go >= 1.24.
+# Choose a Go toolchain that satisfies go >= 1.26.
 GO_BIN="${GO_BIN:-$(command -v go)}"
 GO_VERSION="$($GO_BIN version 2>/dev/null | awk '{print $3}')"
 GO_REAL_ROOT="$($GO_BIN env GOROOT 2>/dev/null)"
 
-needs24=true
+needs26=true
 case "${GO_VERSION}" in
-  go1.2[4-9]*|go1.[3-9]*|go[2-9]*)
-    needs24=false
+  go1.2[6-9]*|go1.[3-9]*|go[2-9]*)
+    needs26=false
     ;;
 esac
 
-if ${needs24}; then
+if ${needs26}; then
   ALT_GO_BIN="/Users/goliatone/.g/go/bin/go"
   if command -v "${ALT_GO_BIN}" >/dev/null 2>&1; then
     ALT_GO_VERSION="$(${ALT_GO_BIN} version 2>/dev/null | awk '{print $3}')"
     ALT_GO_ROOT="$(${ALT_GO_BIN} env GOROOT 2>/dev/null)"
     case "${ALT_GO_VERSION}" in
-      go1.2[4-9]*|go1.[3-9]*|go[2-9]*)
+      go1.2[6-9]*|go1.[3-9]*|go[2-9]*)
         GO_BIN="${ALT_GO_BIN}"
         GO_REAL_ROOT="${ALT_GO_ROOT}"
-        needs24=false
+        needs26=false
         ;;
     esac
   fi
 fi
 
-if ${needs24}; then
-  echo "Go 1.24+ is required. Set GO_BIN to a Go 1.24+ binary (current: ${GO_BIN:-unset} ${GO_VERSION:-unknown})." >&2
+if ${needs26}; then
+  echo "Go 1.26+ is required. Set GO_BIN to a Go 1.26+ binary (current: ${GO_BIN:-unset} ${GO_VERSION:-unknown})." >&2
   exit 1
 fi
 
@@ -66,14 +67,14 @@ function lgr {
 
 function graphqlgen {
   lgr I "Generating GraphQL assets from live models via registrar..."
-  env -u GOROOT "${GO_BIN}" run ../../gql/cmd/graphqlgen \
+  env -u GOROOT "${GO_BIN}" run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
     --schema-package ./registrar \
     --out ./graph \
     --config ./gqlgen.yml \
     --emit-subscriptions \
     --emit-dataloader \
     --auth-package github.com/goliatone/go-auth \
-    --auth-guard "auth.FromContext(ctx)" \
+    --auth-guard "auth.ActorFromContext(ctx)" \
     "$@"
 }
 
@@ -89,7 +90,7 @@ function build {
 
 function metadata {
   lgr I "Emitting registry metadata snapshot..."
-  env -u GOROOT "${GO_BIN}" run ./cmd/metadata --out ../../gql/examples/relationships/metadata.json
+  env -u GOROOT "${GO_BIN}" run ./cmd/metadata --out metadata.json
 }
 
 function gen {

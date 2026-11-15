@@ -7,9 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/goliatone/go-crud"
-	"github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,26 +18,14 @@ func TestAuthorSchemaIncludesHeadquartersComponent(t *testing.T) {
 	require.NoError(t, migrateSchema(db))
 	require.NoError(t, seedDatabase(context.Background(), db, repos))
 
-	app := router.NewFiberAdapter(func(*fiber.App) *fiber.App {
-		return fiber.New()
-	})
-
-	api := app.Router().Group("/api")
-	adapter := crud.NewGoRouterAdapter(api)
-
-	crud.NewController(repos.Publishers).RegisterRoutes(adapter)
-	crud.NewController(repos.Headquarters).RegisterRoutes(adapter)
-	crud.NewController(repos.Authors).RegisterRoutes(adapter)
-	crud.NewController(repos.AuthorProfiles).RegisterRoutes(adapter)
-	crud.NewController(repos.Books).RegisterRoutes(adapter)
-	crud.NewController(repos.Chapters).RegisterRoutes(adapter)
-	crud.NewController(repos.Tags).RegisterRoutes(adapter)
+	app := newServer(repos)
 
 	app.Init()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/author/schema", nil)
 	resp, err := app.WrappedRouter().Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var doc map[string]any

@@ -10,7 +10,17 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 
 ## Running
 
-Run from `examples/relationships-gql` (a separate Go 1.26.0+ module):
+Run from `examples/relationships-gql` (a separate Go 1.26.0+ module). The selected graph uses published CRUD v0.27.3, GQL v0.27.2, router v0.65.3 and auth v0.45.7, with zero replacements. The host selects native Fiber v3.6.1. Root checkout changes are not used. Keep checksum verification enabled.
+
+```sh
+export GOWORK=off GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org
+# On macOS, select the Apple compiler for SQLite/CGO.
+export CC=/usr/bin/clang CXX=/usr/bin/clang++
+go mod verify
+go run -mod=readonly ./cmd/server
+```
+
+To regenerate after model changes:
 
 ```sh
 go run github.com/goliatone/go-crud/gql/cmd/graphqlgen \
@@ -23,13 +33,13 @@ go run github.com/99designs/gqlgen generate --config ./gqlgen.yml
 ./taskfile metadata     # optional metadata snapshot
 ```
 
-Use the direct generator command above: older taskfile/go:generate wrappers
-still use `auth.FromContext(ctx)`. The current helper is
-`auth.ActorFromContext(ctx)`, returning `(actor, bool)` from trusted context.
+The taskfile and go:generate wrappers use the same pinned published generator and `auth.ActorFromContext(ctx)`. Handwritten UUID/time conversion helpers live in `graph/resolvers/convert.go` so gqlgen can regenerate its owned files without deleting them.
 
 
 GraphQL endpoint: `http://localhost:9091/graphql` (HTTP + WebSocket)  
 Playground: `http://localhost:9091/playground`
+
+`RELATIONSHIPS_GQL_ADDR` overrides `:9091`; use `127.0.0.1:0` for an ephemeral local port. Readiness is logged after managed Serving. SIGINT/SIGTERM stop admission and allow ordinary requests five seconds to drain. The host seals WebSocket admission, interrupts idle readers and joins transport handlers; startup/shutdown failures exit nonzero. Native upgrade middleware is registered before route finalization. Native ingress defaults remain selected; no full route-aware unknown-method policy is claimed.
 
 The generator command runs with `--emit-subscriptions` and `--emit-dataloader`, so the generated schema includes Subscription fields and resolver field loaders by default (see `graph/resolvers/resolver_gen.go` and `graph/dataloader/dataloader_gen.go`).
 
@@ -42,6 +52,7 @@ All list operations return Relay connections (`edges { node cursor }` + `pageInf
 
 ### Subscriptions (websocket)
 - The transport cancels and joins its initialization reader, keepalive and subscription goroutines before the handler returns, so they cannot use a recycled Fiber connection.
+- WebSocket upgrades require a demo bearer token in the Authorization header; missing or malformed tokens receive HTTP 401 before subscription registration.
 - Websocket endpoint shares `/graphql` (`graphql-transport-ws`), configured in `cmd/server/main.go` via go-router’s Fiber adapter and the gqlgen websocket transport ported onto `router.WebSocketContext`.
 - An in-memory event bus in `graph/resolvers/resolver_custom.go` drives `tagCreated/tagUpdated/tagDeleted` (and equivalents for every entity). Example subscription:
 ```graphql
@@ -207,3 +218,15 @@ mutation {
 - Run the generator command above to refresh `graph/schema.graphql`, `gqlgen.yml`, and resolver/model scaffolding from the in-memory registry (no metadata.json required).
 - Then run `./taskfile gqlgen` to regenerate gqlgen outputs before serving.
 - If you need a metadata.json snapshot for fixtures/docs, run `./taskfile metadata` (not used by the generator path).
+
+## Qualification status and rollback
+
+The supported HTTP/auth/subscription flows and managed host lifecycle pass on native v3 and a complete native v2 rollback using the same published providers. Tests cover ordinary drain/deadline, startup/pre-cancellation/binding cancellation, shutdown failures, initialization-idle sockets and upgrades overlapping shutdown. Real built binaries separately pass HTTP, both GraphQL WebSocket protocols, SIGINT/SIGTERM and occupied-port failure. Browser playground presentation remains a separate check.
+
+Full M031 qualification is pending generator repair:
+- Three existing book order/filter/pagination tests fail on the original published baseline and current graph: generated scalar criteria request Bun relations such as `title`.
+- A generated subscription forwarder can remain blocked sending an event after cancellation. Transport worker joins alone do not establish cleanup of that generated worker.
+
+These are tracked in local `fiber-v3-adapter` T11; T10 resumes after published verification. Regenerating with current GQL v0.27.2 reproduces the criteria defect. Do not patch the generated output as a substitute for fixing its generator. The full suite is intentionally reported as failing; no tests are skipped.
+
+The central `go-fiber-v3-adoption/support/evidence/t02-m031-2026-11-15` record preserves source recovery, exact published locks, failing reproductions and the complete managed v2 source/configuration rollback. Restore that entire tuple to roll back; changing one dependency does not switch the native adapter. The original v2 source and normalized older published locks are retained separately.

@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
@@ -149,27 +150,47 @@ type repositories struct {
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
+		log.Fatalf("relationship demo: %v", err)
+	}
+}
+
+func run(ctx context.Context) error {
 	db := setupDatabase()
 	defer db.Close()
-
 	repos := registerRepositories(db)
 	if err := migrateSchema(db); err != nil {
-		log.Fatalf("failed to migrate schema: %v", err)
+		return fmt.Errorf("migrate schema: %w", err)
 	}
-	if err := seedDatabase(context.Background(), db, repos); err != nil {
-		log.Fatalf("failed to seed database: %v", err)
+	if err := seedDatabase(ctx, db, repos); err != nil {
+		return fmt.Errorf("seed database: %w", err)
 	}
+	app := newServer(repos)
+	addr := os.Getenv("RELATIONSHIPS_ADDR")
+	if addr == "" {
+		addr = ":9091"
+	}
+	return serve(ctx, app.(router.ManagedServer), addr, 5*time.Second)
+}
 
-	app := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+func newServer(repos repositories) router.Server[*fiber.App] {
+	app := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{
+		ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true},
+	}, func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
-			AppName:           "go-crud Relationship Demo",
-			EnablePrintRoutes: true,
-			ReadTimeout:       10 * time.Second,
-			WriteTimeout:      10 * time.Second,
+			AppName:      "go-crud Relationship Demo",
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
 		})
 	})
+	registerRoutes(app.Router(), repos)
+	return app
+}
 
-	api := app.Router().Group("/api")
+func registerRoutes(r router.Router[*fiber.App], repos repositories) {
+	api := r.Group("/api")
 	apiAdapter := crud.NewGoRouterAdapter(api)
 
 	crud.NewController(repos.Publishers).RegisterRoutes(apiAdapter)
@@ -180,38 +201,49 @@ func main() {
 	crud.NewController(repos.Chapters).RegisterRoutes(apiAdapter)
 	crud.NewController(repos.Tags).RegisterRoutes(apiAdapter)
 
-	router.ServeOpenAPI(app.Router(), &router.OpenAPIRenderer{
+	router.ServeOpenAPI(r, &router.OpenAPIRenderer{
 		Title:   "go-crud Relationship Demo",
 		Version: "v0.1.0",
 		Description: `## Relationship Showcase
 This example focuses on eager-loading options for complex data models.
-Use the query string parameter 'include' (e.g. ?include=authors.profile,books.tags)
-to request nested relations over the REST endpoints.`,
+Use the query string parameter 'include' (e.g. /api/authors?include=profile,books,publisher)
+to request relations over the REST endpoints. See the README for published nested and many-to-many include limitations.`,
 		Contact: &router.OpenAPIFieldContact{
 			Email: "oss@goliatone.com",
 			Name:  "go-crud Examples",
 			URL:   "https://github.com/goliatone/go-crud",
 		},
 	})
+}
 
-	app.Router().PrintRoutes()
-
-	go func() {
-		addr := ":9091"
-		log.Printf("Starting relationship demo on %s", addr)
-		log.Printf("OpenAPI UI available at http://localhost%s/meta/docs/", addr)
-		if err := app.Serve(addr); err != nil {
-			log.Panicf("server error: %v", err)
+// Signals stop admission while admitted requests retain their drain context.
+// Stop also latches cancellation before the asynchronous bind finishes.
+func serve(ctx context.Context, server router.ManagedServer, addr string, timeout time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	managed, err := server.StartManaged(context.WithoutCancel(ctx), router.ManagedOptions{
+		Address: addr, Network: "tcp4", DrainTimeout: timeout,
+	})
+	if err != nil {
+		return err
+	}
+	serving := managed.Serving()
+	for {
+		select {
+		case <-serving:
+			log.Printf("Relationship demo serving at http://%s (OpenAPI: /meta/docs/)", managed.Address())
+			serving = nil
+		case <-managed.Done():
+			return managed.Wait(context.Background())
+		case <-ctx.Done():
+			shutdown, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := managed.Stop(shutdown); err != nil {
+				return err
+			}
+			return managed.Wait(shutdown)
 		}
-	}()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	<-sigCh
-
-	log.Println("Shutting down server...")
-	if err := app.Shutdown(context.Background()); err != nil {
-		log.Panicf("failed to shut down: %v", err)
 	}
 }
 

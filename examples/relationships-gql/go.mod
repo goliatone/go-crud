@@ -5,14 +5,14 @@ go 1.26.0
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/gofiber/contrib/websocket v1.3.4
-	github.com/gofiber/fiber/v2 v2.52.13
+	github.com/gofiber/contrib/v3/websocket v1.2.9
+	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/goliatone/go-auth v0.45.7
-	github.com/goliatone/go-crud v0.27.2
-	github.com/goliatone/go-crud/gql v0.0.0-00010101000000-000000000000
+	github.com/goliatone/go-crud v0.27.3
+	github.com/goliatone/go-crud/gql v0.27.2
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/goliatone/hashid v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
@@ -44,8 +44,8 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
-	github.com/gofiber/contrib/v3/websocket v1.2.9 // indirect
-	github.com/gofiber/fiber/v3 v3.6.1 // indirect
+	github.com/gofiber/contrib/websocket v1.3.4 // indirect
+	github.com/gofiber/fiber/v2 v2.52.13 // indirect
 	github.com/gofiber/schema v1.9.0 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
@@ -55,7 +55,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-errors v0.12.0 // indirect
-	github.com/goliatone/go-featuregate v0.6.1 // indirect
+	github.com/goliatone/go-featuregate v0.6.3 // indirect
 	github.com/goliatone/go-logger v0.10.1 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
@@ -105,11 +105,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/goliatone/go-crud => ../..
-
-replace github.com/goliatone/go-crud/gql => ../../gql
-
-replace github.com/PuerkitoBio/goquery => github.com/PuerkitoBio/goquery v1.9.3
-
-replace github.com/andybalholm/cascadia => github.com/andybalholm/cascadia v1.3.2

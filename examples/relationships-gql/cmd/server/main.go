@@ -17,12 +17,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	fiberws "github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	fiberws "github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-auth"
 	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 
 	relationships "github.com/goliatone/go-crud/examples/relationships-gql"
 	"github.com/goliatone/go-crud/examples/relationships-gql/graph/dataloader"
@@ -41,8 +41,6 @@ func main() {
 func run(ctx context.Context) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	const upgradeAuthKey = "authorization"
 
 	client, err := relationships.SetupDatabase(ctx)
 	if err != nil {
@@ -68,6 +66,20 @@ func run(ctx context.Context) error {
 	}
 
 	resolver := resolvers.NewResolver(repos)
+	app, sockets, err := newServer(resolver, db)
+	if err != nil {
+		return err
+	}
+	addr := os.Getenv("RELATIONSHIPS_GQL_ADDR")
+	if addr == "" {
+		addr = ":9091"
+	}
+	return serve(ctx, app.(router.ManagedServer), sockets, addr, 5*time.Second)
+}
+
+func newServer(resolver *resolvers.Resolver, db *bun.DB, configure ...func(*router.WebSocketConfig)) (router.Server[*fiber.App], *socketOwner, error) {
+	const upgradeAuthKey = "authorization"
+
 	resolver.ScopeGuard = func(ctx context.Context, entity, action string) error {
 		user, ok := auth.FromContext(ctx)
 		if !ok || user == nil {
@@ -80,19 +92,26 @@ func run(ctx context.Context) error {
 
 	httpSrv, wsExec := buildGraphQLServer(resolver)
 	secured := loader.Middleware(resolver, db)(graphqlAuthMiddleware(httpSrv))
-
-	app := router.NewFiberAdapter()
-	_ = app.Router() // ensure router is initialized before Serve()
+	app := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{ListenConfig: fiber.ListenConfig{DisableStartupMessage: true}})
+	sockets := newSocketOwner()
 
 	wsConfig := router.DefaultWebSocketConfig()
 	wsConfig.Subprotocols = []string{"graphql-transport-ws", "graphql-ws"}
+	wsConfig.WriteTimeout = time.Second
 	wsConfig.PingPeriod = 15 * time.Second
 	wsConfig.PongWait = 30 * time.Second
 	wsConfig.CheckOrigin = func(origin string) bool { return true }
 	wsConfig.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
+		if authUserFromHeader(c.Header("Authorization")) == nil {
+			return nil, router.ErrUnauthorized
+		}
 		return router.UpgradeData{
 			upgradeAuthKey: c.Header("Authorization"),
 		}, nil
+	}
+
+	for _, option := range configure {
+		option(&wsConfig)
 	}
 
 	wsTransport := routerws.Websocket{
@@ -103,8 +122,8 @@ func run(ctx context.Context) error {
 	}
 	wsHandler := wsTransport.Handler(wsExec)
 
-	wsFiberHandler := router.FiberWebSocketHandler(wsConfig, func(ws router.WebSocketContext) error {
-		ctx := context.Background()
+	wsFiberHandler := router.FiberV3WebSocketHandler(wsConfig, sockets.wrap(func(ws router.WebSocketContext) error {
+		ctx := ws.Context()
 		headers := map[string]string{}
 
 		var authHeader string
@@ -128,42 +147,24 @@ func run(ctx context.Context) error {
 		}
 
 		return wsHandler(newWebsocketContext(ctx, headers, ws))
-	})
+	}))
 
-	fiberApp := app.WrappedRouter()
-	fiberApp.All("/graphql", func(c *fiber.Ctx) error {
-		if fiberws.IsWebSocketUpgrade(c) {
+	// Native upgrades are registered through the owned capability before routes.
+	err := app.(router.FiberV3NativeMiddlewareRegistrar).UseNative(func(c fiber.Ctx) error {
+		if strings.EqualFold(strings.TrimRight(c.Path(), "/"), "/graphql") && fiberws.IsWebSocketUpgrade(c) {
 			return wsFiberHandler(c)
 		}
-		return adaptor.HTTPHandler(secured)(c)
+		return c.Next()
 	})
-	fiberApp.Get("/playground", adaptor.HTTPHandler(playground.Handler("GraphQL playground", "/graphql")))
-	fiberApp.Get("/", func(c *fiber.Ctx) error {
-		return c.Redirect("/playground", fiber.StatusTemporaryRedirect)
-	})
-
-	addr := ":9091"
-	log.Printf("GraphQL endpoint ready at http://localhost%s/graphql (HTTP & WebSocket)", addr)
-	log.Printf("Playground available at http://localhost%s/playground", addr)
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- app.Serve(addr)
-	}()
-
-	select {
-	case <-ctx.Done():
-	case err := <-errCh:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
-		}
+	if err != nil {
+		return nil, nil, err
 	}
-
-	log.Println("Shutting down server...")
-	if err := app.Shutdown(context.Background()); err != nil {
-		return err
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace, http.MethodPatch} {
+		app.Router().Handle(router.HTTPMethod(method), "/graphql", router.HandlerFromHTTP(secured))
 	}
-	return nil
+	app.Router().Get("/playground", router.HandlerFromHTTP(playground.Handler("GraphQL playground", "/graphql")))
+	app.Router().Get("/", func(c router.Context) error { return c.Redirect("/playground", http.StatusTemporaryRedirect) })
+	return app, sockets, nil
 }
 
 func buildGraphQLServer(resolver *resolvers.Resolver) (*handler.Server, graphql.GraphExecutor) {

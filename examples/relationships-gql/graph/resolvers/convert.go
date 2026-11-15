@@ -451,3 +451,27 @@ func tagFromModel(src model.Tag) (*relationships.Tag, error) {
 		CreatedAt:   timeValue(src.CreatedAt),
 	}, nil
 }
+
+func uuidValue(id string) model.UUID {
+	return model.UUID(id)
+}
+
+func uuidString(id model.UUID) string {
+	return string(id)
+}
+
+func toModelTime(t *time.Time) *model.Time {
+	if t == nil {
+		return nil
+	}
+	mt := model.Time(*t)
+	return &mt
+}
+
+func toStdTime(t *model.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	std := time.Time(*t)
+	return &std
+}

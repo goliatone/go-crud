@@ -3,10 +3,10 @@ module github.com/goliatone/go-crud/examples/relationships
 go 1.26.0
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-crud v0.27.2
+	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/goliatone/go-crud v0.27.3
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.12.1
@@ -27,7 +27,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/contrib/v3/websocket v1.2.9 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/gofiber/fiber/v3 v3.6.1 // indirect
+	github.com/gofiber/fiber/v2 v2.52.13 // indirect
 	github.com/gofiber/schema v1.9.0 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
@@ -66,9 +66,3 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/goliatone/go-crud => ../..
-
-replace github.com/goliatone/go-repository-bun => ../../../go-repository-bun
-
-replace github.com/goliatone/go-router => ../../../go-router
