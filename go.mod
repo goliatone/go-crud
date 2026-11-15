@@ -9,7 +9,7 @@ require (
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/goliatone/go-users v0.27.6
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -41,7 +41,6 @@ require (
 	github.com/goliatone/go-i18n v0.5.0 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -54,7 +53,6 @@ require (
 	github.com/molecule-man/go-brrr v1.3.0 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/stretchr/objx v0.8.0 // indirect

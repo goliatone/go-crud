@@ -156,7 +156,7 @@ func newControllerBase[T any](repo repository.Repository[T]) *Controller[T] {
 		routeMethods:         make(map[CrudOperation]string),
 		routePaths:           make(map[CrudOperation]string),
 		routeNames:           make(map[CrudOperation]string),
-		relationProvider:     router.NewDefaultRelationProvider(),
+		relationProvider:     newDefaultRelationProvider(),
 		mergePolicy:          defaultMergePolicy(),
 	}
 }
@@ -174,7 +174,7 @@ func (c *Controller[T]) initialize() {
 	}
 
 	if c.relationProvider == nil {
-		c.relationProvider = router.NewDefaultRelationProvider()
+		c.relationProvider = newDefaultRelationProvider()
 	}
 
 	registerRelationProvider(c.resourceType, c.relationProvider)
@@ -769,7 +769,7 @@ func (c *Controller[T]) compileSchemaDocument() (router.ResourceMetadata, map[st
 	}
 
 	aggregator := router.NewMetadataAggregator().
-		WithRelationProvider(router.NewDefaultRelationProvider())
+		WithRelationProvider(c.relationProvider)
 	aggregator.AddProvider(c)
 
 	relatedTypes := collectRelationResourceTypes(c.resourceType)

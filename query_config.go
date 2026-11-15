@@ -117,6 +117,8 @@ func buildRelationMetadata(typ reflect.Type, provider FieldMapProvider, visited 
 		}
 	}
 	visited[base] = true
+	// Only ancestors are cycles; sibling paths may visit the same model.
+	defer delete(visited, base)
 
 	fields := getOrBuildFieldMap(base, provider)
 
@@ -135,7 +137,7 @@ func buildRelationMetadata(typ reflect.Type, provider FieldMapProvider, visited 
 		}
 
 		bunTag := field.Tag.Get(TAG_BUN)
-		if bunTag == "" || !strings.Contains(bunTag, "rel:") {
+		if !strings.Contains(bunTag, "rel:") && !strings.Contains(bunTag, "m2m:") {
 			continue
 		}
 

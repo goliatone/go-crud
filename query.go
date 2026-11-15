@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/schema"
 )
 
 type relationFilter struct {
@@ -678,15 +679,63 @@ func includeRelation(q *bun.SelectQuery, node *relationIncludeNode) *bun.SelectQ
 	if node == nil {
 		return q
 	}
+	model, ok := q.GetModel().(bun.TableModel)
+	if !ok {
+		return q.Relation(node.name)
+	}
+	table := model.Table()
+	q = registerIncludeRelations(q, node, "", table)
+	return applyInlineRelationFilters(q, node, table)
+}
 
-	return q.Relation(node.name, func(rel *bun.SelectQuery) *bun.SelectQuery {
-		rel = applyRelationFilters(rel, node.filters)
-		childKeys := sortedRelationKeys(node.children)
-		for _, key := range childKeys {
-			rel = includeRelation(rel, node.children[key])
+// Register the complete tree before Bun builds inline joins. Do not install
+// callbacks on inline joins: Bun's paginated ScanAndCount clone shares nested
+// join models, and callback application mutates those models concurrently.
+func registerIncludeRelations(q *bun.SelectQuery, node *relationIncludeNode, parent string, table *schema.Table) *bun.SelectQuery {
+	path := node.name
+	if parent != "" {
+		path = parent + "." + path
+	}
+	relation := table.Relations[node.name]
+	if relation == nil {
+		// Preserve Bun's unknown-relation error.
+		return q.Relation(path)
+	}
+	opts := bun.RelationOpts{}
+	if relation.Type == schema.HasManyRelation || relation.Type == schema.ManyToManyRelation {
+		// Collection queries run after the root scan and have their own query scope.
+		// Bun applies the collection's declared conditions before this callback.
+		opts.Apply = func(rel *bun.SelectQuery) *bun.SelectQuery {
+			rel = applyRelationFilters(rel, node.filters)
+			for _, key := range sortedRelationKeys(node.children) {
+				rel = applyInlineRelationFilters(rel, node.children[key], relation.JoinTable)
+			}
+			return rel
 		}
-		return rel
-	})
+	}
+	q = q.RelationWithOpts(path, opts)
+	for _, key := range sortedRelationKeys(node.children) {
+		q = registerIncludeRelations(q, node.children[key], path, relation.JoinTable)
+	}
+	return q
+}
+
+// Inline relation callbacks add WHERE criteria to their containing SELECT.
+// Apply the same criteria once while constructing it, before scan/count clone it.
+// This leaves connection, transaction, resolver and pagination ownership intact.
+func applyInlineRelationFilters(q *bun.SelectQuery, node *relationIncludeNode, table *schema.Table) *bun.SelectQuery {
+	relation := table.Relations[node.name]
+	if relation == nil || (relation.Type != schema.HasOneRelation && relation.Type != schema.BelongsToRelation) {
+		return q
+	}
+	for _, condition := range relation.Condition {
+		q = q.Where(condition)
+	}
+	q = applyRelationFilters(q, node.filters)
+	for _, key := range sortedRelationKeys(node.children) {
+		q = applyInlineRelationFilters(q, node.children[key], relation.JoinTable)
+	}
+	return q
 }
 
 func applyRelationFilters(q *bun.SelectQuery, filters []relationFilter) *bun.SelectQuery {

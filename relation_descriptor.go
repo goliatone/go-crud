@@ -23,7 +23,7 @@ func registerRelationProvider(typ reflect.Type, provider router.RelationMetadata
 		return
 	}
 	if provider == nil {
-		provider = router.NewDefaultRelationProvider()
+		provider = newDefaultRelationProvider()
 	}
 
 	relationProviderRegistry.Store(base, relationConfig{
@@ -46,7 +46,7 @@ func getRelationDescriptorForType(typ reflect.Type) *router.RelationDescriptor {
 		}
 	}
 
-	provider := router.RelationMetadataProvider(router.NewDefaultRelationProvider())
+	provider := router.RelationMetadataProvider(newDefaultRelationProvider())
 	if cfg, ok := relationProviderRegistry.Load(base); ok {
 		if rc, ok := cfg.(relationConfig); ok && rc.provider != nil {
 			provider = rc.provider

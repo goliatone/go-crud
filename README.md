@@ -240,7 +240,7 @@ You can feed this JSON directly into Swagger UI, Stoplight Elements, or any Open
 The generated OpenAPI includes vendor extensions that help downstream form builders choose sensible defaults:
 
 - **Display label** – mark the property that should appear in option lists with `crud:"label"` (or `crud:"label:alternate"` if the JSON name differs). The schema will include `x-formgen-label-field` with the resolved field name.
-- **Relation includes** – define Bun relations (e.g. `bun:"rel:has-many,join:id=user_id"`) so `x-formgen-relations` can expose valid include paths, fields, and filter hints.
+- **Relation includes** – define Bun `rel:` or `m2m:` relations (e.g. `bun:"rel:has-many,join:id=user_id"`) so `x-formgen-relations` can expose valid include paths, fields, and filter hints.
 - **Shared parameters** – collection routes reuse `#/components/parameters/{Limit|Offset|Select|Include|Order}` so clients can pull defaults (limit `25`, offset `0`) straight from the spec.
 - **Pruning hooks** – register `crud.WithRelationFilter` (or use `router.RegisterRelationFilter`) to hide sensitive relations from both the schema extension and runtime responses.
 - **Admin extensions** – the same schema object also carries:
@@ -918,12 +918,20 @@ The List endpoint supports:
 - Ordering: `?order=name asc,created_at desc`
 - Field selection: `?select=id,name,email`
 - Relations: `?include=Company,Profile` (supports filtering: `?include=Profile.status=outdated`)
-- Nested relations & filters: `?include=Blocks.Translations.locale__eq=es` (any depth, multiple clauses)
+- Nested relations & filters: `?include=Blocks.Translations.locale__eq=es` (acyclic paths, multiple clauses)
 - Filtering:
   - Basic: `?name=John`
   - Operators: `?age__gte=30`, `?name__ilike=john%`
   - Available operators: `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `like`, `ilike`, `and`, `or`
   - Multiple values: `?name__or=John,Jack`
+
+Includes support Bun has-one, belongs-to, has-many and many-to-many relations,
+including nested paths such as `books.tags` and `publisher.headquarters`. Relation
+JSON aliases and Go field names are accepted. Repeated model types on independent
+branches remain available; recursive cycles stop at the repeated ancestor.
+Custom relation metadata providers, relation filters and `crud:"-"` exclusions
+remain authoritative. Relation filters stay in their containing query scope;
+pagination totals, caller transactions and connection selection are preserved.
 
 ### Command-backed actions and activity policy
 

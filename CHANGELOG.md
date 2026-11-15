@@ -1,5 +1,17 @@
 # Changelog
 
+# [0.27.3](https://github.com/goliatone/go-crud/compare/v0.27.2...v0.27.3) - (2026-11-15)
+
+## Fixed
+
+- Restore many-to-many and nested relationship includes across both Fiber majors.
+- Preserve sibling paths, metadata restrictions, filters and pagination.
+- Avoid nested inline-join races without changing transaction or connection ownership.
+
+## Compatibility
+
+- Qualify native and generic Fiber v2/v3 adapters against go-router v0.65.3.
+
 # [0.27.2](https://github.com/goliatone/go-crud/compare/v0.27.1...v0.27.2) - (2026-10-29)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks

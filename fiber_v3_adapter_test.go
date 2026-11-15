@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,9 +22,11 @@ import (
 type adapterTestContextKey struct{}
 
 type adapterFixture struct {
-	routes  Router
-	request func(*http.Request) (*http.Response, error)
-	init    func()
+	routes   Router
+	request  func(*http.Request) (*http.Response, error)
+	init     func()
+	listen   func(net.Listener) error
+	shutdown func(context.Context) error
 }
 
 // Each path uses its actual native middleware and controller registration.
@@ -34,25 +37,49 @@ func newAdapterFixture(name string) adapterFixture {
 	if name == "native-v2" {
 		app := fiber2.New()
 		app.Use(func(c *fiber2.Ctx) error { c.SetUserContext(seed()); return c.Next() })
-		return adapterFixture{NewFiberAdapter(app.Group("/api")), func(r *http.Request) (*http.Response, error) { return app.Test(r) }, func() {}}
+		return adapterFixture{
+			routes:  NewFiberAdapter(app.Group("/api")),
+			request: func(r *http.Request) (*http.Response, error) { return app.Test(r) },
+			init:    func() {}, listen: app.Listener, shutdown: app.ShutdownWithContext,
+		}
 	}
 	if name == "native-v3" {
 		app := fiber3.New()
 		app.Use(func(c fiber3.Ctx) error { c.SetContext(seed()); return c.Next() })
-		return adapterFixture{NewFiberV3Adapter(app.Group("/api")), func(r *http.Request) (*http.Response, error) { return app.Test(r) }, func() {}}
+		return adapterFixture{
+			routes:   NewFiberV3Adapter(app.Group("/api")),
+			request:  func(r *http.Request) (*http.Response, error) { return app.Test(r) },
+			init:     func() {},
+			listen:   func(ln net.Listener) error { return app.Listener(ln, fiber3.ListenConfig{DisableStartupMessage: true}) },
+			shutdown: app.ShutdownWithContext,
+		}
 	}
 	if name == "generic-v2" {
 		srv := router.NewFiberAdapter(func(app *fiber2.App) *fiber2.App {
 			app.Use(func(c *fiber2.Ctx) error { c.SetUserContext(seed()); return c.Next() })
 			return app
 		})
-		return adapterFixture{NewGoRouterAdapter(srv.Router().Group("/api")), func(r *http.Request) (*http.Response, error) { return srv.WrappedRouter().Test(r) }, srv.Init}
+		return adapterFixture{
+			routes:   NewGoRouterAdapter(srv.Router().Group("/api")),
+			request:  func(r *http.Request) (*http.Response, error) { return srv.WrappedRouter().Test(r) },
+			init:     srv.Init,
+			listen:   func(ln net.Listener) error { return srv.WrappedRouter().Listener(ln) },
+			shutdown: func(ctx context.Context) error { return srv.WrappedRouter().ShutdownWithContext(ctx) },
+		}
 	}
 	srv := router.NewFiberV3Adapter(func(app *fiber3.App) *fiber3.App {
 		app.Use(func(c fiber3.Ctx) error { c.SetContext(seed()); return c.Next() })
 		return app
 	})
-	return adapterFixture{NewGoRouterAdapter(srv.Router().Group("/api")), func(r *http.Request) (*http.Response, error) { return srv.WrappedRouter().Test(r) }, srv.Init}
+	return adapterFixture{
+		routes:  NewGoRouterAdapter(srv.Router().Group("/api")),
+		request: func(r *http.Request) (*http.Response, error) { return srv.WrappedRouter().Test(r) },
+		init:    srv.Init,
+		listen: func(ln net.Listener) error {
+			return srv.WrappedRouter().Listener(ln, fiber3.ListenConfig{DisableStartupMessage: true})
+		},
+		shutdown: func(ctx context.Context) error { return srv.WrappedRouter().ShutdownWithContext(ctx) },
+	}
 }
 
 func TestFiberAdapterMatrixTranslation(t *testing.T) {
