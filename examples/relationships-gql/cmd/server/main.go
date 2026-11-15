@@ -20,6 +20,7 @@ import (
 	fiberws "github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-auth"
+	"github.com/goliatone/go-crud/gql/helpers"
 	"github.com/goliatone/go-router"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -146,6 +147,8 @@ func newServer(resolver *resolvers.Resolver, db *bun.DB, configure ...func(*rout
 			ctx = dataloader.Inject(ctx, ldr)
 		}
 
+		ctx, scope := helpers.WithSubscriptionScope(ctx)
+		defer scope.Close(context.Background())
 		return wsHandler(newWebsocketContext(ctx, headers, ws))
 	}))
 

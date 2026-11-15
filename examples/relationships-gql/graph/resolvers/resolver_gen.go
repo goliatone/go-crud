@@ -238,28 +238,6 @@ var criteriaConfig = map[string]map[string]criteriaField{
 	},
 }
 
-func findOriginalNameForJoinKey(entity, joinKey string) string {
-	joinKey = strings.ToLower(strings.TrimSpace(joinKey))
-	if joinKey == "" {
-		return ""
-	}
-	base := strings.SplitN(joinKey, ".", 2)[0]
-	fields, ok := criteriaConfig[entity]
-	if !ok {
-		return base
-	}
-	if field, ok := fields[base]; ok && field.Relation != "" {
-		return field.Relation
-	}
-	for key, field := range fields {
-		prefix := strings.SplitN(key, ".", 2)[0]
-		if prefix == base && field.Relation != "" {
-			return field.Relation
-		}
-	}
-	return base
-}
-
 var subscriptionTopics = map[string]map[string]string{}
 
 func init() {
@@ -371,6 +349,9 @@ func (r *Resolver) publishEvent(ctx context.Context, entity, event string, paylo
 }
 
 func (r *Resolver) subscribe(ctx context.Context, entity, event string) (<-chan EventMessage, error) {
+	if err := r.guard(ctx, entity, "subscribe"); err != nil {
+		return nil, err
+	}
 	if r.Events == nil {
 		return nil, errors.New("subscriptions are not configured")
 	}
@@ -422,7 +403,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 
 		dir := normalizeDirection(ob.Direction)
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, ob.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -455,7 +436,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 		}
 
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, filter.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		switch op {
@@ -750,7 +731,7 @@ func (r *Resolver) AuthorService() crud.Service[model.Author] {
 }
 
 func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -767,7 +748,7 @@ func (r *Resolver) GetAuthor(ctx context.Context, id string) (*model.Author, err
 }
 
 func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -800,7 +781,7 @@ func (r *Resolver) ListAuthor(ctx context.Context, pagination *model.PaginationI
 }
 
 func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInput) (*model.Author, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -822,7 +803,7 @@ func (r *Resolver) CreateAuthor(ctx context.Context, input model.CreateAuthorInp
 }
 
 func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.UpdateAuthorInput) (*model.Author, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -848,7 +829,7 @@ func (r *Resolver) UpdateAuthor(ctx context.Context, id string, input model.Upda
 }
 
 func (r *Resolver) DeleteAuthor(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -887,7 +868,7 @@ func (r *Resolver) AuthorProfileService() crud.Service[model.AuthorProfile] {
 }
 
 func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.AuthorProfile, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -904,7 +885,7 @@ func (r *Resolver) GetAuthorProfile(ctx context.Context, id string) (*model.Auth
 }
 
 func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.AuthorProfileConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -937,7 +918,7 @@ func (r *Resolver) ListAuthorProfile(ctx context.Context, pagination *model.Pagi
 }
 
 func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAuthorProfileInput) (*model.AuthorProfile, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -959,7 +940,7 @@ func (r *Resolver) CreateAuthorProfile(ctx context.Context, input model.CreateAu
 }
 
 func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input model.UpdateAuthorProfileInput) (*model.AuthorProfile, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -985,7 +966,7 @@ func (r *Resolver) UpdateAuthorProfile(ctx context.Context, id string, input mod
 }
 
 func (r *Resolver) DeleteAuthorProfile(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1024,7 +1005,7 @@ func (r *Resolver) BookService() crud.Service[model.Book] {
 }
 
 func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1041,7 +1022,7 @@ func (r *Resolver) GetBook(ctx context.Context, id string) (*model.Book, error) 
 }
 
 func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.BookConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1074,7 +1055,7 @@ func (r *Resolver) ListBook(ctx context.Context, pagination *model.PaginationInp
 }
 
 func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) (*model.Book, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1096,7 +1077,7 @@ func (r *Resolver) CreateBook(ctx context.Context, input model.CreateBookInput) 
 }
 
 func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.UpdateBookInput) (*model.Book, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1122,7 +1103,7 @@ func (r *Resolver) UpdateBook(ctx context.Context, id string, input model.Update
 }
 
 func (r *Resolver) DeleteBook(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1161,7 +1142,7 @@ func (r *Resolver) ChapterService() crud.Service[model.Chapter] {
 }
 
 func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1178,7 +1159,7 @@ func (r *Resolver) GetChapter(ctx context.Context, id string) (*model.Chapter, e
 }
 
 func (r *Resolver) ListChapter(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.ChapterConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1211,7 +1192,7 @@ func (r *Resolver) ListChapter(ctx context.Context, pagination *model.Pagination
 }
 
 func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterInput) (*model.Chapter, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1233,7 +1214,7 @@ func (r *Resolver) CreateChapter(ctx context.Context, input model.CreateChapterI
 }
 
 func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.UpdateChapterInput) (*model.Chapter, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1259,7 +1240,7 @@ func (r *Resolver) UpdateChapter(ctx context.Context, id string, input model.Upd
 }
 
 func (r *Resolver) DeleteChapter(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1298,7 +1279,7 @@ func (r *Resolver) HeadquartersService() crud.Service[model.Headquarters] {
 }
 
 func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headquarters, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1315,7 +1296,7 @@ func (r *Resolver) GetHeadquarters(ctx context.Context, id string) (*model.Headq
 }
 
 func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.HeadquartersConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1348,7 +1329,7 @@ func (r *Resolver) ListHeadquarters(ctx context.Context, pagination *model.Pagin
 }
 
 func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHeadquartersInput) (*model.Headquarters, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1370,7 +1351,7 @@ func (r *Resolver) CreateHeadquarters(ctx context.Context, input model.CreateHea
 }
 
 func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input model.UpdateHeadquartersInput) (*model.Headquarters, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1396,7 +1377,7 @@ func (r *Resolver) UpdateHeadquarters(ctx context.Context, id string, input mode
 }
 
 func (r *Resolver) DeleteHeadquarters(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1435,7 +1416,7 @@ func (r *Resolver) PublishingHouseService() crud.Service[model.PublishingHouse] 
 }
 
 func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.PublishingHouse, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1452,7 +1433,7 @@ func (r *Resolver) GetPublishingHouse(ctx context.Context, id string) (*model.Pu
 }
 
 func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.PublishingHouseConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1485,7 +1466,7 @@ func (r *Resolver) ListPublishingHouse(ctx context.Context, pagination *model.Pa
 }
 
 func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.CreatePublishingHouseInput) (*model.PublishingHouse, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1507,7 +1488,7 @@ func (r *Resolver) CreatePublishingHouse(ctx context.Context, input model.Create
 }
 
 func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input model.UpdatePublishingHouseInput) (*model.PublishingHouse, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1533,7 +1514,7 @@ func (r *Resolver) UpdatePublishingHouse(ctx context.Context, id string, input m
 }
 
 func (r *Resolver) DeletePublishingHouse(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1572,7 +1553,7 @@ func (r *Resolver) TagService() crud.Service[model.Tag] {
 }
 
 func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1589,7 +1570,7 @@ func (r *Resolver) GetTag(ctx context.Context, id string) (*model.Tag, error) {
 }
 
 func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInput, orderBy []*model.OrderByInput, filter []*model.FilterInput) (*model.TagConnection, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1622,7 +1603,7 @@ func (r *Resolver) ListTag(ctx context.Context, pagination *model.PaginationInpu
 }
 
 func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1644,7 +1625,7 @@ func (r *Resolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*
 }
 
 func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateTagInput) (*model.Tag, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return nil, errors.New("unauthorized")
 	}
@@ -1670,7 +1651,7 @@ func (r *Resolver) UpdateTag(ctx context.Context, id string, input model.UpdateT
 }
 
 func (r *Resolver) DeleteTag(ctx context.Context, id string) (bool, error) {
-	user, ok := auth.FromContext(ctx)
+	user, ok := auth.ActorFromContext(ctx)
 	if !ok || user == nil {
 		return false, errors.New("unauthorized")
 	}
@@ -1702,6 +1683,21 @@ func (r *Resolver) DeleteTag(ctx context.Context, id string) (bool, error) {
 }
 
 func (r *Resolver) AuthorCreated(ctx context.Context) (<-chan *model.Author, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Author", "created")
 	if err != nil {
 		return nil, err
@@ -1709,6 +1705,7 @@ func (r *Resolver) AuthorCreated(ctx context.Context) (<-chan *model.Author, err
 
 	out := make(chan *model.Author)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1723,19 +1720,43 @@ func (r *Resolver) AuthorCreated(ctx context.Context) (<-chan *model.Author, err
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Author:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Author:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) AuthorUpdated(ctx context.Context) (<-chan *model.Author, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Author", "updated")
 	if err != nil {
 		return nil, err
@@ -1743,6 +1764,7 @@ func (r *Resolver) AuthorUpdated(ctx context.Context) (<-chan *model.Author, err
 
 	out := make(chan *model.Author)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1757,19 +1779,43 @@ func (r *Resolver) AuthorUpdated(ctx context.Context) (<-chan *model.Author, err
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Author:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Author:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) AuthorDeleted(ctx context.Context) (<-chan *model.Author, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Author", "deleted")
 	if err != nil {
 		return nil, err
@@ -1777,6 +1823,7 @@ func (r *Resolver) AuthorDeleted(ctx context.Context) (<-chan *model.Author, err
 
 	out := make(chan *model.Author)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1791,19 +1838,43 @@ func (r *Resolver) AuthorDeleted(ctx context.Context) (<-chan *model.Author, err
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Author:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Author:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) AuthorProfileCreated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "AuthorProfile", "created")
 	if err != nil {
 		return nil, err
@@ -1811,6 +1882,7 @@ func (r *Resolver) AuthorProfileCreated(ctx context.Context) (<-chan *model.Auth
 
 	out := make(chan *model.AuthorProfile)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1825,19 +1897,43 @@ func (r *Resolver) AuthorProfileCreated(ctx context.Context) (<-chan *model.Auth
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.AuthorProfile:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.AuthorProfile:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) AuthorProfileUpdated(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "AuthorProfile", "updated")
 	if err != nil {
 		return nil, err
@@ -1845,6 +1941,7 @@ func (r *Resolver) AuthorProfileUpdated(ctx context.Context) (<-chan *model.Auth
 
 	out := make(chan *model.AuthorProfile)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1859,19 +1956,43 @@ func (r *Resolver) AuthorProfileUpdated(ctx context.Context) (<-chan *model.Auth
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.AuthorProfile:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.AuthorProfile:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) AuthorProfileDeleted(ctx context.Context) (<-chan *model.AuthorProfile, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "AuthorProfile", "deleted")
 	if err != nil {
 		return nil, err
@@ -1879,6 +2000,7 @@ func (r *Resolver) AuthorProfileDeleted(ctx context.Context) (<-chan *model.Auth
 
 	out := make(chan *model.AuthorProfile)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1893,19 +2015,43 @@ func (r *Resolver) AuthorProfileDeleted(ctx context.Context) (<-chan *model.Auth
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.AuthorProfile:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.AuthorProfile:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) BookCreated(ctx context.Context) (<-chan *model.Book, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Book", "created")
 	if err != nil {
 		return nil, err
@@ -1913,6 +2059,7 @@ func (r *Resolver) BookCreated(ctx context.Context) (<-chan *model.Book, error) 
 
 	out := make(chan *model.Book)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1927,19 +2074,43 @@ func (r *Resolver) BookCreated(ctx context.Context) (<-chan *model.Book, error) 
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Book:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Book:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) BookUpdated(ctx context.Context) (<-chan *model.Book, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Book", "updated")
 	if err != nil {
 		return nil, err
@@ -1947,6 +2118,7 @@ func (r *Resolver) BookUpdated(ctx context.Context) (<-chan *model.Book, error) 
 
 	out := make(chan *model.Book)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1961,19 +2133,43 @@ func (r *Resolver) BookUpdated(ctx context.Context) (<-chan *model.Book, error) 
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Book:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Book:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) BookDeleted(ctx context.Context) (<-chan *model.Book, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Book", "deleted")
 	if err != nil {
 		return nil, err
@@ -1981,6 +2177,7 @@ func (r *Resolver) BookDeleted(ctx context.Context) (<-chan *model.Book, error) 
 
 	out := make(chan *model.Book)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -1995,19 +2192,43 @@ func (r *Resolver) BookDeleted(ctx context.Context) (<-chan *model.Book, error) 
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Book:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Book:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) ChapterCreated(ctx context.Context) (<-chan *model.Chapter, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Chapter", "created")
 	if err != nil {
 		return nil, err
@@ -2015,6 +2236,7 @@ func (r *Resolver) ChapterCreated(ctx context.Context) (<-chan *model.Chapter, e
 
 	out := make(chan *model.Chapter)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2029,19 +2251,43 @@ func (r *Resolver) ChapterCreated(ctx context.Context) (<-chan *model.Chapter, e
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Chapter:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Chapter:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Chapter", "updated")
 	if err != nil {
 		return nil, err
@@ -2049,6 +2295,7 @@ func (r *Resolver) ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, e
 
 	out := make(chan *model.Chapter)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2063,19 +2310,43 @@ func (r *Resolver) ChapterUpdated(ctx context.Context) (<-chan *model.Chapter, e
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Chapter:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Chapter:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Chapter", "deleted")
 	if err != nil {
 		return nil, err
@@ -2083,6 +2354,7 @@ func (r *Resolver) ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, e
 
 	out := make(chan *model.Chapter)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2097,19 +2369,43 @@ func (r *Resolver) ChapterDeleted(ctx context.Context) (<-chan *model.Chapter, e
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Chapter:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Chapter:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) HeadquartersCreated(ctx context.Context) (<-chan *model.Headquarters, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Headquarters", "created")
 	if err != nil {
 		return nil, err
@@ -2117,6 +2413,7 @@ func (r *Resolver) HeadquartersCreated(ctx context.Context) (<-chan *model.Headq
 
 	out := make(chan *model.Headquarters)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2131,19 +2428,43 @@ func (r *Resolver) HeadquartersCreated(ctx context.Context) (<-chan *model.Headq
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Headquarters:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Headquarters:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) HeadquartersUpdated(ctx context.Context) (<-chan *model.Headquarters, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Headquarters", "updated")
 	if err != nil {
 		return nil, err
@@ -2151,6 +2472,7 @@ func (r *Resolver) HeadquartersUpdated(ctx context.Context) (<-chan *model.Headq
 
 	out := make(chan *model.Headquarters)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2165,19 +2487,43 @@ func (r *Resolver) HeadquartersUpdated(ctx context.Context) (<-chan *model.Headq
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Headquarters:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Headquarters:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) HeadquartersDeleted(ctx context.Context) (<-chan *model.Headquarters, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Headquarters", "deleted")
 	if err != nil {
 		return nil, err
@@ -2185,6 +2531,7 @@ func (r *Resolver) HeadquartersDeleted(ctx context.Context) (<-chan *model.Headq
 
 	out := make(chan *model.Headquarters)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2199,19 +2546,43 @@ func (r *Resolver) HeadquartersDeleted(ctx context.Context) (<-chan *model.Headq
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Headquarters:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Headquarters:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) PublishingHouseCreated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "PublishingHouse", "created")
 	if err != nil {
 		return nil, err
@@ -2219,6 +2590,7 @@ func (r *Resolver) PublishingHouseCreated(ctx context.Context) (<-chan *model.Pu
 
 	out := make(chan *model.PublishingHouse)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2233,19 +2605,43 @@ func (r *Resolver) PublishingHouseCreated(ctx context.Context) (<-chan *model.Pu
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.PublishingHouse:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.PublishingHouse:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) PublishingHouseUpdated(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "PublishingHouse", "updated")
 	if err != nil {
 		return nil, err
@@ -2253,6 +2649,7 @@ func (r *Resolver) PublishingHouseUpdated(ctx context.Context) (<-chan *model.Pu
 
 	out := make(chan *model.PublishingHouse)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2267,19 +2664,43 @@ func (r *Resolver) PublishingHouseUpdated(ctx context.Context) (<-chan *model.Pu
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.PublishingHouse:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.PublishingHouse:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) PublishingHouseDeleted(ctx context.Context) (<-chan *model.PublishingHouse, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "PublishingHouse", "deleted")
 	if err != nil {
 		return nil, err
@@ -2287,6 +2708,7 @@ func (r *Resolver) PublishingHouseDeleted(ctx context.Context) (<-chan *model.Pu
 
 	out := make(chan *model.PublishingHouse)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2301,19 +2723,43 @@ func (r *Resolver) PublishingHouseDeleted(ctx context.Context) (<-chan *model.Pu
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.PublishingHouse:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.PublishingHouse:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Tag", "created")
 	if err != nil {
 		return nil, err
@@ -2321,6 +2767,7 @@ func (r *Resolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
 
 	out := make(chan *model.Tag)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2335,19 +2782,43 @@ func (r *Resolver) TagCreated(ctx context.Context) (<-chan *model.Tag, error) {
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Tag:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Tag:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Tag", "updated")
 	if err != nil {
 		return nil, err
@@ -2355,6 +2826,7 @@ func (r *Resolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
 
 	out := make(chan *model.Tag)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2369,19 +2841,43 @@ func (r *Resolver) TagUpdated(ctx context.Context) (<-chan *model.Tag, error) {
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Tag:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Tag:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }
 
 func (r *Resolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
+	user, ok := auth.ActorFromContext(ctx)
+	if !ok || user == nil {
+		return nil, errors.New("unauthorized")
+	}
+	_ = user
+	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "Tag", "deleted")
 	if err != nil {
 		return nil, err
@@ -2389,6 +2885,7 @@ func (r *Resolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
 
 	out := make(chan *model.Tag)
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -2403,14 +2900,23 @@ func (r *Resolver) TagDeleted(ctx context.Context) (<-chan *model.Tag, error) {
 				}
 				switch payload := msg.Payload.(type) {
 				case *model.Tag:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.Tag:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }

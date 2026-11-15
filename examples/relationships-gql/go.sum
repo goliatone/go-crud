@@ -99,8 +99,8 @@ github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNU
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-crud v0.27.3 h1:IedrrCIGvfw3lLGzTX+wfjmXnmk+Z1wbYIBNxoB9Ze4=
 github.com/goliatone/go-crud v0.27.3/go.mod h1:GBdR+Vw1m8o6d4LQCYrEIoSZzOelqA77yer8KYcz/jo=
-github.com/goliatone/go-crud/gql v0.27.2 h1:EN9Sh/oDB7F2CMqMhJpCBTn7TMU92HLlQ+7qX4kOweg=
-github.com/goliatone/go-crud/gql v0.27.2/go.mod h1:AaJTxjIPhmOr0W0OPO3dhXf0hZ7UN8pVikjWVRcD8ks=
+github.com/goliatone/go-crud/gql v0.27.3 h1:0sJfYKoLlOELV9y02Xl0t9UtYZZ7wqxrYoMRAn5lLDI=
+github.com/goliatone/go-crud/gql v0.27.3/go.mod h1:Pg7MCsasQMcAwDe0GgbRJ/SDuyK8zJwcExB5oDQmEqA=
 github.com/goliatone/go-errors v0.12.0 h1:FI3FHJe+sogfD+MZJqx8OVGDJqav5PNq1xi1UAXjBwk=
 github.com/goliatone/go-errors v0.12.0/go.mod h1:LvR8nteHvrUTbS6N7Gm/2of9yRyyLoxIB4VFPk+wkVU=
 github.com/goliatone/go-featuregate v0.6.3 h1:26HQTNn+ATauJJV05+fUhOk0aHvyMr7DfRdv5T3Ezao=

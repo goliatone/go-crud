@@ -13,97 +13,97 @@ import (
 )
 
 // ID is the resolver for the id field.
-func (r *authorResolver) ID(_ context.Context, obj *model.Author) (model.UUID, error) {
+func (r *authorResolver) ID(ctx context.Context, obj *model.Author) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *authorResolver) CreatedAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+func (r *authorResolver) CreatedAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
 	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *authorResolver) UpdatedAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+func (r *authorResolver) UpdatedAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
 	return toModelTime(obj.UpdatedAt), nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *authorResolver) HiredAt(_ context.Context, obj *model.Author) (*model.Time, error) {
+func (r *authorResolver) HiredAt(ctx context.Context, obj *model.Author) (*model.Time, error) {
 	return toModelTime(obj.HiredAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *authorResolver) PublisherID(_ context.Context, obj *model.Author) (model.UUID, error) {
+func (r *authorResolver) PublisherID(ctx context.Context, obj *model.Author) (model.UUID, error) {
 	return uuidValue(obj.PublisherId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *authorProfileResolver) ID(_ context.Context, obj *model.AuthorProfile) (model.UUID, error) {
+func (r *authorProfileResolver) ID(ctx context.Context, obj *model.AuthorProfile) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *authorProfileResolver) AuthorID(_ context.Context, obj *model.AuthorProfile) (model.UUID, error) {
+func (r *authorProfileResolver) AuthorID(ctx context.Context, obj *model.AuthorProfile) (model.UUID, error) {
 	return uuidValue(obj.AuthorId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *bookResolver) ID(_ context.Context, obj *model.Book) (model.UUID, error) {
+func (r *bookResolver) ID(ctx context.Context, obj *model.Book) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *bookResolver) CreatedAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+func (r *bookResolver) CreatedAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
 	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *bookResolver) UpdatedAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+func (r *bookResolver) UpdatedAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
 	return toModelTime(obj.UpdatedAt), nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *bookResolver) AuthorID(_ context.Context, obj *model.Book) (model.UUID, error) {
+func (r *bookResolver) AuthorID(ctx context.Context, obj *model.Book) (model.UUID, error) {
 	return uuidValue(obj.AuthorId), nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *bookResolver) LastReprintAt(_ context.Context, obj *model.Book) (*model.Time, error) {
+func (r *bookResolver) LastReprintAt(ctx context.Context, obj *model.Book) (*model.Time, error) {
 	return toModelTime(obj.LastReprintAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *bookResolver) PublisherID(_ context.Context, obj *model.Book) (model.UUID, error) {
+func (r *bookResolver) PublisherID(ctx context.Context, obj *model.Book) (model.UUID, error) {
 	return uuidValue(obj.PublisherId), nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *bookResolver) ReleaseDate(_ context.Context, obj *model.Book) (*model.Time, error) {
+func (r *bookResolver) ReleaseDate(ctx context.Context, obj *model.Book) (*model.Time, error) {
 	return toModelTime(obj.ReleaseDate), nil
 }
 
 // ID is the resolver for the id field.
-func (r *chapterResolver) ID(_ context.Context, obj *model.Chapter) (model.UUID, error) {
+func (r *chapterResolver) ID(ctx context.Context, obj *model.Chapter) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *chapterResolver) BookID(_ context.Context, obj *model.Chapter) (model.UUID, error) {
+func (r *chapterResolver) BookID(ctx context.Context, obj *model.Chapter) (model.UUID, error) {
 	return uuidValue(obj.BookId), nil
 }
 
 // ID is the resolver for the id field.
-func (r *headquartersResolver) ID(_ context.Context, obj *model.Headquarters) (model.UUID, error) {
+func (r *headquartersResolver) ID(ctx context.Context, obj *model.Headquarters) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *headquartersResolver) OpenedAt(_ context.Context, obj *model.Headquarters) (*model.Time, error) {
+func (r *headquartersResolver) OpenedAt(ctx context.Context, obj *model.Headquarters) (*model.Time, error) {
 	return toModelTime(obj.OpenedAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *headquartersResolver) PublisherID(_ context.Context, obj *model.Headquarters) (model.UUID, error) {
+func (r *headquartersResolver) PublisherID(ctx context.Context, obj *model.Headquarters) (model.UUID, error) {
 	return uuidValue(obj.PublisherId), nil
 }
 
@@ -213,22 +213,22 @@ func (r *mutationResolver) DeleteTag(ctx context.Context, id model.UUID) (bool, 
 }
 
 // ID is the resolver for the id field.
-func (r *publishingHouseResolver) ID(_ context.Context, obj *model.PublishingHouse) (model.UUID, error) {
+func (r *publishingHouseResolver) ID(ctx context.Context, obj *model.PublishingHouse) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *publishingHouseResolver) CreatedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+func (r *publishingHouseResolver) CreatedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
 	return toModelTime(obj.CreatedAt), nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *publishingHouseResolver) UpdatedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+func (r *publishingHouseResolver) UpdatedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
 	return toModelTime(obj.UpdatedAt), nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *publishingHouseResolver) EstablishedAt(_ context.Context, obj *model.PublishingHouse) (*model.Time, error) {
+func (r *publishingHouseResolver) EstablishedAt(ctx context.Context, obj *model.PublishingHouse) (*model.Time, error) {
 	return toModelTime(obj.EstablishedAt), nil
 }
 
@@ -408,125 +408,125 @@ func (r *subscriptionResolver) TagDeleted(ctx context.Context) (<-chan *model.Ta
 }
 
 // ID is the resolver for the id field.
-func (r *tagResolver) ID(_ context.Context, obj *model.Tag) (model.UUID, error) {
+func (r *tagResolver) ID(ctx context.Context, obj *model.Tag) (model.UUID, error) {
 	return uuidValue(obj.Id), nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *tagResolver) CreatedAt(_ context.Context, obj *model.Tag) (*model.Time, error) {
+func (r *tagResolver) CreatedAt(ctx context.Context, obj *model.Tag) (*model.Time, error) {
 	return toModelTime(obj.CreatedAt), nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createAuthorInputResolver) PublisherID(_ context.Context, obj *model.CreateAuthorInput, data model.UUID) error {
+func (r *createAuthorInputResolver) PublisherID(ctx context.Context, obj *model.CreateAuthorInput, data model.UUID) error {
 	obj.PublisherId = uuidString(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createAuthorInputResolver) CreatedAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+func (r *createAuthorInputResolver) CreatedAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *createAuthorInputResolver) HiredAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+func (r *createAuthorInputResolver) HiredAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
 	obj.HiredAt = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createAuthorInputResolver) UpdatedAt(_ context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
+func (r *createAuthorInputResolver) UpdatedAt(ctx context.Context, obj *model.CreateAuthorInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *createAuthorProfileInputResolver) AuthorID(_ context.Context, obj *model.CreateAuthorProfileInput, data model.UUID) error {
+func (r *createAuthorProfileInputResolver) AuthorID(ctx context.Context, obj *model.CreateAuthorProfileInput, data model.UUID) error {
 	obj.AuthorId = uuidString(data)
 	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *createBookInputResolver) AuthorID(_ context.Context, obj *model.CreateBookInput, data model.UUID) error {
+func (r *createBookInputResolver) AuthorID(ctx context.Context, obj *model.CreateBookInput, data model.UUID) error {
 	obj.AuthorId = uuidString(data)
 	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createBookInputResolver) PublisherID(_ context.Context, obj *model.CreateBookInput, data model.UUID) error {
+func (r *createBookInputResolver) PublisherID(ctx context.Context, obj *model.CreateBookInput, data model.UUID) error {
 	obj.PublisherId = uuidString(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createBookInputResolver) CreatedAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+func (r *createBookInputResolver) CreatedAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *createBookInputResolver) LastReprintAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+func (r *createBookInputResolver) LastReprintAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
 	obj.LastReprintAt = toStdTime(data)
 	return nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *createBookInputResolver) ReleaseDate(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+func (r *createBookInputResolver) ReleaseDate(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
 	obj.ReleaseDate = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createBookInputResolver) UpdatedAt(_ context.Context, obj *model.CreateBookInput, data *model.Time) error {
+func (r *createBookInputResolver) UpdatedAt(ctx context.Context, obj *model.CreateBookInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *createChapterInputResolver) BookID(_ context.Context, obj *model.CreateChapterInput, data model.UUID) error {
+func (r *createChapterInputResolver) BookID(ctx context.Context, obj *model.CreateChapterInput, data model.UUID) error {
 	obj.BookId = uuidString(data)
 	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *createHeadquartersInputResolver) PublisherID(_ context.Context, obj *model.CreateHeadquartersInput, data model.UUID) error {
+func (r *createHeadquartersInputResolver) PublisherID(ctx context.Context, obj *model.CreateHeadquartersInput, data model.UUID) error {
 	obj.PublisherId = uuidString(data)
 	return nil
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *createHeadquartersInputResolver) OpenedAt(_ context.Context, obj *model.CreateHeadquartersInput, data *model.Time) error {
+func (r *createHeadquartersInputResolver) OpenedAt(ctx context.Context, obj *model.CreateHeadquartersInput, data *model.Time) error {
 	obj.OpenedAt = toStdTime(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createPublishingHouseInputResolver) CreatedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+func (r *createPublishingHouseInputResolver) CreatedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *createPublishingHouseInputResolver) EstablishedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+func (r *createPublishingHouseInputResolver) EstablishedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
 	obj.EstablishedAt = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *createPublishingHouseInputResolver) UpdatedAt(_ context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
+func (r *createPublishingHouseInputResolver) UpdatedAt(ctx context.Context, obj *model.CreatePublishingHouseInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *createTagInputResolver) CreatedAt(_ context.Context, obj *model.CreateTagInput, data *model.Time) error {
+func (r *createTagInputResolver) CreatedAt(ctx context.Context, obj *model.CreateTagInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateAuthorInputResolver) PublisherID(_ context.Context, obj *model.UpdateAuthorInput, data *model.UUID) error {
+func (r *updateAuthorInputResolver) PublisherID(ctx context.Context, obj *model.UpdateAuthorInput, data *model.UUID) error {
 	if data == nil {
 		obj.PublisherId = nil
 		return nil
@@ -537,25 +537,25 @@ func (r *updateAuthorInputResolver) PublisherID(_ context.Context, obj *model.Up
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateAuthorInputResolver) CreatedAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+func (r *updateAuthorInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // HiredAt is the resolver for the hiredAt field.
-func (r *updateAuthorInputResolver) HiredAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+func (r *updateAuthorInputResolver) HiredAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
 	obj.HiredAt = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updateAuthorInputResolver) UpdatedAt(_ context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
+func (r *updateAuthorInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdateAuthorInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *updateAuthorProfileInputResolver) AuthorID(_ context.Context, obj *model.UpdateAuthorProfileInput, data *model.UUID) error {
+func (r *updateAuthorProfileInputResolver) AuthorID(ctx context.Context, obj *model.UpdateAuthorProfileInput, data *model.UUID) error {
 	if data == nil {
 		obj.AuthorId = nil
 		return nil
@@ -566,7 +566,7 @@ func (r *updateAuthorProfileInputResolver) AuthorID(_ context.Context, obj *mode
 }
 
 // AuthorID is the resolver for the authorId field.
-func (r *updateBookInputResolver) AuthorID(_ context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
+func (r *updateBookInputResolver) AuthorID(ctx context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
 	if data == nil {
 		obj.AuthorId = nil
 		return nil
@@ -577,7 +577,7 @@ func (r *updateBookInputResolver) AuthorID(_ context.Context, obj *model.UpdateB
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateBookInputResolver) PublisherID(_ context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
+func (r *updateBookInputResolver) PublisherID(ctx context.Context, obj *model.UpdateBookInput, data *model.UUID) error {
 	if data == nil {
 		obj.PublisherId = nil
 		return nil
@@ -588,31 +588,31 @@ func (r *updateBookInputResolver) PublisherID(_ context.Context, obj *model.Upda
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateBookInputResolver) CreatedAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+func (r *updateBookInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // LastReprintAt is the resolver for the lastReprintAt field.
-func (r *updateBookInputResolver) LastReprintAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+func (r *updateBookInputResolver) LastReprintAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
 	obj.LastReprintAt = toStdTime(data)
 	return nil
 }
 
 // ReleaseDate is the resolver for the releaseDate field.
-func (r *updateBookInputResolver) ReleaseDate(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+func (r *updateBookInputResolver) ReleaseDate(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
 	obj.ReleaseDate = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updateBookInputResolver) UpdatedAt(_ context.Context, obj *model.UpdateBookInput, data *model.Time) error {
+func (r *updateBookInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdateBookInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // BookID is the resolver for the bookId field.
-func (r *updateChapterInputResolver) BookID(_ context.Context, obj *model.UpdateChapterInput, data *model.UUID) error {
+func (r *updateChapterInputResolver) BookID(ctx context.Context, obj *model.UpdateChapterInput, data *model.UUID) error {
 	if data == nil {
 		obj.BookId = nil
 		return nil
@@ -623,7 +623,7 @@ func (r *updateChapterInputResolver) BookID(_ context.Context, obj *model.Update
 }
 
 // PublisherID is the resolver for the publisherId field.
-func (r *updateHeadquartersInputResolver) PublisherID(_ context.Context, obj *model.UpdateHeadquartersInput, data *model.UUID) error {
+func (r *updateHeadquartersInputResolver) PublisherID(ctx context.Context, obj *model.UpdateHeadquartersInput, data *model.UUID) error {
 	if data == nil {
 		obj.PublisherId = nil
 		return nil
@@ -634,31 +634,31 @@ func (r *updateHeadquartersInputResolver) PublisherID(_ context.Context, obj *mo
 }
 
 // OpenedAt is the resolver for the openedAt field.
-func (r *updateHeadquartersInputResolver) OpenedAt(_ context.Context, obj *model.UpdateHeadquartersInput, data *model.Time) error {
+func (r *updateHeadquartersInputResolver) OpenedAt(ctx context.Context, obj *model.UpdateHeadquartersInput, data *model.Time) error {
 	obj.OpenedAt = toStdTime(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updatePublishingHouseInputResolver) CreatedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+func (r *updatePublishingHouseInputResolver) CreatedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }
 
 // EstablishedAt is the resolver for the establishedAt field.
-func (r *updatePublishingHouseInputResolver) EstablishedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+func (r *updatePublishingHouseInputResolver) EstablishedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
 	obj.EstablishedAt = toStdTime(data)
 	return nil
 }
 
 // UpdatedAt is the resolver for the updatedAt field.
-func (r *updatePublishingHouseInputResolver) UpdatedAt(_ context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
+func (r *updatePublishingHouseInputResolver) UpdatedAt(ctx context.Context, obj *model.UpdatePublishingHouseInput, data *model.Time) error {
 	obj.UpdatedAt = toStdTime(data)
 	return nil
 }
 
 // CreatedAt is the resolver for the createdAt field.
-func (r *updateTagInputResolver) CreatedAt(_ context.Context, obj *model.UpdateTagInput, data *model.Time) error {
+func (r *updateTagInputResolver) CreatedAt(ctx context.Context, obj *model.UpdateTagInput, data *model.Time) error {
 	obj.CreatedAt = toStdTime(data)
 	return nil
 }

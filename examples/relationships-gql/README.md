@@ -10,7 +10,7 @@ This example mirrors the REST relationships demo but serves the data over GraphQ
 
 ## Running
 
-Run from `examples/relationships-gql` (a separate Go 1.26.0+ module). The selected graph uses published CRUD v0.27.3, GQL v0.27.2, router v0.65.3 and auth v0.45.7, with zero replacements. The host selects native Fiber v3.6.1. Root checkout changes are not used. Keep checksum verification enabled.
+Run from `examples/relationships-gql` (a separate Go 1.26.0+ module). The selected graph uses published CRUD v0.27.3, GQL v0.27.3, router v0.65.3 and auth v0.45.7, with zero replacements. The host selects native Fiber v3.6.1. Root checkout changes are not used. Keep checksum verification enabled.
 
 ```sh
 export GOWORK=off GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org
@@ -223,10 +223,8 @@ mutation {
 
 The supported HTTP/auth/subscription flows and managed host lifecycle pass on native v3 and a complete native v2 rollback using the same published providers. Tests cover ordinary drain/deadline, startup/pre-cancellation/binding cancellation, shutdown failures, initialization-idle sockets and upgrades overlapping shutdown. Real built binaries separately pass HTTP, both GraphQL WebSocket protocols, SIGINT/SIGTERM and occupied-port failure. Browser playground presentation remains a separate check.
 
-Full M031 qualification is pending generator repair:
-- Three existing book order/filter/pagination tests fail on the original published baseline and current graph: generated scalar criteria request Bun relations such as `title`.
-- A generated subscription forwarder can remain blocked sending an event after cancellation. Transport worker joins alone do not establish cleanup of that generated worker.
+M031 backend qualification passes against downloaded GQL v0.27.3, including scalar order/filter/pagination, nested and many-to-many contents/counts, and generated subscription cancellation. Generator and runtime use the same module pin. Each production WebSocket connection passes a `helpers.WithSubscriptionScope` context to the executor; deferred `Close` seals admission, cancels and joins generated forwarders before the socket owner removes the handler and the database closes. The event bus owns its cancellation workers separately. Generated subscription policy uses the `subscribe` action; the native HTTP 401 upgrade gate remains in place.
 
-These are tracked in local `fiber-v3-adapter` T11; T10 resumes after published verification. Regenerating with current GQL v0.27.2 reproduces the criteria defect. Do not patch the generated output as a substitute for fixing its generator. The full suite is intentionally reported as failing; no tests are skipped.
+The focused regressions exercise held generated delivery and verify that the real host waits for scoped work after disconnect and shutdown. Full suites run without skipped tests on native v3 and the complete managed v2 rollback. Browser playground presentation remains a separate check; backend qualification does not establish deployment or acceptance.
 
-The central `go-fiber-v3-adoption/support/evidence/t02-m031-2026-11-15` record preserves source recovery, exact published locks, failing reproductions and the complete managed v2 source/configuration rollback. Restore that entire tuple to roll back; changing one dependency does not switch the native adapter. The original v2 source and normalized older published locks are retained separately.
+The central `go-fiber-v3-adoption/support/evidence/t10-m031-published-2026-11-15` record preserves the exact published identities, original source, regenerated candidate and complete v2 source/configuration rollback on the same fixed providers. Restore that entire tuple to roll back; changing one dependency does not switch the native adapter. Historical pre-fix failures and the earlier rollback remain in `t02-m031-2026-11-15`.

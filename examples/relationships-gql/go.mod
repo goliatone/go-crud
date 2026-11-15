@@ -9,7 +9,7 @@ require (
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-crud v0.27.3
-	github.com/goliatone/go-crud/gql v0.27.2
+	github.com/goliatone/go-crud/gql v0.27.3
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
 	github.com/goliatone/go-router v0.65.3
