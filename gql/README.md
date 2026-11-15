@@ -157,3 +157,43 @@ hooks:
 - Enabling `--emit-subscriptions` adds `Subscription` operations per entity (default: `<entity>Created`, `<entity>Updated`, `<entity>Deleted`) and injects publish calls into create/update/delete resolvers.
 - Generated `_custom` stubs declare an `EventBus` interface (`Publish(ctx, topic, payload)` / `Subscribe(ctx, topic) (<-chan EventMessage, error)`); generated resolvers wire topics as `<entity>.<event>`.
 - Provide a bus implementation (e.g., in-memory or backed by your broker) and mount gqlgen with websocket transport (see the relationships-gql example for go-router wiring and a WebSocket smoke test).
+
+Generated subscriptions apply the configured auth guard and `subscribe` operation's
+`auth_guard`/`scope_guard` overlay hooks before registering with the bus. They also
+call `Resolver.ScopeGuard` and `--policy-hook` with the entity and action
+`"subscribe"`. Policies that enumerate actions must allow this action explicitly
+for authorized subscriptions. Subscription hooks do not use repository preload,
+wrap or error-handler snippets. The host still owns authentication and the HTTP
+401 gate before a WebSocket upgrade; resolver guards do not replace that gate.
+
+All generated delivery paths observe context cancellation, including single and
+list payloads waiting on an unread output channel. To also **wait for forwarders
+to exit**, create one subscription scope per connection (or executor lifetime):
+
+```go
+ctx, scope := helpers.WithSubscriptionScope(ctx) // gql/helpers
+// Pass ctx to the GraphQL executor used by this connection.
+defer scope.Close(context.Background()) // cancel and join before releasing it
+return wsHandler(newWebsocketContext(ctx, headers, ws))
+```
+
+`Close(waitCtx)` seals admission, cancels the scope and joins its registered
+forwarders. A wait deadline can return before workers exit; retain their resources
+and retry `Close` to establish completion. `Done()` closes only after sealing and
+joining. Parent cancellation alone is not a join. `BeginSubscription` is used by
+generated code; late admission returns `ErrSubscriptionScopeClosed`, and each
+registration releases its ownership on normal, error and panic exits. Do not call
+`Close` from a registered worker. A scope owns generated forwarders, not event-bus
+workers; bus implementations must honor subscription cancellation themselves.
+Unscoped callers retain cancellation-safe forwarding but have no join handle.
+
+Upgrade the generator and runtime `gql` dependency together, then regenerate
+`resolver_gen.go` and gqlgen bindings. The regenerated subscriptions require the
+new helpers API. Existing `resolver_custom.go` files remain write-once and need no
+new Resolver fields. Add the scope at the maintained transport boundary on both
+Fiber v2 and v3; creating a separate scope for every connection preserves actor
+context and prevents one connection from closing another's subscriptions.
+
+Scalar order/filter fields use generated relationship metadata: root fields do
+not cause relation loading, while declared nested and many-to-many relations keep
+their native joins and pagination behavior.

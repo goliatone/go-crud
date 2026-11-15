@@ -135,6 +135,7 @@ type TemplateArgument struct {
 }
 
 type TemplateSubscription struct {
+	Hooks         hooks.TemplateHookSet
 	Name          string
 	ReturnType    string
 	List          bool

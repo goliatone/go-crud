@@ -13,7 +13,7 @@ import (
 {% endif %}
 {% if AuthEnabled and AuthImportRequired %}	auth "{{ AuthPackage }}"
 {% endif %}
-{% if AuthEnabled %}	"github.com/goliatone/go-crud/gql/helpers"
+{% if AuthEnabled or Subscriptions %}	"github.com/goliatone/go-crud/gql/helpers"
 {% endif %}
 
 {% for imp in Hooks.Imports %}	"{{ imp }}"
@@ -122,29 +122,7 @@ func resolveUnionType(unionName string, value any) string {
 	return resolveUnionTypeName(unionName, unionDiscriminator(value))
 }
 
-{% endif %}func findOriginalNameForJoinKey(entity, joinKey string) string {
-	joinKey = strings.ToLower(strings.TrimSpace(joinKey))
-	if joinKey == "" {
-		return ""
-	}
-	base := strings.SplitN(joinKey, ".", 2)[0]
-	fields, ok := criteriaConfig[entity]
-	if !ok {
-		return base
-	}
-	if field, ok := fields[base]; ok && field.Relation != "" {
-		return field.Relation
-	}
-	for key, field := range fields {
-		prefix := strings.SplitN(key, ".", 2)[0]
-		if prefix == base && field.Relation != "" {
-			return field.Relation
-		}
-	}
-	return base
-}
-
-{% if Subscriptions %}var subscriptionTopics = map[string]map[string]string{}
+{% endif %}{% if Subscriptions %}var subscriptionTopics = map[string]map[string]string{}
 
 func init() {
 {% for sub in Subscriptions %}	addSubscriptionTopic("{{ sub.Entity }}", "{{ sub.Event }}", "{{ sub.Topic }}")
@@ -236,6 +214,9 @@ func (r *Resolver) guard(ctx context.Context, entity, action string) error {
 }
 
 func (r *Resolver) subscribe(ctx context.Context, entity, event string) (<-chan EventMessage, error) {
+	if err := r.guard(ctx, entity, "subscribe"); err != nil {
+		return nil, err
+	}
 	if r.Events == nil {
 		return nil, errors.New("subscriptions are not configured")
 	}
@@ -290,7 +271,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 
 		dir := normalizeDirection(ob.Direction)
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, ob.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -323,7 +304,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 		}
 
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, filter.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		switch op {
@@ -772,6 +753,18 @@ func (r *Resolver) Delete{{ entity.Name }}(ctx context.Context, id string) (bool
 {% endfor %}
 {% if Subscriptions %}{% for sub in Subscriptions %}
 func (r *Resolver) {{ sub.MethodName }}(ctx context.Context{% for arg in sub.Args %}, {{ arg.Name }} any{% endfor %}) (<-chan {% if sub.List %}[]*model.{{ sub.ReturnType }}{% else %}*model.{{ sub.ReturnType }}{% endif %}, error) {
+{% if sub.Hooks.AuthGuard %}	{{ sub.Hooks.AuthGuard | safe }}
+{% endif %}{% if sub.Hooks.ScopeGuard %}	{{ sub.Hooks.ScopeGuard | safe }}
+{% endif %}	release, err := helpers.BeginSubscription(ctx)
+	if err != nil {
+		return nil, err
+	}
+	launched := false
+	defer func() {
+		if !launched {
+			release()
+		}
+	}()
 	stream, err := r.subscribe(ctx, "{{ sub.Entity }}", "{{ sub.Event }}")
 	if err != nil {
 		return nil, err
@@ -779,6 +772,7 @@ func (r *Resolver) {{ sub.MethodName }}(ctx context.Context{% for arg in sub.Arg
 
 	out := make(chan {% if sub.List %}[]*model.{{ sub.ReturnType }}{% else %}*model.{{ sub.ReturnType }}{% endif %})
 	go func() {
+		defer release()
 		defer close(out)
 		for {
 			select {
@@ -797,20 +791,37 @@ func (r *Resolver) {{ sub.MethodName }}(ctx context.Context{% for arg in sub.Arg
 					for i := range payload {
 						items = append(items, &payload[i])
 					}
-					out <- items
+					select {
+					case out <- items:
+					case <-ctx.Done():
+						return
+					}
 				case []*model.{{ sub.ReturnType }}:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				}
 {% else %}				switch payload := msg.Payload.(type) {
 				case *model.{{ sub.ReturnType }}:
-					out <- payload
+					select {
+					case out <- payload:
+					case <-ctx.Done():
+						return
+					}
 				case model.{{ sub.ReturnType }}:
 					item := payload
-					out <- &item
+					select {
+					case out <- &item:
+					case <-ctx.Done():
+						return
+					}
 				}
 {% endif %}			}
 		}
 	}()
+	launched = true
 
 	return out, nil
 }

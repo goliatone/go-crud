@@ -69,28 +69,6 @@ var criteriaConfig = map[string]map[string]criteriaField{
 	},
 }
 
-func findOriginalNameForJoinKey(entity, joinKey string) string {
-	joinKey = strings.ToLower(strings.TrimSpace(joinKey))
-	if joinKey == "" {
-		return ""
-	}
-	base := strings.SplitN(joinKey, ".", 2)[0]
-	fields, ok := criteriaConfig[entity]
-	if !ok {
-		return base
-	}
-	if field, ok := fields[base]; ok && field.Relation != "" {
-		return field.Relation
-	}
-	for key, field := range fields {
-		prefix := strings.SplitN(key, ".", 2)[0]
-		if prefix == base && field.Relation != "" {
-			return field.Relation
-		}
-	}
-	return base
-}
-
 func (r *Resolver) crudContext(ctx context.Context) crud.Context {
 	if r.ContextFactory != nil {
 		return r.ContextFactory(ctx)
@@ -137,7 +115,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 
 		dir := normalizeDirection(ob.Direction)
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, ob.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		criteria = append(criteria, func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -170,7 +148,7 @@ func buildCriteria(entity string, p *model.PaginationInput, order []*model.Order
 		}
 
 		column := field.Column
-		relation := findOriginalNameForJoinKey(entity, filter.Field)
+		relation := field.Relation
 		relType := field.RelationType
 
 		switch op {

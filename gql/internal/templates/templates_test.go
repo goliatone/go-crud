@@ -250,3 +250,15 @@ func hasInputField(input TemplateInput, name string) bool {
 	}
 	return false
 }
+
+func TestSubscriptionOverlayKeepsDefaultAuth(t *testing.T) {
+	ctx := BuildContext(formatter.Document{}, ContextOptions{
+		EmitSubscriptions: true,
+		Overlay:           overlay.Overlay{Subscriptions: []overlay.Subscription{{Name: "customCreated", Entity: "Custom", ReturnType: "Custom", Event: "created"}}},
+		HookOptions:       hooks.Options{AuthGuard: "actor(ctx)", Overlay: overlay.Hooks{Entities: map[string]overlay.EntityHooks{"Custom": {Operations: map[string]overlay.HookSet{"subscribe": {ScopeGuard: "checkCustomScope()", Imports: []string{"example.com/custom"}}}}}}},
+	})
+	require.Len(t, ctx.Subscriptions, 1)
+	require.Contains(t, ctx.Subscriptions[0].Hooks.AuthGuard, "actor(ctx)")
+	require.Equal(t, "checkCustomScope()", ctx.Subscriptions[0].Hooks.ScopeGuard)
+	require.Contains(t, ctx.Hooks.Imports, "example.com/custom")
+}

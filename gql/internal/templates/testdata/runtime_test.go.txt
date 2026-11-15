@@ -1,0 +1,223 @@
+package resolvers
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"testing"
+	"time"
+
+	"FIXTURE_MODEL"
+	"github.com/goliatone/go-crud/gql/helpers"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
+)
+
+type actorKey struct{}
+type denyKey struct{}
+type runtimeBus struct {
+	stream           chan EventMessage
+	calls            int
+	err              error
+	panicOnSubscribe bool
+}
+
+func (b *runtimeBus) Publish(context.Context, string, any) error { return nil }
+func (b *runtimeBus) Subscribe(context.Context, string) (<-chan EventMessage, error) {
+	b.calls++
+	if b.panicOnSubscribe {
+		panic("bus panic")
+	}
+	return b.stream, b.err
+}
+func closeScope(t *testing.T, s *helpers.SubscriptionScope) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	require.NoError(t, s.Close(ctx))
+}
+
+func TestBlockedGeneratedDeliveryJoins(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload any
+		list    bool
+	}{
+		{"pointer", &model.Post{Title: "one"}, false}, {"value", model.Post{Title: "one"}, false},
+		{"list-pointer", []*model.Post{{Title: "one"}}, true}, {"list-value", []model.Post{{Title: "one"}}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, scope := helpers.WithSubscriptionScope(context.WithValue(t.Context(), actorKey{}, true))
+			bus := &runtimeBus{stream: make(chan EventMessage)}
+			r := &Resolver{Events: bus}
+			var closed func()
+			if tc.list {
+				out, err := r.PostBatch(ctx)
+				require.NoError(t, err)
+				closed = func() {
+					select {
+					case _, ok := <-out:
+						require.False(t, ok)
+					case <-time.After(time.Second):
+						t.Fatal("output stayed open after owner close")
+					}
+				}
+			} else {
+				out, err := r.PostCreated(ctx)
+				require.NoError(t, err)
+				closed = func() {
+					select {
+					case _, ok := <-out:
+						require.False(t, ok)
+					case <-time.After(time.Second):
+						t.Fatal("output stayed open after owner close")
+					}
+				}
+			}
+			select {
+			case bus.stream <- EventMessage{Payload: tc.payload}:
+			case <-time.After(time.Second):
+				t.Fatal("forwarder did not accept event")
+			}
+			// No output receiver exists. Close must cancel a pending send and join it.
+			closeScope(t, scope)
+			closed()
+			_, err := r.PostCreated(ctx)
+			require.ErrorIs(t, err, helpers.ErrSubscriptionScopeClosed)
+			require.Equal(t, 1, bus.calls)
+		})
+	}
+}
+
+func TestGeneratedAdmissionAndEarlyExit(t *testing.T) {
+	for _, mode := range []string{"anonymous", "overlay-scope", "resolver-scope", "canceled", "bus-error", "bus-panic", "no-bus", "closed-stream"} {
+		t.Run(mode, func(t *testing.T) {
+			parent := context.WithValue(t.Context(), actorKey{}, true)
+			if mode == "anonymous" {
+				parent = t.Context()
+			}
+			if mode == "overlay-scope" {
+				parent = context.WithValue(parent, denyKey{}, true)
+			}
+			ctx, scope := helpers.WithSubscriptionScope(parent)
+			bus := &runtimeBus{stream: make(chan EventMessage)}
+			r := &Resolver{Events: bus}
+			switch mode {
+			case "resolver-scope":
+				r.ScopeGuard = func(_ context.Context, entity, action string) error {
+					require.Equal(t, "Post", entity)
+					require.Equal(t, "subscribe", action)
+					return errors.New("denied")
+				}
+			case "canceled":
+				cancelCtx, cancel := context.WithCancel(ctx)
+				cancel()
+				ctx = cancelCtx
+			case "bus-error":
+				bus.err = errors.New("bus unavailable")
+			case "bus-panic":
+				bus.panicOnSubscribe = true
+			case "no-bus":
+				r.Events = nil
+			case "closed-stream":
+				close(bus.stream)
+			}
+			if mode == "bus-panic" {
+				require.Panics(t, func() { _, _ = r.PostCreated(ctx) })
+			} else {
+				out, err := r.PostCreated(ctx)
+				if mode == "closed-stream" {
+					require.NoError(t, err)
+					select {
+					case _, ok := <-out:
+						require.False(t, ok)
+					case <-time.After(time.Second):
+						t.Fatal("closed bus did not close output")
+					}
+				} else {
+					require.Error(t, err)
+					require.Nil(t, out)
+				}
+			}
+			closeScope(t, scope)
+			if mode == "anonymous" || mode == "overlay-scope" || mode == "resolver-scope" || mode == "canceled" || mode == "no-bus" {
+				require.Zero(t, bus.calls)
+			} else {
+				require.Equal(t, 1, bus.calls)
+			}
+		})
+	}
+}
+
+func TestGeneratedNormalDeliveryAndUnscopedCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.WithValue(t.Context(), actorKey{}, true))
+	defer cancel()
+	bus := &runtimeBus{stream: make(chan EventMessage, 3)}
+	r := &Resolver{Events: bus}
+	out, err := r.PostCreated(ctx)
+	require.NoError(t, err)
+	bus.stream <- EventMessage{Err: errors.New("ignored")}
+	bus.stream <- EventMessage{Payload: 42}
+	bus.stream <- EventMessage{Payload: model.Post{Title: "kept"}}
+	select {
+	case got := <-out:
+		require.Equal(t, "kept", got.Title)
+	case <-time.After(time.Second):
+		t.Fatal("valid payload not forwarded")
+	}
+	cancel()
+	select {
+	case _, ok := <-out:
+		require.False(t, ok)
+	case <-time.After(time.Second):
+		t.Fatal("unscoped cancellation did not close output")
+	}
+}
+
+type authorRow struct {
+	bun.BaseModel `bun:"table:authors,alias:author"`
+	ID            string `bun:"id,pk"`
+}
+type postRow struct {
+	bun.BaseModel `bun:"table:posts,alias:post"`
+	ID            string `bun:"id,pk"`
+	Title         string
+	AuthorID      string
+	Author        *authorRow `bun:"rel:belongs-to,join:author_id=id"`
+}
+
+func TestGeneratedScalarAndNestedCriteria(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	db := bun.NewDB(sqlDB, sqlitedialect.New())
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	for _, query := range []string{"CREATE TABLE authors (id TEXT PRIMARY KEY)", "CREATE TABLE posts (id TEXT PRIMARY KEY, title TEXT, author_id TEXT)", "INSERT INTO authors VALUES ('a')", "INSERT INTO posts VALUES ('1','Alpha','a'),('2','Beta','a'),('3','Gamma','a')"} {
+		_, err := db.ExecContext(t.Context(), query)
+		require.NoError(t, err)
+	}
+	for _, tc := range []struct {
+		name    string
+		filters []*model.FilterInput
+		want    string
+	}{
+		{"scalar-in", []*model.FilterInput{{Field: "title", Operator: model.FilterOperatorIN, Value: "Alpha,Beta"}}, "Beta"},
+		{"scalar-eq", []*model.FilterInput{{Field: "title", Operator: model.FilterOperatorEQ, Value: "Beta"}}, "Beta"},
+		{"nested", []*model.FilterInput{{Field: "author.id", Operator: model.FilterOperatorEQ, Value: "a"}}, "Gamma"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var rows []postRow
+			limit := 1
+			desc := model.OrderDirectionDESC
+			query := db.NewSelect().Model(&rows)
+			for _, criterion := range buildCriteria("Post", &model.PaginationInput{Limit: &limit}, []*model.OrderByInput{{Field: "title", Direction: &desc}}, tc.filters) {
+				query = criterion(query)
+			}
+			require.NoError(t, query.Scan(t.Context()))
+			require.Len(t, rows, 1)
+			require.Equal(t, tc.want, rows[0].Title)
+		})
+	}
+}

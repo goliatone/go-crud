@@ -5,12 +5,14 @@ go 1.26.0
 require (
 	github.com/99designs/gqlgen v0.17.84
 	github.com/ettle/strcase v0.2.0
-	github.com/goliatone/go-crud v0.27.2
+	github.com/goliatone/go-crud v0.27.3
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/goliatone/go-template v0.3.1
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.12.1
 	github.com/uptrace/bun v1.2.18
+	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	golang.org/x/mod v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -48,7 +50,6 @@ require (
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/mattn/go-sqlite3 v1.14.34 // indirect
 	github.com/molecule-man/go-brrr v1.3.0 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
@@ -71,5 +72,3 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/goliatone/go-crud => ../

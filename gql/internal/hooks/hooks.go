@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	OperationGet    = "get"
-	OperationList   = "list"
-	OperationCreate = "create"
-	OperationUpdate = "update"
-	OperationDelete = "delete"
+	OperationSubscribe = "subscribe"
+	OperationGet       = "get"
+	OperationList      = "list"
+	OperationCreate    = "create"
+	OperationUpdate    = "update"
+	OperationDelete    = "delete"
 )
 
 // Options drive hook construction for templates.
@@ -33,11 +34,12 @@ type TemplateHooks struct {
 
 // TemplateEntityHooks groups hooks by operation for an entity.
 type TemplateEntityHooks struct {
-	Get    TemplateHookSet
-	List   TemplateHookSet
-	Create TemplateHookSet
-	Update TemplateHookSet
-	Delete TemplateHookSet
+	Subscribe TemplateHookSet
+	Get       TemplateHookSet
+	List      TemplateHookSet
+	Create    TemplateHookSet
+	Update    TemplateHookSet
+	Delete    TemplateHookSet
 }
 
 // TemplateHookSet contains snippets injected into resolver operations.
@@ -108,11 +110,12 @@ func buildAuthDefaults(opts Options) (TemplateEntityHooks, []string) {
 	}
 
 	return TemplateEntityHooks{
-		Get:    TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationGet, opts.AuthGuard, failExpr)},
-		List:   TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationList, opts.AuthGuard, failExpr)},
-		Create: TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationCreate, opts.AuthGuard, failExpr)},
-		Update: TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationUpdate, opts.AuthGuard, failExpr)},
-		Delete: TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationDelete, opts.AuthGuard, failExpr)},
+		Subscribe: TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationSubscribe, opts.AuthGuard, failExpr)},
+		Get:       TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationGet, opts.AuthGuard, failExpr)},
+		List:      TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationList, opts.AuthGuard, failExpr)},
+		Create:    TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationCreate, opts.AuthGuard, failExpr)},
+		Update:    TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationUpdate, opts.AuthGuard, failExpr)},
+		Delete:    TemplateHookSet{AuthGuard: BuildAuthSnippet(OperationDelete, opts.AuthGuard, failExpr)},
 	}, imports
 }
 
@@ -138,11 +141,12 @@ func findEntityHooks(entities map[string]overlay.EntityHooks, entity formatter.E
 
 func copyOperationHooks(src TemplateEntityHooks) TemplateEntityHooks {
 	return TemplateEntityHooks{
-		Get:    src.Get,
-		List:   src.List,
-		Create: src.Create,
-		Update: src.Update,
-		Delete: src.Delete,
+		Subscribe: src.Subscribe,
+		Get:       src.Get,
+		List:      src.List,
+		Create:    src.Create,
+		Update:    src.Update,
+		Delete:    src.Delete,
 	}
 }
 
@@ -150,6 +154,7 @@ func applyHookSetToAll(target *TemplateEntityHooks, set overlay.HookSet) {
 	if target == nil {
 		return
 	}
+	target.Subscribe = mergeTemplateHooks(target.Subscribe, toTemplateHookSet(set))
 	target.Get = mergeTemplateHooks(target.Get, toTemplateHookSet(set))
 	target.List = mergeTemplateHooks(target.List, toTemplateHookSet(set))
 	target.Create = mergeTemplateHooks(target.Create, toTemplateHookSet(set))
@@ -163,6 +168,8 @@ func applyHook(target *TemplateEntityHooks, op string, set overlay.HookSet) {
 	}
 
 	switch op {
+	case OperationSubscribe:
+		target.Subscribe = mergeTemplateHooks(target.Subscribe, toTemplateHookSet(set))
 	case OperationGet:
 		target.Get = mergeTemplateHooks(target.Get, toTemplateHookSet(set))
 	case OperationList:

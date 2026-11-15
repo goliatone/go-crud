@@ -72,3 +72,13 @@ func TestBuildAuthSnippetUsesZeroValues(t *testing.T) {
 	deleteSnippet := BuildAuthSnippet(OperationDelete, "auth.FromContext(ctx)", "errors.New(\"boom\")")
 	require.Contains(t, deleteSnippet, "return false, errors.New(\"boom\")")
 }
+
+func TestBuildSubscriptionHooks(t *testing.T) {
+	doc := formatter.Document{Entities: []formatter.Entity{{Name: "Post", RawName: "post"}, {Name: "User", RawName: "user"}}}
+	got := Build(doc, Options{AuthGuard: "actor(ctx)", Overlay: overlay.Hooks{Default: overlay.HookSet{ScopeGuard: "defaultScope()"}, Entities: map[string]overlay.EntityHooks{"post": {All: overlay.HookSet{ScopeGuard: "entityScope()"}, Operations: map[string]overlay.HookSet{"subscribe": {ScopeGuard: "subscriptionScope()"}}}}}})
+	require.Contains(t, got.Entities["Post"].Subscribe.AuthGuard, "return nil")
+	require.Contains(t, got.Entities["Post"].Subscribe.AuthGuard, "actor(ctx)")
+	require.Equal(t, "subscriptionScope()", got.Entities["Post"].Subscribe.ScopeGuard)
+	require.Equal(t, "entityScope()", got.Entities["Post"].List.ScopeGuard)
+	require.Equal(t, "defaultScope()", got.Entities["User"].Subscribe.ScopeGuard)
+}

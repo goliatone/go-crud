@@ -75,7 +75,26 @@ func BuildContext(doc formatter.Document, opts ContextOptions) Context {
 
 	ctx.ModelStructs, ctx.ModelEnums, ctx.ModelImports = buildModels(ctx)
 	ctx.Criteria = buildCriteriaConfig(doc)
-	ctx.Hooks = hooks.Build(doc, opts.HookOptions)
+	// Overlay subscriptions may name entities absent from the CRUD document.
+	// They must still receive the default auth policy and their own hook imports.
+	hookDoc := doc
+	hookDoc.Entities = append([]formatter.Entity(nil), doc.Entities...)
+	for _, sub := range ctx.Subscriptions {
+		found := false
+		for _, entity := range hookDoc.Entities {
+			if entity.Name == sub.Entity {
+				found = true
+				break
+			}
+		}
+		if !found {
+			hookDoc.Entities = append(hookDoc.Entities, formatter.Entity{Name: sub.Entity, RawName: sub.Entity})
+		}
+	}
+	ctx.Hooks = hooks.Build(hookDoc, opts.HookOptions)
+	for i := range ctx.Subscriptions {
+		ctx.Subscriptions[i].Hooks = ctx.Hooks.Entities[ctx.Subscriptions[i].Entity].Subscribe
+	}
 	ctx.AuthImportRequired = ctx.AuthEnabled && !containsString(ctx.Hooks.Imports, ctx.AuthPackage)
 	ctx.NeedsErrorsImport = ctx.EmitSubscriptions && !containsString(ctx.Hooks.Imports, "errors")
 	ctx.ResolverEntities = make([]ResolverEntity, 0, len(doc.Entities))
