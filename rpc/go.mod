@@ -3,10 +3,10 @@ module github.com/goliatone/go-crud/rpc
 go 1.26.0
 
 require (
-	github.com/goliatone/go-command v0.24.3
-	github.com/goliatone/go-crud v0.27.2
+	github.com/goliatone/go-command v0.26.1
+	github.com/goliatone/go-crud v0.27.3
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.3
+	github.com/goliatone/go-router v0.65.3
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.12.1
@@ -68,5 +68,3 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/goliatone/go-crud => ../
